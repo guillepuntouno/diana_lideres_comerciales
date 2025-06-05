@@ -1,7 +1,11 @@
+// lib/vistas/menu_principal/vista_configuracion_plan.dart
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:intl/intl.dart';
+import '../../modelos/plan_trabajo_modelo.dart';
+import '../../servicios/plan_trabajo_servicio.dart';
 
 class VistaProgramacionSemana extends StatefulWidget {
   const VistaProgramacionSemana({super.key});
@@ -18,24 +22,13 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana> {
     'Miércoles',
     'Jueves',
     'Viernes',
-    'Sabado',
+    'Sábado',
   ];
 
-  Map<String, bool> diasConfigurados = {
-    'Lunes': false,
-    'Martes': false,
-    'Miércoles': false,
-    'Jueves': false,
-    'Viernes': false,
-    'Sabado': false,
-  };
-
+  final PlanTrabajoServicio _planServicio = PlanTrabajoServicio();
+  PlanTrabajoModelo? _planActual;
+  bool _cargando = true;
   int _currentIndex = 1;
-
-  String semana = '';
-  String fechaInicio = '';
-  String fechaFin = '';
-  String estatus = 'Borrador';
 
   @override
   void initState() {
@@ -44,77 +37,93 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana> {
   }
 
   Future<void> _inicializarPlan() async {
-    DateTime ahora = DateTime.now();
+    setState(() => _cargando = true);
 
-    int numeroSemana =
-        ((ahora.difference(DateTime(ahora.year, 1, 1)).inDays +
-                    DateTime(ahora.year, 1, 1).weekday -
-                    1) /
-                7)
-            .ceil();
-    int anio = ahora.year;
-    semana = 'SEMANA $numeroSemana - $anio';
+    try {
+      // Obtener datos del usuario (esto vendría del login/sesión)
+      final prefs = await SharedPreferences.getInstance();
+      final liderId =
+          prefs.getString('usuario_id') ?? 'guillermo.martinez@diana.com.sv';
+      final liderNombre =
+          prefs.getString('usuario_nombre') ?? 'Guillermo Martinez';
+      final centroDistribucion =
+          prefs.getString('centro_distribucion') ?? 'Centro de Servicio';
 
-    DateTime inicioSemana = ahora.subtract(Duration(days: ahora.weekday - 1));
-    DateTime finSemana = inicioSemana.add(const Duration(days: 5));
+      // Obtener o crear el plan de la semana actual
+      _planActual = await _planServicio.obtenerOCrearPlanSemanaActual(
+        liderId: liderId,
+        liderNombre: liderNombre,
+        centroDistribucion: centroDistribucion,
+      );
 
-    fechaInicio = _formatoFecha(inicioSemana);
-    fechaFin = _formatoFecha(finSemana);
+      setState(() => _cargando = false);
+    } catch (e) {
+      print('Error al inicializar plan: $e');
+      setState(() => _cargando = false);
 
-    final prefs = await SharedPreferences.getInstance();
-    final String? jsonString = prefs.getString('plan_semanal');
-
-    Map<String, dynamic> data = {};
-
-    if (jsonString != null) {
-      data = jsonDecode(jsonString);
-
-      if (data.containsKey(semana)) {
-        estatus = data[semana]['estatus'];
-        Map<String, dynamic> dias = data[semana]['dias'];
-
-        diasConfigurados = {for (var dia in dias.keys) dia: dias[dia] != null};
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al cargar el plan: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
-
-    setState(() {});
-  }
-
-  String _formatoFecha(DateTime fecha) {
-    return DateFormat('dd/MM/yyyy').format(fecha);
   }
 
   Future<void> _enviarPlan() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? jsonString = prefs.getString('plan_semanal');
+    if (_planActual == null) return;
 
-    if (jsonString != null) {
-      Map<String, dynamic> data = jsonDecode(jsonString);
+    // Validar que todos los días estén configurados
+    bool todosConfigurados = diasSemana.every(
+      (dia) =>
+          _planActual!.dias.containsKey(dia) &&
+          _planActual!.dias[dia]!.objetivo != null,
+    );
 
-      if (data.containsKey(semana)) {
-        data[semana]['estatus'] = 'Programado';
-        await prefs.setString('plan_semanal', jsonEncode(data));
-
-        if (context.mounted) {
-          showDialog(
-            context: context,
-            builder:
-                (context) => AlertDialog(
-                  title: const Text('¡Éxito!'),
-                  content: const Text('El plan ha sido enviado correctamente.'),
-                  actions: [
-                    TextButton(
-                      onPressed: () {
-                        Navigator.of(context).pop(); // Cierra diálogo
-                        Navigator.of(context).pop(); // Regresa
-                      },
-                      child: const Text('OK'),
-                    ),
-                  ],
+    if (!todosConfigurados) {
+      showDialog(
+        context: context,
+        builder:
+            (context) => AlertDialog(
+              title: const Text('Plan Incompleto'),
+              content: const Text(
+                'Debe configurar todos los días de la semana antes de enviar el plan.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Entendido'),
                 ),
-          );
-        }
-      }
+              ],
+            ),
+      );
+      return;
+    }
+
+    // Cambiar estatus y guardar
+    _planActual!.estatus = 'programado';
+    await _planServicio.guardarPlanTrabajo(_planActual!);
+
+    if (mounted) {
+      showDialog(
+        context: context,
+        builder:
+            (context) => AlertDialog(
+              title: const Text('¡Éxito!'),
+              content: const Text('El plan ha sido enviado correctamente.'),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(); // Cierra diálogo
+                    Navigator.of(context).pop(); // Regresa
+                  },
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+      );
     }
   }
 
@@ -122,11 +131,49 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana> {
     setState(() {
       _currentIndex = index;
     });
+
+    if (index == 0) {
+      Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+    }
   }
 
   @override
-  @override
   Widget build(BuildContext context) {
+    if (_cargando) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: const [
+              CircularProgressIndicator(color: Color(0xFFDE1327)),
+              SizedBox(height: 16),
+              Text('Cargando plan de trabajo...'),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_planActual == null) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              const Text('Error al cargar el plan de trabajo'),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                onPressed: _inicializarPlan,
+                child: const Text('Reintentar'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -175,17 +222,21 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                _buildDato('Semana:', semana),
+                _buildDato('Semana:', _planActual!.semana),
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Expanded(child: _buildDato('Desde:', fechaInicio)),
+                    Expanded(
+                      child: _buildDato('Desde:', _planActual!.fechaInicio),
+                    ),
                     const SizedBox(width: 16),
-                    Expanded(child: _buildDato('Hasta:', fechaFin)),
+                    Expanded(
+                      child: _buildDato('Hasta:', _planActual!.fechaFin),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                _buildDato('Estatus:', estatus),
+                _buildDato('Estatus:', _planActual!.estatus.toUpperCase()),
                 const Divider(color: Colors.grey, thickness: 0.5, height: 32),
                 const Text(
                   'Programación de la semana',
@@ -197,7 +248,10 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana> {
                 ),
                 const SizedBox(height: 16),
                 ...diasSemana.map((dia) {
-                  final configurado = diasConfigurados[dia] ?? false;
+                  final diaConfigurado =
+                      _planActual!.dias.containsKey(dia) &&
+                      _planActual!.dias[dia]!.objetivo != null;
+
                   return Card(
                     elevation: 2,
                     color: Colors.white,
@@ -213,53 +267,70 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana> {
                           fontWeight: FontWeight.w500,
                         ),
                       ),
+                      subtitle:
+                          diaConfigurado
+                              ? Text(
+                                _planActual!.dias[dia]!.objetivo!,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey,
+                                ),
+                              )
+                              : null,
                       trailing: Icon(
-                        configurado
+                        diaConfigurado
                             ? Icons.check_circle
                             : Icons.hourglass_bottom,
-                        color: configurado ? Colors.green : Colors.grey,
+                        color: diaConfigurado ? Colors.green : Colors.grey,
                       ),
-                      onTap: () async {
-                        final resultado = await Navigator.pushNamed(
-                          context,
-                          '/programar_dia',
-                          arguments: dia,
-                        );
+                      onTap:
+                          _planActual!.estatus == 'borrador'
+                              ? () async {
+                                final resultado = await Navigator.pushNamed(
+                                  context,
+                                  '/programar_dia',
+                                  arguments: {
+                                    'dia': dia,
+                                    'semana': _planActual!.semana,
+                                    'liderId': _planActual!.liderId,
+                                  },
+                                );
 
-                        if (resultado == true) {
-                          setState(() {
-                            diasConfigurados[dia] = true;
-                          });
-                        }
-                      },
+                                if (resultado == true) {
+                                  // Recargar el plan para mostrar los cambios
+                                  await _inicializarPlan();
+                                }
+                              }
+                              : null,
                     ),
                   );
                 }).toList(),
                 const SizedBox(height: 32),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: _enviarPlan,
-                    icon: const Icon(Icons.send, color: Colors.white),
-                    label: const Text(
-                      'ENVIAR PLAN',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
+                if (_planActual!.estatus == 'borrador')
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _enviarPlan,
+                      icon: const Icon(Icons.send, color: Colors.white),
+                      label: const Text(
+                        'ENVIAR PLAN',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFDE1327),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFDE1327),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        elevation: 4,
+                        shadowColor: Colors.black12,
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      elevation: 4,
-                      shadowColor: Colors.black12,
                     ),
                   ),
-                ),
               ],
             ),
           ),
