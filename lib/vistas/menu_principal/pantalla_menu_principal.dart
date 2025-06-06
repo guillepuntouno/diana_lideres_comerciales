@@ -1,6 +1,7 @@
+// lib/vistas/menu_principal/pantalla_menu_principal.dart
+
 import 'package:flutter/material.dart';
 import '../../widgets/encabezado_inicio.dart';
-import 'package:diana_lc_front/vistas/menu_principal/vista_configuracion_plan.dart';
 
 class PantallaMenuPrincipal extends StatelessWidget {
   const PantallaMenuPrincipal({super.key});
@@ -27,7 +28,11 @@ class PantallaMenuPrincipal extends StatelessWidget {
               _MenuItem(
                 icon: Icons.calendar_month_outlined,
                 title: 'Ver Plan\nde trabajo',
-                onTap: () => Navigator.pushNamed(context, '/planes_trabajo'),
+                onTap:
+                    () => Navigator.pushNamed(
+                      context,
+                      '/vista_planes_trabajo',
+                    ), // CORREGIDO: con /
               ),
             ],
           ),
@@ -87,6 +92,13 @@ class PantallaMenuPrincipal extends StatelessWidget {
             label: 'Perfil',
           ),
         ],
+        onTap: (int index) {
+          if (index == 1) {
+            // Al tocar “Rutinas” navegamos a la ruta /rutina_diaria
+            Navigator.pushNamed(context, '/rutina_diaria');
+          }
+          // Si en el futuro quisieras manejar otros índices, los puedes capturar aquí.
+        },
       ),
     );
   }

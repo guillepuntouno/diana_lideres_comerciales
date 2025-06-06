@@ -49,12 +49,139 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana> {
       final centroDistribucion =
           prefs.getString('centro_distribucion') ?? 'Centro de Servicio';
 
-      // Obtener o crear el plan de la semana actual
-      _planActual = await _planServicio.obtenerOCrearPlanSemanaActual(
-        liderId: liderId,
-        liderNombre: liderNombre,
-        centroDistribucion: centroDistribucion,
-      );
+      // Verificar si hay un plan enviado para la semana actual
+      DateTime ahora = DateTime.now();
+      int numeroSemanaActual =
+          ((ahora.difference(DateTime(ahora.year, 1, 1)).inDays +
+                      DateTime(ahora.year, 1, 1).weekday -
+                      1) /
+                  7)
+              .ceil();
+      String semanaActual = 'SEMANA $numeroSemanaActual - ${ahora.year}';
+
+      PlanTrabajoModelo? planSemanaActual = await _planServicio
+          .obtenerPlanTrabajo(semanaActual, liderId);
+
+      // Si existe un plan enviado para la semana actual y no es viernes o sábado
+      if (planSemanaActual != null &&
+          planSemanaActual.estatus == 'enviado' &&
+          ahora.weekday < 5) {
+        // No es viernes (5) o sábado (6)
+
+        _planActual = planSemanaActual;
+        setState(() => _cargando = false);
+
+        // Mostrar mensaje de bloqueo
+        if (mounted) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder:
+                (context) => AlertDialog(
+                  title: Row(
+                    children: const [
+                      Icon(Icons.lock, color: Colors.orange),
+                      SizedBox(width: 8),
+                      Text('Plan en ejecución'),
+                    ],
+                  ),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Ya existe un plan enviado para la $semanaActual.'),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Podrá crear el plan de la siguiente semana a partir del día viernes.',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              color: Colors.blue.shade700,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'El plan actual está en modo de solo lectura.',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.blue.shade700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Entendido'),
+                    ),
+                  ],
+                ),
+          );
+        }
+        return;
+      }
+
+      // Si es viernes o sábado, permitir crear plan de la siguiente semana
+      if (ahora.weekday >= 5 && planSemanaActual?.estatus == 'enviado') {
+        // Calcular siguiente semana
+        DateTime proximoLunes = ahora.add(Duration(days: (8 - ahora.weekday)));
+        int numeroSemanaSiguiente =
+            ((proximoLunes
+                            .difference(DateTime(proximoLunes.year, 1, 1))
+                            .inDays +
+                        DateTime(proximoLunes.year, 1, 1).weekday -
+                        1) /
+                    7)
+                .ceil();
+        String semanaSiguiente =
+            'SEMANA $numeroSemanaSiguiente - ${proximoLunes.year}';
+
+        // Intentar obtener plan de la siguiente semana
+        PlanTrabajoModelo? planSemanaSiguiente = await _planServicio
+            .obtenerPlanTrabajo(semanaSiguiente, liderId);
+
+        if (planSemanaSiguiente != null) {
+          _planActual = planSemanaSiguiente;
+        } else {
+          // Crear plan para la siguiente semana
+          DateTime finSemana = proximoLunes.add(const Duration(days: 4));
+
+          _planActual = PlanTrabajoModelo(
+            semana: semanaSiguiente,
+            fechaInicio:
+                '${proximoLunes.day.toString().padLeft(2, '0')}/${proximoLunes.month.toString().padLeft(2, '0')}/${proximoLunes.year}',
+            fechaFin:
+                '${finSemana.day.toString().padLeft(2, '0')}/${finSemana.month.toString().padLeft(2, '0')}/${finSemana.year}',
+            liderId: liderId,
+            liderNombre: liderNombre,
+            centroDistribucion: centroDistribucion,
+            estatus: 'borrador',
+          );
+
+          await _planServicio.guardarPlanTrabajo(_planActual!);
+        }
+      } else {
+        // Comportamiento normal: obtener o crear plan de la semana actual
+        _planActual = await _planServicio.obtenerOCrearPlanSemanaActual(
+          liderId: liderId,
+          liderNombre: liderNombre,
+          centroDistribucion: centroDistribucion,
+        );
+      }
 
       setState(() => _cargando = false);
     } catch (e) {
@@ -87,9 +214,39 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana> {
         context: context,
         builder:
             (context) => AlertDialog(
-              title: const Text('Plan Incompleto'),
-              content: const Text(
-                'Debe configurar todos los días de la semana antes de enviar el plan.',
+              title: Row(
+                children: const [
+                  Icon(Icons.warning, color: Colors.orange),
+                  SizedBox(width: 8),
+                  Text('Plan Incompleto'),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Debe configurar todos los días de la semana antes de enviar el plan.',
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Días pendientes:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  ...diasSemana
+                      .where(
+                        (dia) =>
+                            !_planActual!.dias.containsKey(dia) ||
+                            _planActual!.dias[dia]!.objetivo == null,
+                      )
+                      .map(
+                        (dia) => Text(
+                          '• $dia',
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      ),
+                ],
               ),
               actions: [
                 TextButton(
@@ -102,22 +259,96 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana> {
       return;
     }
 
+    // Mostrar confirmación antes de enviar
+    final confirmar = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (context) => AlertDialog(
+            title: Row(
+              children: const [
+                Icon(Icons.send, color: Color(0xFFDE1327)),
+                SizedBox(width: 8),
+                Text('Confirmar envío'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '¿Está seguro de enviar el plan de trabajo para ${_planActual!.semana}?',
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.amber.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.amber.shade700),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Una vez enviado, no podrá modificar este plan.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.amber.shade700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancelar'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFDE1327),
+                ),
+                child: const Text('Enviar Plan'),
+              ),
+            ],
+          ),
+    );
+
+    if (confirmar != true) return;
+
     // Cambiar estatus y guardar
-    _planActual!.estatus = 'programado';
+    _planActual!.estatus = 'enviado';
+    _planActual!.fechaModificacion = DateTime.now();
     await _planServicio.guardarPlanTrabajo(_planActual!);
 
     if (mounted) {
       showDialog(
         context: context,
+        barrierDismissible: false,
         builder:
             (context) => AlertDialog(
-              title: const Text('¡Éxito!'),
-              content: const Text('El plan ha sido enviado correctamente.'),
+              title: Row(
+                children: const [
+                  Icon(Icons.check_circle, color: Colors.green),
+                  SizedBox(width: 8),
+                  Text('¡Éxito!'),
+                ],
+              ),
+              content: const Text(
+                'El plan ha sido enviado correctamente y está listo para ejecutarse.',
+              ),
               actions: [
                 TextButton(
                   onPressed: () {
                     Navigator.of(context).pop(); // Cierra diálogo
-                    Navigator.of(context).pop(); // Regresa
+                    Navigator.of(context).pop(); // Regresa al menú
                   },
                   child: const Text('OK'),
                 ),
@@ -237,6 +468,33 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana> {
                 ),
                 const SizedBox(height: 8),
                 _buildDato('Estatus:', _planActual!.estatus.toUpperCase()),
+                if (_planActual!.estatus == 'enviado') ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.green.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.lock, color: Colors.green.shade700),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Este plan ya fue enviado y está en ejecución.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.green.shade700,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const Divider(color: Colors.grey, thickness: 0.5, height: 32),
                 const Text(
                   'Programación de la semana',

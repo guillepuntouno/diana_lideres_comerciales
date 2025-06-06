@@ -71,6 +71,8 @@ class DiaTrabajoModelo {
   final String? centroDistribucion;
   final String? rutaId;
   final String? rutaNombre;
+  final String? tipoActividad; // NUEVO CAMPO - Para actividades administrativas
+  final String? comentario; // NUEVO CAMPO - Comentarios opcionales
   final List<ClienteAsignadoModelo> clientesAsignados;
   bool completado;
 
@@ -81,6 +83,8 @@ class DiaTrabajoModelo {
     this.centroDistribucion,
     this.rutaId,
     this.rutaNombre,
+    this.tipoActividad, // NUEVO PARÁMETRO
+    this.comentario, // NUEVO PARÁMETRO
     List<ClienteAsignadoModelo>? clientesAsignados,
     this.completado = false,
   }) : clientesAsignados = clientesAsignados ?? [];
@@ -93,6 +97,8 @@ class DiaTrabajoModelo {
       centroDistribucion: json['centroDistribucion'],
       rutaId: json['rutaId'],
       rutaNombre: json['rutaNombre'],
+      tipoActividad: json['tipoActividad'], // NUEVO CAMPO fromJson
+      comentario: json['comentario'], // NUEVO CAMPO fromJson
       clientesAsignados:
           (json['clientesAsignados'] as List<dynamic>?)
               ?.map((c) => ClienteAsignadoModelo.fromJson(c))
@@ -110,6 +116,8 @@ class DiaTrabajoModelo {
       'centroDistribucion': centroDistribucion,
       'rutaId': rutaId,
       'rutaNombre': rutaNombre,
+      'tipoActividad': tipoActividad, // NUEVO CAMPO toJson
+      'comentario': comentario, // NUEVO CAMPO toJson
       'clientesAsignados': clientesAsignados.map((c) => c.toJson()).toList(),
       'completado': completado,
     };

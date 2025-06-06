@@ -24,11 +24,21 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
   String? _objetivoSeleccionado;
   String? _centroSeleccionado;
   String? _rutaSeleccionada;
+  String? _tipoActividadAdministrativa;
+  final TextEditingController _comentarioController = TextEditingController();
 
   // Listas de opciones
   final List<String> _objetivos = [
     'Gestión de cliente',
     'Actividad administrativa',
+  ];
+
+  final List<String> _tiposActividad = [
+    'reunión',
+    'revisión',
+    'evaluación',
+    'vacaciones',
+    'descanso',
   ];
 
   final List<String> _centros = [
@@ -61,6 +71,12 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
     _cargarDatosExistentes();
   }
 
+  @override
+  void dispose() {
+    _comentarioController.dispose();
+    super.dispose();
+  }
+
   Future<void> _cargarDatosExistentes() async {
     final plan = await _planServicio.obtenerPlanTrabajo(semana, liderId);
     if (plan != null && plan.dias.containsKey(diaSeleccionado)) {
@@ -69,6 +85,8 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
         _objetivoSeleccionado = diaData.objetivo;
         _centroSeleccionado = diaData.centroDistribucion;
         _rutaSeleccionada = diaData.rutaId;
+        _tipoActividadAdministrativa = diaData.tipoActividad;
+        _comentarioController.text = diaData.comentario ?? '';
         if (_centroSeleccionado != null) {
           _rutasDisponibles = _rutasPorCentro[_centroSeleccionado] ?? [];
         }
@@ -88,6 +106,11 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
       centroDistribucion: _centroSeleccionado,
       rutaId: _rutaSeleccionada,
       rutaNombre: _rutaSeleccionada, // Por ahora usamos el mismo valor
+      tipoActividad: _tipoActividadAdministrativa,
+      comentario:
+          _comentarioController.text.isNotEmpty
+              ? _comentarioController.text
+              : null,
     );
 
     // Actualizar el día en el plan
@@ -257,6 +280,10 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                         _centroSeleccionado = null;
                         _rutaSeleccionada = null;
                         _rutasDisponibles = [];
+                        // Limpiar campos específicos de actividad administrativa
+                        if (value != 'Actividad administrativa') {
+                          _tipoActividadAdministrativa = null;
+                        }
                       });
                     },
                     validator: (value) {
@@ -298,6 +325,111 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                       ),
                     ),
                   ),
+
+                  // Campos para Actividad administrativa
+                  if (_objetivoSeleccionado == 'Actividad administrativa') ...[
+                    const SizedBox(height: 20),
+                    Text(
+                      'Tipo de actividad:',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF1C2120),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      decoration: InputDecoration(
+                        hintText: 'SELECCIONE TIPO DE ACTIVIDAD',
+                        hintStyle: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: Colors.grey,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Colors.grey),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFDE1327),
+                            width: 2,
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                      ),
+                      value: _tipoActividadAdministrativa,
+                      items:
+                          _tiposActividad
+                              .map(
+                                (tipo) => DropdownMenuItem(
+                                  value: tipo,
+                                  child: Text(
+                                    tipo,
+                                    style: GoogleFonts.poppins(fontSize: 14),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _tipoActividadAdministrativa = value;
+                        });
+                      },
+                      validator: (value) {
+                        if (_objetivoSeleccionado ==
+                                'Actividad administrativa' &&
+                            (value == null || value.isEmpty)) {
+                          return 'Por favor seleccione el tipo de actividad';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Comentario (opcional):',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF1C2120),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _comentarioController,
+                      maxLines: 3,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: const Color(0xFF1C2120),
+                      ),
+                      decoration: InputDecoration(
+                        hintText:
+                            'Escriba aquí cualquier comentario adicional...',
+                        hintStyle: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: Colors.grey,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Colors.grey),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFDE1327),
+                            width: 2,
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                      ),
+                    ),
+                  ],
 
                   // Campos adicionales para Gestión de cliente
                   if (_objetivoSeleccionado == 'Gestión de cliente') ...[
@@ -420,6 +552,47 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                         }
                         return null;
                       },
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Comentario (opcional):',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF1C2120),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _comentarioController,
+                      maxLines: 3,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: const Color(0xFF1C2120),
+                      ),
+                      decoration: InputDecoration(
+                        hintText:
+                            'Escriba aquí cualquier comentario adicional...',
+                        hintStyle: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: Colors.grey,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Colors.grey),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFDE1327),
+                            width: 2,
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                      ),
                     ),
                   ],
 
