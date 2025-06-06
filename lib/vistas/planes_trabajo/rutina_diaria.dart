@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'package:google_fonts/google_fonts.dart';
+import '../../modelos/activity_model.dart'; // Importar el modelo compartido
 
 // -----------------------------------------------------------------------------
 // COLORES CORPORATIVOS DIANA
@@ -17,66 +18,7 @@ class AppColors {
   static const Color mediumGray = Color(0xFF8F8E8E);
 }
 
-// -----------------------------------------------------------------------------
-// MODELOS
-// -----------------------------------------------------------------------------
-enum ActivityType { admin, visita }
-
-enum ActivityStatus { pendiente, enCurso, completada, postergada }
-
-class ActivityModel {
-  final String id;
-  final ActivityType type;
-  final String title;
-  final String? asesor;
-  final String? cliente;
-  final String? direccion;
-  ActivityStatus status;
-  DateTime? horaInicio;
-  DateTime? horaFin;
-
-  ActivityModel({
-    required this.id,
-    required this.type,
-    required this.title,
-    this.asesor,
-    this.cliente,
-    this.direccion,
-    this.status = ActivityStatus.pendiente,
-    this.horaInicio,
-    this.horaFin,
-  });
-
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'type': type.name,
-    'title': title,
-    'asesor': asesor,
-    'cliente': cliente,
-    'direccion': direccion,
-    'status': status.name,
-    'horaInicio': horaInicio?.millisecondsSinceEpoch,
-    'horaFin': horaFin?.millisecondsSinceEpoch,
-  };
-
-  factory ActivityModel.fromJson(Map<String, dynamic> json) => ActivityModel(
-    id: json['id'],
-    type: ActivityType.values.firstWhere((e) => e.name == json['type']),
-    title: json['title'],
-    asesor: json['asesor'],
-    cliente: json['cliente'],
-    direccion: json['direccion'],
-    status: ActivityStatus.values.firstWhere((e) => e.name == json['status']),
-    horaInicio:
-        json['horaInicio'] != null
-            ? DateTime.fromMillisecondsSinceEpoch(json['horaInicio'])
-            : null,
-    horaFin:
-        json['horaFin'] != null
-            ? DateTime.fromMillisecondsSinceEpoch(json['horaFin'])
-            : null,
-  );
-}
+// Remover las definiciones duplicadas de enum y ActivityModel ya que están en el archivo compartido
 
 // -----------------------------------------------------------------------------
 // PANTALLA PRINCIPAL
