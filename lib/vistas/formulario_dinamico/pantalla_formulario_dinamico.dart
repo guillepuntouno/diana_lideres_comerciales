@@ -4,6 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../../modelos/activity_model.dart';
+import '../../servicios/visita_cliente_servicio.dart';
+import '../../servicios/sesion_servicio.dart';
+import '../../modelos/visita_cliente_modelo.dart';
 
 class AppColors {
   static const Color dianaRed = Color(0xFFDE1327);
@@ -24,6 +27,15 @@ class PantallaFormularioDinamico extends StatefulWidget {
 
 class _PantallaFormularioDinamicoState
     extends State<PantallaFormularioDinamico> {
+  // Servicios
+  final VisitaClienteServicio _visitaServicio = VisitaClienteServicio();
+
+  // Control de visita
+  String? _claveVisita;
+  VisitaClienteModelo? _visitaActual;
+  bool _visitaCreada = false;
+  bool _guardandoEnAPI = false;
+
   // Datos recibidos de la navegación
   ActivityModel? actividad;
   String? comentarios;
@@ -109,26 +121,261 @@ class _PantallaFormularioDinamicoState
   @override
   void initState() {
     super.initState();
-    _cargarDatosGuardados();
+    _inicializarFormulario();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    final args =
-        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final args = ModalRoute.of(context)?.settings.arguments;
+
+    print('🔍 Argumentos recibidos: $args');
+    print('🔍 Tipo de argumentos: ${args.runtimeType}');
 
     if (args != null) {
-      actividad = args['actividad'] as ActivityModel?;
-      comentarios = args['comentarios'] as String?;
-      ubicacion = args['ubicacion'] as String?;
+      if (args is ActivityModel) {
+        // Argumentos directos desde rutina diaria
+        actividad = args;
+        comentarios = 'Check-in desde rutina diaria';
+        ubicacion = 'Ubicación actual';
 
-      print('📋 Formulario dinámico iniciado:');
-      print('   └── Cliente: ${actividad?.title}');
-      print('   └── Comentarios: $comentarios');
-      print('   └── Ubicación: $ubicacion');
+        print('📋 ActivityModel directo:');
+        print('   └── Cliente: ${actividad?.title}');
+        print('   └── ID Cliente: ${actividad?.cliente}');
+      } else if (args is Map<String, dynamic>) {
+        // Argumentos desde otras pantallas
+        actividad = args['actividad'] as ActivityModel?;
+        comentarios = args['comentarios'] as String?;
+        ubicacion = args['ubicacion'] as String?;
+
+        print('📋 Map de argumentos:');
+        print('   └── Cliente: ${actividad?.title}');
+        print('   └── Comentarios: $comentarios');
+        print('   └── Ubicación: $ubicacion');
+      } else {
+        print('❌ Error: Los argumentos no son del tipo esperado');
+        print('   └── Argumentos recibidos: $args');
+        print('   └── Tipo: ${args.runtimeType}');
+      }
     }
+  }
+
+  Future<void> _inicializarFormulario() async {
+    // Esperar a que didChangeDependencies se ejecute completamente
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    await _cargarDatosGuardados();
+
+    // Solo crear visita si tenemos datos de actividad válidos
+    if (actividad?.cliente != null) {
+      await _crearORecuperarVisita();
+    } else {
+      print('⚠️ No hay datos de cliente válidos para crear visita');
+      setState(() {});
+    }
+  }
+
+  Future<void> _crearORecuperarVisita() async {
+    if (actividad?.cliente == null) return;
+
+    try {
+      // Generar clave de visita
+      final lider = await SesionServicio.obtenerLiderComercial();
+      if (lider == null) {
+        throw Exception('No hay sesión activa del líder');
+      }
+
+      _claveVisita = _visitaServicio.generarClaveVisita(
+        liderClave: lider.clave,
+        numeroSemana: _obtenerSemanaActual(),
+        dia: _obtenerDiaActual(),
+        clienteId: actividad!.cliente!,
+      );
+
+      print('🔑 Clave de visita generada: $_claveVisita');
+
+      // PRIMERO: Intentar obtener visita existente
+      _visitaActual = await _visitaServicio.obtenerVisita(_claveVisita!);
+
+      if (_visitaActual != null) {
+        print('📋 Visita existente encontrada, cargando datos...');
+        _visitaCreada = true;
+        _cargarDatosDesdeVisita();
+      } else {
+        print('🆕 Visita no existe, creando nueva...');
+        await _crearNuevaVisita(lider);
+      }
+
+      setState(() {});
+    } catch (e) {
+      print('❌ Error al inicializar visita: $e');
+      _mostrarError('Error al inicializar la visita: $e');
+    }
+  }
+
+  Future<void> _crearNuevaVisita(lider) async {
+    try {
+      // Crear el check-in con los datos disponibles
+      final checkIn = CheckInModelo(
+        timestamp: DateTime.now(),
+        comentarios: comentarios ?? '',
+        ubicacion: UbicacionModelo(
+          latitud: 0.0, // TODO: Obtener ubicación real
+          longitud: 0.0,
+          precision: 0.0,
+          direccion: ubicacion ?? '',
+        ),
+      );
+
+      _visitaActual = await _visitaServicio.crearVisitaDesdeActividad(
+        clienteId: actividad!.cliente!,
+        clienteNombre: actividad!.title!,
+        dia: _obtenerDiaActual(),
+        checkIn: checkIn,
+        planId: 'PLAN_SEMANAL', // TODO: Obtener del plan real
+      );
+
+      _visitaCreada = true;
+      print('✅ Visita creada exitosamente');
+    } catch (e) {
+      print('❌ Error al crear visita: $e');
+
+      // Si el error es porque ya existe la visita, intentar recuperarla
+      if (e.toString().contains('Ya existe una visita') ||
+          e.toString().contains('mensaje')) {
+        print('🔄 Intentando recuperar visita existente...');
+        await _recuperarVisitaExistente();
+      } else {
+        _mostrarError('Error al crear la visita. Continuando en modo offline.');
+        // Continuar en modo offline
+      }
+    }
+  }
+
+  Future<void> _recuperarVisitaExistente() async {
+    try {
+      _visitaActual = await _visitaServicio.obtenerVisita(_claveVisita!);
+
+      if (_visitaActual != null) {
+        _visitaCreada = true;
+        _cargarDatosDesdeVisita();
+        print('✅ Visita existente recuperada exitosamente');
+
+        // Mostrar mensaje informativo al usuario
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.info, color: Colors.white, size: 16),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Continuando visita en progreso',
+                    style: GoogleFonts.poppins(fontSize: 12),
+                  ),
+                ],
+              ),
+              backgroundColor: AppColors.dianaGreen,
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+              margin: const EdgeInsets.only(bottom: 100, left: 16, right: 16),
+            ),
+          );
+        }
+      } else {
+        throw Exception('No se pudo recuperar la visita existente');
+      }
+    } catch (e) {
+      print('❌ Error al recuperar visita existente: $e');
+      _mostrarError(
+        'Error al recuperar la visita. Continuando en modo offline.',
+      );
+    }
+  }
+
+  void _cargarDatosDesdeVisita() {
+    if (_visitaActual?.formularios.isEmpty ?? true) return;
+
+    try {
+      // Cargar datos de los formularios de la visita
+      final formularios = _visitaActual!.formularios;
+
+      // Mapear los datos según el formato esperado
+      if (formularios.containsKey('evaluacion_desarrollo_campo')) {
+        final evaluacion = formularios['evaluacion_desarrollo_campo'];
+
+        // Cargar datos de cada sección
+        if (evaluacion['seccion1'] != null) {
+          final seccion1 = evaluacion['seccion1'];
+          poseeExhibidorAdecuado = seccion1['poseeExhibidorAdecuado'];
+          tipoExhibidorSeleccionado = seccion1['tipoExhibidorSeleccionado'];
+          modeloExhibidorSeleccionado = seccion1['modeloExhibidorSeleccionado'];
+          cantidadExhibidores = seccion1['cantidadExhibidores'] ?? 1;
+          exhibidoresAsignados = List<Map<String, dynamic>>.from(
+            seccion1['exhibidoresAsignados'] ?? [],
+          );
+        }
+
+        if (evaluacion['seccion2'] != null) {
+          final seccion2 = evaluacion['seccion2'];
+          primeraPosition = seccion2['primeraPosition'];
+          planograma = seccion2['planograma'];
+          portafolioFoco = seccion2['portafolioFoco'];
+          anclaje = seccion2['anclaje'];
+        }
+
+        if (evaluacion['seccion3'] != null) {
+          final seccion3 = evaluacion['seccion3'];
+          ristras = seccion3['ristras'];
+          max = seccion3['max'];
+          familiar = seccion3['familiar'];
+          dulce = seccion3['dulce'];
+          galleta = seccion3['galleta'];
+        }
+
+        if (evaluacion['seccion4'] != null) {
+          final seccion4 = evaluacion['seccion4'];
+          compromisos = List<Map<String, dynamic>>.from(
+            seccion4['compromisos'] ?? [],
+          );
+        }
+
+        if (evaluacion['seccion5'] != null) {
+          final seccion5 = evaluacion['seccion5'];
+          retroalimentacionController.text =
+              seccion5['retroalimentacion'] ?? '';
+          reconocimientoController.text = seccion5['reconocimiento'] ?? '';
+        }
+
+        // Verificar completitud de secciones
+        _verificarCompletitudSecciones();
+      }
+
+      print('📊 Datos cargados desde la visita existente');
+    } catch (e) {
+      print('⚠️ Error al cargar datos de la visita: $e');
+    }
+  }
+
+  void _verificarCompletitudSecciones() {
+    setState(() {
+      seccionesCompletadas[0] = poseeExhibidorAdecuado != null;
+      seccionesCompletadas[1] =
+          primeraPosition != null &&
+          planograma != null &&
+          portafolioFoco != null &&
+          anclaje != null;
+      seccionesCompletadas[2] =
+          ristras != null &&
+          max != null &&
+          familiar != null &&
+          dulce != null &&
+          galleta != null;
+      seccionesCompletadas[3] = true; // Compromisos son opcionales
+      seccionesCompletadas[4] =
+          retroalimentacionController.text.trim().isNotEmpty;
+    });
   }
 
   Future<void> _cargarDatosGuardados() async {
@@ -158,55 +405,68 @@ class _PantallaFormularioDinamicoState
   }
 
   Future<void> _guardarDatosSeccion() async {
+    // Guardar datos de la sección actual
+    _actualizarDatosFormulario();
+
+    // Guardar localmente
+    await _guardarLocalmenteAsync();
+
+    // Guardar en API si la visita está creada
+    if (_visitaCreada && _claveVisita != null) {
+      await _guardarEnAPI();
+    }
+  }
+
+  void _actualizarDatosFormulario() {
+    switch (seccionActual) {
+      case 0:
+        datosFormulario['seccion1'] = {
+          'poseeExhibidorAdecuado': poseeExhibidorAdecuado,
+          'tipoExhibidorSeleccionado': tipoExhibidorSeleccionado,
+          'modeloExhibidorSeleccionado': modeloExhibidorSeleccionado,
+          'cantidadExhibidores': cantidadExhibidores,
+          'exhibidoresAsignados': exhibidoresAsignados,
+        };
+        break;
+      case 1:
+        datosFormulario['seccion2'] = {
+          'primeraPosition': primeraPosition,
+          'planograma': planograma,
+          'portafolioFoco': portafolioFoco,
+          'anclaje': anclaje,
+        };
+        break;
+      case 2:
+        datosFormulario['seccion3'] = {
+          'ristras': ristras,
+          'max': max,
+          'familiar': familiar,
+          'dulce': dulce,
+          'galleta': galleta,
+        };
+        break;
+      case 3:
+        datosFormulario['seccion4'] = {
+          'compromisos': compromisos,
+          'tipoCompromisoSeleccionado': tipoCompromisoSeleccionado,
+          'detalleCompromisoSeleccionado': detalleCompromisoSeleccionado,
+          'cantidadCompromiso': cantidadCompromiso,
+          'fechaCompromiso': fechaCompromiso?.toIso8601String(),
+        };
+        break;
+      case 4:
+        datosFormulario['seccion5'] = {
+          'retroalimentacion': retroalimentacionController.text,
+          'reconocimiento': reconocimientoController.text,
+        };
+        break;
+    }
+  }
+
+  Future<void> _guardarLocalmenteAsync() async {
     if (actividad?.cliente == null) return;
 
     try {
-      // Guardar datos de la sección actual
-      switch (seccionActual) {
-        case 0:
-          datosFormulario['seccion1'] = {
-            'poseeExhibidorAdecuado': poseeExhibidorAdecuado,
-            'tipoExhibidorSeleccionado': tipoExhibidorSeleccionado,
-            'modeloExhibidorSeleccionado': modeloExhibidorSeleccionado,
-            'cantidadExhibidores': cantidadExhibidores,
-            'exhibidoresAsignados': exhibidoresAsignados,
-          };
-          break;
-        case 1:
-          datosFormulario['seccion2'] = {
-            'primeraPosition': primeraPosition,
-            'planograma': planograma,
-            'portafolioFoco': portafolioFoco,
-            'anclaje': anclaje,
-          };
-          break;
-        case 2:
-          datosFormulario['seccion3'] = {
-            'ristras': ristras,
-            'max': max,
-            'familiar': familiar,
-            'dulce': dulce,
-            'galleta': galleta,
-          };
-          break;
-        case 3:
-          datosFormulario['seccion4'] = {
-            'compromisos': compromisos,
-            'tipoCompromisoSeleccionado': tipoCompromisoSeleccionado,
-            'detalleCompromisoSeleccionado': detalleCompromisoSeleccionado,
-            'cantidadCompromiso': cantidadCompromiso,
-            'fechaCompromiso': fechaCompromiso?.toIso8601String(),
-          };
-          break;
-        case 4:
-          datosFormulario['seccion5'] = {
-            'retroalimentacion': retroalimentacionController.text,
-            'reconocimiento': reconocimientoController.text,
-          };
-          break;
-      }
-
-      // Guardar en SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       final key =
           'formulario_${actividad!.cliente}_${DateTime.now().toIso8601String().substring(0, 10)}';
@@ -217,12 +477,66 @@ class _PantallaFormularioDinamicoState
         'formulario': datosFormulario,
         'completadas': seccionesCompletadas,
         'fechaGuardado': DateTime.now().toIso8601String(),
+        'claveVisita': _claveVisita,
+        'sincronizado': _visitaCreada,
       };
 
       await prefs.setString(key, jsonEncode(datosCompletos));
-      print('💾 Sección $seccionActual guardada correctamente');
+      print('💾 Sección $seccionActual guardada localmente');
     } catch (e) {
-      print('❌ Error al guardar sección: $e');
+      print('❌ Error al guardar localmente: $e');
+    }
+  }
+
+  Future<void> _guardarEnAPI() async {
+    if (_guardandoEnAPI || _claveVisita == null) return;
+
+    setState(() {
+      _guardandoEnAPI = true;
+    });
+
+    try {
+      // Preparar estructura de formularios para la API
+      final formularios = {
+        'evaluacion_desarrollo_campo': {
+          ...datosFormulario,
+          'fechaActualizacion': DateTime.now().toIso8601String(),
+          'version': '1.0',
+        },
+      };
+
+      await _visitaServicio.actualizarFormularios(_claveVisita!, formularios);
+
+      print('☁️ Formularios sincronizados con API');
+
+      // Mostrar feedback visual discreto
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.cloud_done, color: Colors.white, size: 16),
+                const SizedBox(width: 8),
+                Text(
+                  'Datos sincronizados',
+                  style: GoogleFonts.poppins(fontSize: 12),
+                ),
+              ],
+            ),
+            backgroundColor: AppColors.dianaGreen,
+            duration: const Duration(seconds: 1),
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.only(bottom: 100, left: 16, right: 16),
+          ),
+        );
+      }
+    } catch (e) {
+      print('⚠️ Error al sincronizar con API: $e');
+      // No mostrar error al usuario, datos se mantienen localmente
+    } finally {
+      setState(() {
+        _guardandoEnAPI = false;
+      });
     }
   }
 
@@ -242,8 +556,7 @@ class _PantallaFormularioDinamicoState
             dulce != null &&
             galleta != null;
       case 3: // Compromisos
-        return true; // Los compromisos son opcionales, pero si hay formulario abierto debe completarse
-      // TODO: Agregar validación si hay un compromiso en progreso sin guardar
+        return true; // Los compromisos son opcionales
       case 4: // Comentarios
         return retroalimentacionController.text.trim().isNotEmpty;
       default:
@@ -314,7 +627,42 @@ class _PantallaFormularioDinamicoState
     );
 
     if (confirmar == true) {
+      await _finalizarVisitaEnAPI();
       Navigator.pop(context, true); // Regresar a rutinas con visita completada
+    }
+  }
+
+  Future<void> _finalizarVisitaEnAPI() async {
+    if (_claveVisita == null || !_visitaCreada) return;
+
+    try {
+      print('🏁 Finalizando visita en API...');
+
+      // Calcular duración desde el check-in
+      final duracionMinutos =
+          _visitaActual?.checkIn.timestamp != null
+              ? DateTime.now()
+                  .difference(_visitaActual!.checkIn.timestamp)
+                  .inMinutes
+              : 60;
+
+      final checkOut = CheckOutModelo(
+        timestamp: DateTime.now(),
+        comentarios: 'Formulario completado exitosamente',
+        ubicacion: UbicacionModelo(
+          latitud: 0.0, // TODO: Obtener ubicación real
+          longitud: 0.0,
+          precision: 0.0,
+          direccion: ubicacion ?? '',
+        ),
+        duracionMinutos: duracionMinutos,
+      );
+
+      await _visitaServicio.finalizarVisitaConCheckOut(_claveVisita!, checkOut);
+      print('✅ Visita finalizada exitosamente en API');
+    } catch (e) {
+      print('⚠️ Error al finalizar visita en API: $e');
+      // No bloquear al usuario, la visita se puede finalizar localmente
     }
   }
 
@@ -338,6 +686,29 @@ class _PantallaFormularioDinamicoState
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
+  }
+
+  String _obtenerDiaActual() {
+    final diasSemana = [
+      '',
+      'Lunes',
+      'Martes',
+      'Miércoles',
+      'Jueves',
+      'Viernes',
+      'Sábado',
+      'Domingo',
+    ];
+    return diasSemana[DateTime.now().weekday];
+  }
+
+  int _obtenerSemanaActual() {
+    final ahora = DateTime.now();
+    return ((ahora.difference(DateTime(ahora.year, 1, 1)).inDays +
+                DateTime(ahora.year, 1, 1).weekday -
+                1) /
+            7)
+        .ceil();
   }
 
   @override
@@ -368,12 +739,26 @@ class _PantallaFormularioDinamicoState
                 fontSize: 16,
               ),
             ),
-            Text(
-              actividad?.title ?? 'Cliente',
-              style: GoogleFonts.poppins(
-                color: Colors.white.withOpacity(0.9),
-                fontSize: 12,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  actividad?.title ?? 'Cliente',
+                  style: GoogleFonts.poppins(
+                    color: Colors.white.withOpacity(0.9),
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Indicador de estado de sincronización
+                Icon(
+                  _visitaCreada
+                      ? (_guardandoEnAPI ? Icons.cloud_sync : Icons.cloud_done)
+                      : Icons.cloud_off,
+                  color: Colors.white.withOpacity(0.8),
+                  size: 14,
+                ),
+              ],
             ),
           ],
         ),
@@ -393,6 +778,10 @@ class _PantallaFormularioDinamicoState
       ),
     );
   }
+
+  // Resto de métodos de construcción de widgets (se mantienen igual)
+  // _buildTimeline(), _buildContenidoSeccion(), etc.
+  // ... [Mantener todos los métodos de widget exactamente como estaban]
 
   Widget _buildTimeline() {
     return Container(
@@ -513,6 +902,9 @@ class _PantallaFormularioDinamicoState
         return const Center(child: Text('Sección no encontrada'));
     }
   }
+
+  // [Resto de métodos _buildSeccion... se mantienen exactamente igual]
+  // Solo agrego los métodos principales para ahorrar espacio
 
   Widget _buildSeccionTipoExhibidor() {
     return SingleChildScrollView(
@@ -751,7 +1143,7 @@ class _PantallaFormularioDinamicoState
 
           const SizedBox(height: 24),
 
-          // Título de la sección en español
+          // Título de la sección
           Text(
             'Compromisos',
             style: GoogleFonts.poppins(
@@ -1143,94 +1535,6 @@ class _PantallaFormularioDinamicoState
     );
   }
 
-  Widget _buildPreguntaSiNo(
-    String pregunta,
-    bool? valor,
-    Function(bool) onChanged,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          pregunta,
-          style: GoogleFonts.poppins(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: AppColors.darkGray,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: GestureDetector(
-                onTap: () => onChanged(true),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  decoration: BoxDecoration(
-                    color:
-                        valor == true
-                            ? AppColors.dianaGreen
-                            : AppColors.lightGray,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color:
-                          valor == true
-                              ? AppColors.dianaGreen
-                              : AppColors.mediumGray.withOpacity(0.3),
-                    ),
-                  ),
-                  child: Center(
-                    child: Text(
-                      'SÍ',
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.bold,
-                        color:
-                            valor == true ? Colors.white : AppColors.darkGray,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: GestureDetector(
-                onTap: () => onChanged(false),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  decoration: BoxDecoration(
-                    color:
-                        valor == false
-                            ? AppColors.dianaRed
-                            : AppColors.lightGray,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color:
-                          valor == false
-                              ? AppColors.dianaRed
-                              : AppColors.mediumGray.withOpacity(0.3),
-                    ),
-                  ),
-                  child: Center(
-                    child: Text(
-                      'NO',
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.bold,
-                        color:
-                            valor == false ? Colors.white : AppColors.darkGray,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
   Widget _buildDropdown(
     String label,
     String? valor,
@@ -1328,76 +1632,6 @@ class _PantallaFormularioDinamicoState
           ],
         ),
       ],
-    );
-  }
-
-  Widget _buildBotonesNavegacion() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          if (seccionActual > 0) ...[
-            Expanded(
-              child: OutlinedButton(
-                onPressed: () {
-                  setState(() {
-                    seccionActual--;
-                  });
-                },
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AppColors.mediumGray),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: Text(
-                  'Anterior',
-                  style: GoogleFonts.poppins(
-                    color: AppColors.mediumGray,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-          ],
-
-          Expanded(
-            flex: seccionActual == 0 ? 1 : 1,
-            child: ElevatedButton(
-              onPressed: _avanzarSeccion,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.dianaRed,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: Text(
-                seccionActual == nombresSecciones.length - 1
-                    ? 'FINALIZAR'
-                    : 'SIGUIENTE',
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -1516,6 +1750,164 @@ class _PantallaFormularioDinamicoState
     }
   }
 
+  Widget _buildPreguntaSiNo(
+    String pregunta,
+    bool? valor,
+    Function(bool) onChanged,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          pregunta,
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.darkGray,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: () => onChanged(true),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    color:
+                        valor == true
+                            ? AppColors.dianaGreen
+                            : AppColors.lightGray,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color:
+                          valor == true
+                              ? AppColors.dianaGreen
+                              : AppColors.mediumGray.withOpacity(0.3),
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      'SÍ',
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.bold,
+                        color:
+                            valor == true ? Colors.white : AppColors.darkGray,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: GestureDetector(
+                onTap: () => onChanged(false),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    color:
+                        valor == false
+                            ? AppColors.dianaRed
+                            : AppColors.lightGray,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color:
+                          valor == false
+                              ? AppColors.dianaRed
+                              : AppColors.mediumGray.withOpacity(0.3),
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      'NO',
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.bold,
+                        color:
+                            valor == false ? Colors.white : AppColors.darkGray,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBotonesNavegacion() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          if (seccionActual > 0) ...[
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () {
+                  setState(() {
+                    seccionActual--;
+                  });
+                },
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: AppColors.mediumGray),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Text(
+                  'Anterior',
+                  style: GoogleFonts.poppins(
+                    color: AppColors.mediumGray,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+          ],
+          Expanded(
+            flex: seccionActual == 0 ? 1 : 1,
+            child: ElevatedButton(
+              onPressed: _avanzarSeccion,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.dianaRed,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text(
+                seccionActual == nombresSecciones.length - 1
+                    ? 'FINALIZAR'
+                    : 'SIGUIENTE',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Método auxiliar para agregar compromisos
   void _agregarCompromisoCompleto() {
     // Validaciones en español
     if (tipoCompromisoSeleccionado == null) {
@@ -1591,4 +1983,7 @@ class _PantallaFormularioDinamicoState
     print('   └── Cliente: ${actividad?.cliente}');
     print('   └── Ruta: ${actividad?.asesor}');
   }
+
+  // Mantener todos los demás métodos de construcción de widgets tal como estaban
+  // _buildSeccionEstandares(), _buildSeccionDisponibilidad(), etc.
 }

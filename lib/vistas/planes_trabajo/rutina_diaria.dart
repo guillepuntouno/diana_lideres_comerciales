@@ -7,8 +7,10 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../modelos/activity_model.dart';
 import '../../servicios/plan_trabajo_servicio.dart';
 import '../../servicios/sesion_servicio.dart';
+import '../../servicios/visita_cliente_servicio.dart'; // NUEVO IMPORT
 import '../../modelos/lider_comercial_modelo.dart';
 import '../../modelos/plan_trabajo_modelo.dart';
+import '../../modelos/visita_cliente_modelo.dart'; // NUEVO IMPORT
 
 // -----------------------------------------------------------------------------
 // COLORES CORPORATIVOS DIANA
@@ -21,6 +23,8 @@ class AppColors {
   static const Color darkGray = Color(0xFF1C2120);
   static const Color mediumGray = Color(0xFF8F8E8E);
 }
+
+// [Mantener todas las clases PlanOpcion y el resto del código igual...]
 
 // -----------------------------------------------------------------------------
 // CLASE PARA OPCIONES DE PLAN
@@ -115,11 +119,16 @@ class PantallaRutinaDiaria extends StatefulWidget {
 
 class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
   final PlanTrabajoServicio _planServicio = PlanTrabajoServicio();
+  final VisitaClienteServicio _visitaServicio =
+      VisitaClienteServicio(); // NUEVO SERVICIO
 
   List<ActivityModel> _actividades = [];
   List<PlanOpcion> _planesDisponibles = [];
   PlanOpcion? _planSeleccionado;
   LiderComercial? _liderActual;
+
+  // NUEVO: Map para rastrear estados de visitas
+  Map<String, VisitaClienteModelo> _visitasEstados = {};
 
   bool _isLoading = true;
   bool _cargandoPlanes = false;
@@ -135,6 +144,8 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
     super.initState();
     _inicializarRutina();
   }
+
+  // [Mantener todos los métodos existentes hasta _procesarDetallePlan...]
 
   Future<void> _inicializarRutina() async {
     try {
@@ -505,6 +516,9 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
       // Cargar estados guardados
       await _cargarEstadoActividades(actividadesDelDia);
 
+      // NUEVO: Verificar estados de visitas en API
+      await _verificarEstadosVisitas(actividadesDelDia);
+
       setState(() => _actividades = actividadesDelDia);
 
       print('🎉 Actividades procesadas: ${_actividades.length}');
@@ -514,6 +528,62 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
 
       setState(() => _actividades = []);
     }
+  }
+
+  // NUEVO MÉTODO: Verificar estados de visitas
+  Future<void> _verificarEstadosVisitas(List<ActivityModel> actividades) async {
+    if (_liderActual == null) return;
+
+    try {
+      print('🔍 Verificando estados de visitas...');
+
+      // Filtrar solo actividades de tipo visita
+      final actividadesVisita =
+          actividades.where((a) => a.type == ActivityType.visita).toList();
+
+      for (final actividad in actividadesVisita) {
+        if (actividad.cliente != null) {
+          // Generar clave de visita
+          final claveVisita = _visitaServicio.generarClaveVisita(
+            liderClave: _liderActual!.clave,
+            numeroSemana: _obtenerSemanaActual(),
+            dia: _diaActual,
+            clienteId: actividad.cliente!,
+          );
+
+          // Verificar si existe visita
+          final visita = await _visitaServicio.obtenerVisita(claveVisita);
+
+          if (visita != null) {
+            _visitasEstados[actividad.id] = visita;
+
+            // Actualizar estado de la actividad según el estado de la visita
+            if (visita.estaCompletada) {
+              actividad.status = ActivityStatus.completada;
+            } else if (visita.estaEnProceso) {
+              actividad.status = ActivityStatus.enCurso;
+            }
+
+            print('✅ Estado de visita ${actividad.title}: ${visita.estatus}');
+          }
+        }
+      }
+
+      print('📊 Estados de visitas verificados');
+    } catch (e) {
+      print('⚠️ Error al verificar estados de visitas: $e');
+      // No bloquear la carga si falla la verificación
+    }
+  }
+
+  // MÉTODO AUXILIAR: Obtener semana actual
+  int _obtenerSemanaActual() {
+    final ahora = DateTime.now();
+    return ((ahora.difference(DateTime(ahora.year, 1, 1)).inDays +
+                DateTime(ahora.year, 1, 1).weekday -
+                1) /
+            7)
+        .ceil();
   }
 
   Future<void> _cargarEstadoActividades(List<ActivityModel> actividades) async {
@@ -710,10 +780,16 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       itemBuilder: (context, index) {
                         final actividad = _actividades[index];
+                        final visita = _visitasEstados[actividad.id]; // NUEVO
                         return _ActivityTile(
                           actividad: actividad,
+                          visita: visita, // NUEVO PARÁMETRO
                           onToggle: () => _cambiarEstadoActividad(actividad),
                           onPostpone: () => _postergarActividad(actividad),
+                          onRefreshStatus:
+                              () => _verificarEstadosVisitas([
+                                actividad,
+                              ]), // NUEVO CALLBACK
                         );
                       },
                       separatorBuilder: (_, __) => const SizedBox(height: 8),
@@ -875,8 +951,7 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
   }
 }
 
-// Resto de widgets helper (_OfflineBanner, _HeaderHoy, _ActivityTile, _EstadoVacio)
-// mantienen la misma estructura pero con pequeños ajustes...
+// WIDGETS HELPER MODIFICADOS
 
 class _OfflineBanner extends StatelessWidget {
   const _OfflineBanner();
@@ -1016,15 +1091,20 @@ class _HeaderHoy extends StatelessWidget {
   }
 }
 
+// ACTIVITY TILE MODIFICADO CON INTEGRACIÓN DE VISITAS
 class _ActivityTile extends StatelessWidget {
   final ActivityModel actividad;
+  final VisitaClienteModelo? visita; // NUEVO PARÁMETRO
   final VoidCallback onToggle;
   final VoidCallback onPostpone;
+  final VoidCallback onRefreshStatus; // NUEVO CALLBACK
 
   const _ActivityTile({
     required this.actividad,
+    this.visita, // NUEVO
     required this.onToggle,
     required this.onPostpone,
+    required this.onRefreshStatus, // NUEVO
   });
 
   @override
@@ -1043,30 +1123,49 @@ class _ActivityTile extends StatelessWidget {
         break;
     }
 
+    // NUEVA LÓGICA: Priorizar estado de visita sobre estado local
     Color statusColor;
     IconData statusIcon;
     String statusText;
 
-    switch (actividad.status) {
-      case ActivityStatus.completada:
+    // Si hay visita, usar su estado
+    if (visita != null) {
+      if (visita!.estaCompletada) {
         statusColor = AppColors.dianaGreen;
         statusIcon = Icons.check_circle;
         statusText = 'Completada';
-        break;
-      case ActivityStatus.enCurso:
+      } else if (visita!.estaEnProceso) {
         statusColor = AppColors.dianaYellow;
         statusIcon = Icons.timelapse;
         statusText = 'En curso';
-        break;
-      case ActivityStatus.postergada:
-        statusColor = Colors.grey;
-        statusIcon = Icons.schedule;
-        statusText = 'Postergada';
-        break;
-      default:
+      } else {
         statusColor = Colors.grey.shade400;
         statusIcon = Icons.radio_button_unchecked;
         statusText = 'Pendiente';
+      }
+    } else {
+      // Usar estado local de la actividad
+      switch (actividad.status) {
+        case ActivityStatus.completada:
+          statusColor = AppColors.dianaGreen;
+          statusIcon = Icons.check_circle;
+          statusText = 'Completada';
+          break;
+        case ActivityStatus.enCurso:
+          statusColor = AppColors.dianaYellow;
+          statusIcon = Icons.timelapse;
+          statusText = 'En curso';
+          break;
+        case ActivityStatus.postergada:
+          statusColor = Colors.grey;
+          statusIcon = Icons.schedule;
+          statusText = 'Postergada';
+          break;
+        default:
+          statusColor = Colors.grey.shade400;
+          statusIcon = Icons.radio_button_unchecked;
+          statusText = 'Pendiente';
+      }
     }
 
     return Container(
@@ -1125,13 +1224,31 @@ class _ActivityTile extends StatelessWidget {
                         ),
                       ],
                       const SizedBox(height: 4),
-                      Text(
-                        statusText,
-                        style: GoogleFonts.poppins(
-                          fontSize: 11,
-                          color: statusColor,
-                          fontWeight: FontWeight.w500,
-                        ),
+                      Row(
+                        children: [
+                          Text(
+                            statusText,
+                            style: GoogleFonts.poppins(
+                              fontSize: 11,
+                              color: statusColor,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          // NUEVO: Indicador de sincronización para visitas
+                          if (actividad.type == ActivityType.visita) ...[
+                            const SizedBox(width: 8),
+                            Icon(
+                              visita != null
+                                  ? Icons.cloud_done
+                                  : Icons.cloud_off,
+                              size: 12,
+                              color:
+                                  visita != null
+                                      ? AppColors.dianaGreen
+                                      : AppColors.mediumGray,
+                            ),
+                          ],
+                        ],
                       ),
                     ],
                   ),
@@ -1145,18 +1262,30 @@ class _ActivityTile extends StatelessWidget {
                       final resultado = await Navigator.pushNamed(
                         context,
                         '/visita_cliente',
-                        arguments: actividad,
+                        arguments:
+                            actividad, // CAMBIO: Pasar ActivityModel directamente
                       );
 
+                      // NUEVO: Si se completó la visita, actualizar estados
                       if (resultado == true) {
-                        onToggle();
+                        onToggle(); // Actualizar estado local
+                        onRefreshStatus(); // Verificar estado en API
                       }
                     },
-                    icon: const Icon(
-                      Icons.assignment_outlined,
-                      color: AppColors.dianaRed,
+                    icon: Icon(
+                      visita?.estaCompletada == true
+                          ? Icons
+                              .assignment_turned_in // Icono completado
+                          : Icons.assignment_outlined, // Icono pendiente
+                      color:
+                          visita?.estaCompletada == true
+                              ? AppColors.dianaGreen
+                              : AppColors.dianaRed,
                     ),
-                    tooltip: 'Iniciar Visita',
+                    tooltip:
+                        visita?.estaCompletada == true
+                            ? 'Ver Visita Completada'
+                            : 'Iniciar Visita',
                   ),
                   const SizedBox(width: 8),
                 ],
