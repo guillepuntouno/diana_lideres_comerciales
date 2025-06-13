@@ -6,6 +6,7 @@ import 'dart:convert';
 import '../../modelos/activity_model.dart';
 import '../../servicios/visita_cliente_servicio.dart';
 import '../../servicios/sesion_servicio.dart';
+import '../../servicios/notificaciones_servicio.dart'; // NUEVO IMPORT
 import '../../modelos/visita_cliente_modelo.dart';
 
 class AppColors {
@@ -122,6 +123,18 @@ class _PantallaFormularioDinamicoState
   void initState() {
     super.initState();
     _inicializarFormulario();
+    _inicializarNotificaciones(); // NUEVO
+  }
+
+  // NUEVO MÉTODO: Inicializar notificaciones
+  Future<void> _inicializarNotificaciones() async {
+    try {
+      await NotificacionesServicio.inicializar();
+      await NotificacionesServicio.solicitarPermisos();
+      print('🔔 Notificaciones inicializadas en formulario');
+    } catch (e) {
+      print('⚠️ Error al inicializar notificaciones: $e');
+    }
   }
 
   @override
@@ -627,8 +640,102 @@ class _PantallaFormularioDinamicoState
     );
 
     if (confirmar == true) {
+      await _finalizarVisitaConNotificacionYResumen(); // NUEVO MÉTODO
+    }
+  }
+
+  // NUEVO MÉTODO: Finalizar con notificación y resumen
+  Future<void> _finalizarVisitaConNotificacionYResumen() async {
+    try {
+      // Finalizar visita en API
       await _finalizarVisitaEnAPI();
-      Navigator.pop(context, true); // Regresar a rutinas con visita completada
+
+      // Calcular duración
+      final duracion =
+          _visitaActual?.checkIn.timestamp != null
+              ? DateTime.now().difference(_visitaActual!.checkIn.timestamp)
+              : const Duration(minutes: 0);
+
+      // Mostrar notificación en la app (versión mejorada)
+      if (mounted) {
+        NotificacionesServicio.mostrarVisitaCompletadaEnApp(
+          context,
+          clienteNombre: actividad?.title ?? 'Cliente',
+          duracion: _formatearDuracion(duracion),
+          onVerResumen: () => _navegarAResumen(duracion),
+        );
+
+        // Mostrar notificación de compromisos si hay
+        if (compromisos.isNotEmpty) {
+          // Esperar un poco para que no se solapen las notificaciones
+          await Future.delayed(const Duration(seconds: 1));
+          NotificacionesServicio.mostrarCompromisosEnApp(
+            context,
+            clienteNombre: actividad?.title ?? 'Cliente',
+            cantidad: compromisos.length,
+          );
+        }
+      }
+
+      // También enviar notificaciones simuladas (para logs)
+      await NotificacionesServicio.mostrarVisitaCompletada(
+        clienteNombre: actividad?.title ?? 'Cliente',
+        duracion: _formatearDuracion(duracion),
+        payload: 'resumen_visita_${actividad?.cliente}',
+      );
+
+      if (compromisos.isNotEmpty) {
+        await NotificacionesServicio.mostrarCompromisoCreado(
+          clienteNombre: actividad?.title ?? 'Cliente',
+          cantidadCompromisos: compromisos.length,
+        );
+      }
+
+      // Navegar al resumen después de un breve delay
+      await Future.delayed(const Duration(seconds: 2));
+      await _navegarAResumen(duracion);
+    } catch (e) {
+      print('❌ Error al finalizar con notificación: $e');
+      // Si falla, al menos cerrar el formulario
+      Navigator.pop(context, true);
+    }
+  }
+
+  // NUEVO MÉTODO: Navegar al resumen
+  Future<void> _navegarAResumen(Duration duracion) async {
+    try {
+      // Preparar datos para el resumen
+      final datosResumen = {
+        'actividad': actividad,
+        'visita': _visitaActual,
+        'formularios': datosFormulario,
+        'duracion': duracion,
+      };
+
+      // Navegar al resumen y esperar el resultado
+      final resultado = await Navigator.pushReplacementNamed(
+        context,
+        '/resumen_visita',
+        arguments: datosResumen,
+      );
+
+      print('📋 Navegando a resumen de visita');
+    } catch (e) {
+      print('❌ Error al navegar al resumen: $e');
+      // Si falla la navegación al resumen, volver a rutinas
+      Navigator.pop(context, true);
+    }
+  }
+
+  // MÉTODO AUXILIAR: Formatear duración
+  String _formatearDuracion(Duration duracion) {
+    final horas = duracion.inHours;
+    final minutos = duracion.inMinutes.remainder(60);
+
+    if (horas > 0) {
+      return '${horas}h ${minutos}min';
+    } else {
+      return '${minutos}min';
     }
   }
 
@@ -763,6 +870,14 @@ class _PantallaFormularioDinamicoState
           ],
         ),
         centerTitle: true,
+        actions: [
+          // NUEVO: Botón de notificaciones
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined, color: Colors.white),
+            onPressed: () => Navigator.pushNamed(context, '/notificaciones'),
+            tooltip: 'Ver notificaciones',
+          ),
+        ],
       ),
       body: Column(
         children: [

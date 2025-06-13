@@ -10,6 +10,8 @@ import '../vistas/planes_trabajo/vista_planes_trabajo.dart';
 import '../vistas/planes_trabajo/rutina_diaria.dart';
 import '../vistas/visita_cliente/pantalla_visita_cliente.dart';
 import '../vistas/formulario_dinamico/pantalla_formulario_dinamico.dart';
+import '../vistas/resumen/pantalla_resumen_visita.dart';
+import '../vistas/notificaciones/pantalla_notificaciones.dart';
 
 final Map<String, WidgetBuilder> rutas = {
   '/login': (BuildContext context) => const PantallaLogin(),
@@ -24,4 +26,9 @@ final Map<String, WidgetBuilder> rutas = {
   '/rutina_diaria': (context) => const PantallaRutinaDiaria(),
   '/visita_cliente': (context) => const PantallaVisitaCliente(),
   '/formulario_dinamico': (context) => const PantallaFormularioDinamico(),
+
+  // Rutas de resumen
+  '/resumen_visita': (context) => const PantallaResumenVisita(),
+  // Rutas de resumen y notificaciones
+  '/notificaciones': (context) => const PantallaNotificaciones(),
 };
