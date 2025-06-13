@@ -1,7 +1,12 @@
 // lib/vistas/visita_cliente/pantalla_visita_cliente.dart
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../modelos/activity_model.dart'; // Importar el modelo compartido
+import 'package:geolocator/geolocator.dart';
+import '../../modelos/activity_model.dart';
+import '../../servicios/geolocalizacion_servicio.dart';
+import '../../servicios/visita_cliente_servicio.dart';
+import '../../modelos/visita_cliente_modelo.dart';
 
 class AppColors {
   static const Color dianaRed = Color(0xFFDE1327);
@@ -22,13 +27,17 @@ class PantallaVisitaCliente extends StatefulWidget {
 class _PantallaVisitaClienteState extends State<PantallaVisitaCliente> {
   ActivityModel? actividad;
   final TextEditingController _comentariosController = TextEditingController();
+
+  // Estados de geolocalización
   String _ubicacionActual = 'Obteniendo ubicación...';
   bool _cargandoUbicacion = true;
+  bool _errorUbicacion = false;
+  Position? _posicionActual;
 
   @override
   void initState() {
     super.initState();
-    _obtenerUbicacion();
+    _inicializarGeolocalizacion();
   }
 
   @override
@@ -54,38 +63,406 @@ class _PantallaVisitaClienteState extends State<PantallaVisitaCliente> {
     }
   }
 
-  Future<void> _obtenerUbicacion() async {
-    // Simulación de obtención de ubicación
-    await Future.delayed(const Duration(seconds: 2));
+  /// Inicializar proceso simplificado con servicio universal
+  Future<void> _inicializarGeolocalizacion() async {
+    print('📍 Iniciando geolocalización universal...');
+    print('🌐 Plataforma: ${kIsWeb ? "WEB" : "MÓVIL"}');
 
     setState(() {
-      _ubicacionActual = 'Av. Morones Prieto 500 PTE, MTY';
-      _cargandoUbicacion = false;
+      _ubicacionActual =
+          kIsWeb
+              ? 'Solicitando permisos del navegador...'
+              : 'Obteniendo ubicación GPS...';
+      _cargandoUbicacion = true;
+      _errorUbicacion = false;
     });
 
-    print('📍 Ubicación obtenida: $_ubicacionActual');
+    try {
+      final GeolocalizacionServicio geoServicio = GeolocalizacionServicio();
+      final resultado = await geoServicio.obtenerUbicacion();
+
+      if (resultado.exitoso) {
+        // Éxito: guardar datos y actualizar UI
+        _posicionActual = Position(
+          longitude: resultado.longitud!,
+          latitude: resultado.latitud!,
+          timestamp: DateTime.now(),
+          accuracy: resultado.precision!,
+          altitude: 0,
+          altitudeAccuracy: 0,
+          heading: 0,
+          headingAccuracy: 0,
+          speed: 0,
+          speedAccuracy: 0,
+        );
+
+        setState(() {
+          _ubicacionActual = resultado.direccion!;
+          _cargandoUbicacion = false;
+          _errorUbicacion = false;
+        });
+
+        print('✅ Geolocalización exitosa');
+        print('   └── Ubicación: ${resultado.direccion}');
+        print('   └── Precisión: ${resultado.precision} metros');
+      } else {
+        // Error: manejar según el tipo
+        await _manejarErrorGeolocalizacion(resultado);
+      }
+    } catch (e) {
+      print('❌ Error inesperado en geolocalización: $e');
+      await _manejarErrorGeneral(e.toString());
+    }
   }
 
+  /// Manejar errores de geolocalización
+  Future<void> _manejarErrorGeolocalizacion(
+    GeolocalizacionResultado resultado,
+  ) async {
+    setState(() {
+      _ubicacionActual = resultado.mensajeError ?? 'Error de ubicación';
+      _cargandoUbicacion = false;
+      _errorUbicacion = true;
+    });
+
+    // Mostrar diálogo según la acción requerida
+    if (resultado.accionRequerida != null) {
+      _mostrarDialogoErrorConAccion(resultado);
+    } else {
+      _mostrarError(resultado.mensajeError ?? 'Error de ubicación');
+    }
+  }
+
+  /// Mostrar diálogo de error con acciones disponibles
+  void _mostrarDialogoErrorConAccion(GeolocalizacionResultado resultado) {
+    String titulo;
+    String mensaje;
+    List<Widget> acciones = [];
+
+    switch (resultado.accionRequerida!) {
+      case AccionRequerida.abrirConfiguracion:
+        titulo = 'Ubicación Deshabilitada';
+        mensaje =
+            kIsWeb
+                ? 'La geolocalización no está disponible en este navegador. Intente con otro navegador o dispositivo.'
+                : 'El servicio de ubicación está deshabilitado. Habilítelo en la configuración del sistema.';
+
+        acciones = [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Entendido'),
+          ),
+          if (!kIsWeb)
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await GeolocalizacionServicio().abrirConfiguracion(
+                  AccionRequerida.abrirConfiguracion,
+                );
+                await Future.delayed(const Duration(seconds: 2));
+                _inicializarGeolocalizacion();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.dianaRed,
+              ),
+              child: const Text(
+                'Abrir Configuración',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+        ];
+        break;
+
+      case AccionRequerida.abrirConfiguracionApp:
+        titulo = 'Permisos Bloqueados';
+        mensaje =
+            kIsWeb
+                ? 'Los permisos de ubicación están bloqueados en su navegador. Habilítelos en la configuración del sitio.'
+                : 'Los permisos han sido denegados permanentemente. Habilítelos en la configuración de la aplicación.';
+
+        acciones = [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar'),
+          ),
+          if (!kIsWeb)
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await GeolocalizacionServicio().abrirConfiguracion(
+                  AccionRequerida.abrirConfiguracionApp,
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.dianaRed,
+              ),
+              child: const Text(
+                'Abrir Configuración',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+        ];
+        break;
+
+      case AccionRequerida.solicitarPermisos:
+        titulo = 'Permisos Requeridos';
+        mensaje =
+            kIsWeb
+                ? 'El navegador necesita permisos para acceder a su ubicación. Por favor, conceda los permisos cuando se soliciten.'
+                : 'La aplicación necesita permisos de ubicación. Por favor, concédalos cuando se soliciten.';
+
+        acciones = [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              _inicializarGeolocalizacion(); // Reintentar
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.dianaRed,
+            ),
+            child: const Text(
+              'Reintentar',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ];
+        break;
+    }
+
+    _mostrarDialogoError(titulo, mensaje, acciones);
+  }
+
+  /// Manejar errores generales
+  Future<void> _manejarErrorGeneral(String error) async {
+    setState(() {
+      _ubicacionActual = 'Error de ubicación';
+      _cargandoUbicacion = false;
+      _errorUbicacion = true;
+    });
+
+    _mostrarError('Error inesperado: $error');
+  }
+
+  /// Mostrar diálogo de error personalizado
+  void _mostrarDialogoError(
+    String titulo,
+    String mensaje,
+    List<Widget> acciones,
+  ) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (context) => AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.location_off, color: Colors.orange),
+                const SizedBox(width: 8),
+                Text(titulo),
+              ],
+            ),
+            content: Text(mensaje),
+            actions: acciones,
+          ),
+    );
+  }
+
+  /// Reintentar obtener ubicación
+  Future<void> _reintentarUbicacion() async {
+    print('🔄 Reintentando obtención de ubicación...');
+    await _inicializarGeolocalizacion();
+  }
+
+  /// Realizar check-in con validaciones completas y guardar en servidor
   Future<void> _realizarCheckIn() async {
+    // Validar comentarios
     if (_comentariosController.text.trim().isEmpty) {
       _mostrarError('Por favor, agregue un comentario antes del check-in');
       return;
     }
 
-    print('📝 Comentarios: ${_comentariosController.text}');
-    print('📍 Ubicación: $_ubicacionActual');
-    print('🏪 Iniciando check-in para cliente: ${actividad!.cliente}');
+    // Validar que se tenga ubicación
+    if (_errorUbicacion || _posicionActual == null) {
+      _mostrarError(
+        'No se puede realizar check-in sin ubicación válida. '
+        'Por favor, habilite la ubicación e intente nuevamente.',
+      );
+      return;
+    }
 
-    // TODO: Navegar al formulario dinámico
-    Navigator.pushNamed(
-      context,
-      '/formulario_dinamico',
-      arguments: {
-        'actividad': actividad,
-        'comentarios': _comentariosController.text,
-        'ubicacion': _ubicacionActual,
-      },
+    // Mostrar loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (context) => Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const CircularProgressIndicator(color: AppColors.dianaRed),
+                const SizedBox(height: 16),
+                Text(
+                  'Realizando check-in...',
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
     );
+
+    try {
+      // Importar servicios y modelos
+      final VisitaClienteServicio visitaServicio = VisitaClienteServicio();
+
+      // Crear CheckIn usando el builder
+      final checkIn =
+          CheckInBuilder()
+              .comentarios(_comentariosController.text.trim())
+              .ubicacion(
+                latitud: _posicionActual!.latitude,
+                longitud: _posicionActual!.longitude,
+                precision: _posicionActual!.accuracy,
+                direccion: _ubicacionActual,
+              )
+              .build();
+
+      // Extraer información del día actual
+      String diaActual = _obtenerDiaActual();
+
+      print('🏁 Realizando check-in:');
+      print('   └── Cliente: ${actividad!.title}');
+      print('   └── ID Cliente: ${actividad!.cliente}');
+      print('   └── Día: $diaActual');
+      print('   └── Comentarios: ${_comentariosController.text}');
+      print('   └── Ubicación: $_ubicacionActual');
+      print('   └── Precisión: ${_posicionActual!.accuracy} metros');
+
+      // Crear visita en el servidor
+      final visita = await visitaServicio.crearVisitaDesdeActividad(
+        clienteId: actividad!.cliente ?? 'UNKNOWN',
+        clienteNombre: actividad!.title,
+        dia: diaActual,
+        checkIn: checkIn,
+        planId: null, // TODO: Obtener desde el contexto del plan actual
+      );
+
+      print('✅ Check-in realizado exitosamente');
+      print('   └── Visita ID: ${visita.visitaId}');
+      print('   └── Estatus: ${visita.estatus}');
+
+      // Cerrar loading
+      if (mounted) Navigator.of(context).pop();
+
+      // Navegar al formulario dinámico con toda la información
+      if (mounted) {
+        final resultado = await Navigator.pushNamed(
+          context,
+          '/formulario_dinamico',
+          arguments: {
+            'actividad': actividad,
+            'visita': visita,
+            'checkIn': checkIn,
+            'visitaServicio': visitaServicio,
+          },
+        );
+
+        // Si el formulario se completó exitosamente, regresar con resultado positivo
+        if (resultado == true && mounted) {
+          Navigator.pop(context, true);
+        }
+      }
+    } catch (e) {
+      // Cerrar loading
+      if (mounted) Navigator.of(context).pop();
+
+      print('❌ Error al realizar check-in: $e');
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder:
+              (context) => AlertDialog(
+                title: Row(
+                  children: [
+                    const Icon(Icons.error, color: Colors.red),
+                    const SizedBox(width: 8),
+                    const Text('Error al realizar Check-in'),
+                  ],
+                ),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'No se pudo realizar el check-in en el servidor.',
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'Error: $e',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text('¿Qué puedes hacer?'),
+                    const Text('• Verifica tu conexión a internet'),
+                    const Text('• Intenta nuevamente en unos momentos'),
+                    const Text('• El servidor debe estar funcionando'),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Entendido'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      _realizarCheckIn(); // Reintentar
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.dianaRed,
+                    ),
+                    child: const Text(
+                      'Reintentar',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+        );
+      }
+    }
+  }
+
+  /// Obtener el día actual en español
+  String _obtenerDiaActual() {
+    final diasSemana = [
+      'lunes',
+      'martes',
+      'miércoles',
+      'jueves',
+      'viernes',
+      'sábado',
+      'domingo',
+    ];
+    return diasSemana[DateTime.now().weekday - 1];
   }
 
   void _mostrarError(String mensaje) {
@@ -106,7 +483,7 @@ class _PantallaVisitaClienteState extends State<PantallaVisitaCliente> {
         backgroundColor: Colors.orange.shade700,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 4),
       ),
     );
   }
@@ -213,7 +590,7 @@ class _PantallaVisitaClienteState extends State<PantallaVisitaCliente> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Información del cliente (según boceto)
+            // Información del cliente
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
@@ -225,7 +602,6 @@ class _PantallaVisitaClienteState extends State<PantallaVisitaCliente> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Título del cliente
                   Text(
                     actividad!.title,
                     style: GoogleFonts.poppins(
@@ -275,7 +651,7 @@ class _PantallaVisitaClienteState extends State<PantallaVisitaCliente> {
 
             const SizedBox(height: 24),
 
-            // Ubicación actual (según boceto)
+            // Ubicación actual mejorada
             Text(
               'Ubicación actual',
               style: GoogleFonts.poppins(
@@ -293,7 +669,13 @@ class _PantallaVisitaClienteState extends State<PantallaVisitaCliente> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade300, width: 1),
+                border: Border.all(
+                  color:
+                      _errorUbicacion
+                          ? Colors.red.shade300
+                          : Colors.grey.shade300,
+                  width: 1,
+                ),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.05),
@@ -302,56 +684,93 @@ class _PantallaVisitaClienteState extends State<PantallaVisitaCliente> {
                   ),
                 ],
               ),
-              child: Row(
+              child: Column(
                 children: [
-                  Icon(
-                    Icons.location_on,
-                    color:
-                        _cargandoUbicacion
-                            ? AppColors.mediumGray
-                            : AppColors.dianaRed,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child:
-                        _cargandoUbicacion
-                            ? Row(
-                              children: [
-                                SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: AppColors.mediumGray,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
+                  Row(
+                    children: [
+                      Icon(
+                        _errorUbicacion
+                            ? Icons.location_off
+                            : (_cargandoUbicacion
+                                ? Icons.location_searching
+                                : Icons.location_on),
+                        color:
+                            _errorUbicacion
+                                ? Colors.red
+                                : (_cargandoUbicacion
+                                    ? AppColors.mediumGray
+                                    : AppColors.dianaGreen),
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child:
+                            _cargandoUbicacion
+                                ? Row(
+                                  children: [
+                                    SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: AppColors.mediumGray,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      _ubicacionActual,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 14,
+                                        color: AppColors.mediumGray,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                                : Text(
                                   _ubicacionActual,
                                   style: GoogleFonts.poppins(
                                     fontSize: 14,
-                                    color: AppColors.mediumGray,
+                                    color:
+                                        _errorUbicacion
+                                            ? Colors.red
+                                            : AppColors.darkGray,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
-                              ],
-                            )
-                            : Text(
-                              _ubicacionActual,
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                color: AppColors.darkGray,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
+                      ),
+
+                      // Botón reintentar si hay error
+                      if (_errorUbicacion)
+                        IconButton(
+                          onPressed: _reintentarUbicacion,
+                          icon: const Icon(
+                            Icons.refresh,
+                            color: AppColors.dianaRed,
+                          ),
+                          tooltip: 'Reintentar ubicación',
+                        ),
+                    ],
                   ),
+
+                  // Mostrar precisión si hay ubicación válida
+                  if (_posicionActual != null && !_errorUbicacion) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Precisión: ${_posicionActual!.accuracy.round()} metros',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: AppColors.mediumGray,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
 
             const SizedBox(height: 24),
 
-            // Comentarios (según boceto)
+            // Comentarios
             Text(
               'Comentarios',
               style: GoogleFonts.poppins(
@@ -389,11 +808,14 @@ class _PantallaVisitaClienteState extends State<PantallaVisitaCliente> {
 
             const SizedBox(height: 32),
 
-            // Botón CHECK-IN (según boceto)
+            // Botón CHECK-IN mejorado
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _cargandoUbicacion ? null : _realizarCheckIn,
+                onPressed:
+                    (_cargandoUbicacion || _errorUbicacion)
+                        ? null
+                        : _realizarCheckIn,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.dianaRed,
                   foregroundColor: Colors.white,
@@ -403,14 +825,37 @@ class _PantallaVisitaClienteState extends State<PantallaVisitaCliente> {
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   elevation: 2,
                 ),
-                child: Text(
-                  'CHECK-IN',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
-                  ),
-                ),
+                child:
+                    _cargandoUbicacion
+                        ? Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              'Obteniendo ubicación...',
+                              style: GoogleFonts.poppins(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        )
+                        : Text(
+                          'CHECK-IN',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
               ),
             ),
 

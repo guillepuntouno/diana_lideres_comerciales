@@ -18,6 +18,9 @@ dependencies:
   sqflite: ^2.2.8+4
   path_provider: ^2.1.2
   path: ^1.9.0
+  http: ^1.1.0  # ← Nueva dependencia agregada
+  geolocator: ^10.1.0
+  permission_handler: ^11.3.1
 
 dev_dependencies:
   flutter_test:

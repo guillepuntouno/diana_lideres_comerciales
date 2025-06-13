@@ -17,8 +17,10 @@ final Map<String, WidgetBuilder> rutas = {
   '/plan_configuracion': (context) => const VistaProgramacionSemana(),
   '/programar_dia': (context) => const VistaProgramarDia(),
   '/asignacion_clientes': (context) => const VistaAsignacionClientes(),
-  '/vista_planes_trabajo':
-      (context) => const VistaPlanesTrabajo(), // CORREGIDO: Agregué el /
+
+  // CORREGIDO: Cambié de /vista_planes_trabajo a /planes_trabajo para que coincida con el menú
+  '/planes_trabajo': (context) => const VistaPlanesTrabajo(),
+
   '/rutina_diaria': (context) => const PantallaRutinaDiaria(),
   '/visita_cliente': (context) => const PantallaVisitaCliente(),
   '/formulario_dinamico': (context) => const PantallaFormularioDinamico(),

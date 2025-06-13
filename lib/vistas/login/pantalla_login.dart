@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import '../../../viewmodels/login_viewmodel.dart';
-import '../../../widgets/footer_clipper.dart';
+import '../../viewmodels/login_viewmodel.dart';
+import '../../widgets/footer_clipper.dart';
 
 class PantallaLogin extends StatelessWidget {
   const PantallaLogin({super.key});
@@ -40,6 +40,48 @@ class PantallaLogin extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 48),
+
+                        // Mostrar mensaje de error si existe
+                        if (vm.errorMessage != null) ...[
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            margin: const EdgeInsets.only(bottom: 16),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.red.shade200),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.error_outline,
+                                  color: Colors.red.shade600,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    vm.errorMessage!,
+                                    style: TextStyle(
+                                      color: Colors.red.shade700,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                                GestureDetector(
+                                  onTap: vm.clearError,
+                                  child: Icon(
+                                    Icons.close,
+                                    color: Colors.red.shade600,
+                                    size: 18,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+
                         Align(
                           alignment: Alignment.centerLeft,
                           child: Text(
@@ -55,8 +97,9 @@ class PantallaLogin extends StatelessWidget {
                         const SizedBox(height: 4),
                         TextFormField(
                           controller: vm.emailController,
+                          enabled: !vm.isLoading,
                           decoration: InputDecoration(
-                            hintText: 'ejemplo@diana.com.sv',
+                            hintText: 'LID001@diana.com.sv',
                             hintStyle: GoogleFonts.poppins(
                               fontSize: 10,
                               color: const Color(0xFF1C2120),
@@ -90,7 +133,10 @@ class PantallaLogin extends StatelessWidget {
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
-                            onPressed: () => vm.iniciarSesion(context),
+                            onPressed:
+                                vm.isLoading
+                                    ? null
+                                    : () => vm.iniciarSesion(context),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFFFFBD59),
                               foregroundColor: const Color(0xFF1C2120),
@@ -100,13 +146,40 @@ class PantallaLogin extends StatelessWidget {
                               ),
                               elevation: 0,
                             ),
-                            child: Text(
-                              'INICIAR SESIÓN',
-                              style: GoogleFonts.poppins(
-                                fontSize: 11.2,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                            child:
+                                vm.isLoading
+                                    ? Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                                  Color(0xFF1C2120),
+                                                ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Text(
+                                          'INICIANDO SESIÓN...',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 11.2,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                    : Text(
+                                      'INICIAR SESIÓN',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 11.2,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                           ),
                         ),
                         const SizedBox(height: 24),

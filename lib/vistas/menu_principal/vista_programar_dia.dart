@@ -5,6 +5,8 @@ import 'dart:convert';
 import 'package:intl/intl.dart';
 import '../../modelos/plan_trabajo_modelo.dart';
 import '../../servicios/plan_trabajo_servicio.dart';
+import '../../servicios/sesion_servicio.dart';
+import '../../modelos/lider_comercial_modelo.dart';
 
 class VistaProgramarDia extends StatefulWidget {
   const VistaProgramarDia({super.key});
@@ -21,11 +23,17 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
   late String diaSeleccionado;
   late String semana;
   late String liderId;
+  bool esEdicion = false; // Nuevo: detectar si es edición
+
   String? _objetivoSeleccionado;
-  String? _centroSeleccionado;
   String? _rutaSeleccionada;
+  String? _objetivoAbordajeSeleccionado; // Reemplaza comentario
   String? _tipoActividadAdministrativa;
-  final TextEditingController _comentarioController = TextEditingController();
+
+  // Datos del líder (precargados)
+  LiderComercial? _liderComercial;
+  String _centroDistribucionInterno = ''; // Oculto pero capturado
+  List<Ruta> _rutasDisponibles = [];
 
   // Listas de opciones
   final List<String> _objetivos = [
@@ -34,28 +42,19 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
   ];
 
   final List<String> _tiposActividad = [
-    'reunión',
-    'revisión',
-    'evaluación',
-    'vacaciones',
-    'descanso',
+    'Día festivo',
+    'Vacaciones',
+    'Capacitaciones',
+    'Entrevistas',
   ];
 
-  final List<String> _centros = [
-    'Centro de Servicio',
-    'Distribuidora Santa Ana',
-    'Distribuidora San Miguel',
-    'Distribuidora Sonsonate',
+  final List<String> _objetivosAbordaje = [
+    'Asesor nuevo ingreso',
+    'Ruta abajo de PE',
+    'Ticket de compra',
+    'Censo de clientes',
   ];
 
-  final Map<String, List<String>> _rutasPorCentro = {
-    'Centro de Servicio': ['RUTAS01', 'RUTAS02', 'RUTAS03'],
-    'Distribuidora Santa Ana': ['RUTAS04', 'RUTAS05'],
-    'Distribuidora San Miguel': ['RUTAS06', 'RUTAS07'],
-    'Distribuidora Sonsonate': ['RUTAS08', 'RUTAS09', 'RUTAS10'],
-  };
-
-  List<String> _rutasDisponibles = [];
   int _currentIndex = 1; // Rutinas seleccionado
 
   @override
@@ -66,77 +65,143 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
     diaSeleccionado = args['dia'] as String;
     semana = args['semana'] as String;
     liderId = args['liderId'] as String;
+    esEdicion = args['esEdicion'] ?? false; // Detectar si es edición
 
-    // Cargar datos existentes si los hay
-    _cargarDatosExistentes();
+    _inicializarDatos();
   }
 
-  @override
-  void dispose() {
-    _comentarioController.dispose();
-    super.dispose();
+  Future<void> _inicializarDatos() async {
+    // Cargar datos del líder comercial desde sesión
+    await _cargarDatosLider();
+
+    // Cargar datos existentes si los hay
+    await _cargarDatosExistentes();
+  }
+
+  Future<void> _cargarDatosLider() async {
+    try {
+      _liderComercial = await SesionServicio.obtenerLiderComercial();
+
+      if (_liderComercial != null) {
+        setState(() {
+          _centroDistribucionInterno = _liderComercial!.centroDistribucion;
+          _rutasDisponibles = _liderComercial!.rutas;
+
+          // AUTO-SELECCIONAR RUTA SI SOLO HAY UNA DISPONIBLE
+          if (_rutasDisponibles.length == 1 && _rutaSeleccionada == null) {
+            _rutaSeleccionada = _rutasDisponibles.first.nombre;
+            print(
+              'Auto-seleccionando única ruta disponible: $_rutaSeleccionada',
+            );
+          }
+        });
+
+        print('Datos del líder cargados:');
+        print('Centro: $_centroDistribucionInterno');
+        print('Rutas disponibles: ${_rutasDisponibles.length}');
+        _rutasDisponibles.forEach((ruta) {
+          print('- ${ruta.nombre} (Asesor: ${ruta.asesor})');
+        });
+      }
+    } catch (e) {
+      print('Error al cargar datos del líder: $e');
+
+      // Mostrar mensaje de error
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al cargar datos del líder: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _cargarDatosExistentes() async {
-    final plan = await _planServicio.obtenerPlanTrabajo(semana, liderId);
-    if (plan != null && plan.dias.containsKey(diaSeleccionado)) {
-      final diaData = plan.dias[diaSeleccionado]!;
-      setState(() {
-        _objetivoSeleccionado = diaData.objetivo;
-        _centroSeleccionado = diaData.centroDistribucion;
-        _rutaSeleccionada = diaData.rutaId;
-        _tipoActividadAdministrativa = diaData.tipoActividad;
-        _comentarioController.text = diaData.comentario ?? '';
-        if (_centroSeleccionado != null) {
-          _rutasDisponibles = _rutasPorCentro[_centroSeleccionado] ?? [];
-        }
-      });
+    try {
+      final plan = await _planServicio.obtenerPlanTrabajo(semana, liderId);
+      if (plan != null && plan.dias.containsKey(diaSeleccionado)) {
+        final diaData = plan.dias[diaSeleccionado]!;
+        setState(() {
+          // Validar que el objetivo existe en la lista antes de asignarlo
+          if (_objetivos.contains(diaData.objetivo)) {
+            _objetivoSeleccionado = diaData.objetivo;
+          }
+
+          // Validar que la ruta existe en las rutas disponibles
+          if (_rutasDisponibles.any((ruta) => ruta.nombre == diaData.rutaId)) {
+            _rutaSeleccionada = diaData.rutaId;
+          }
+
+          // Validar que el tipo de actividad existe en la lista
+          if (_tiposActividad.contains(diaData.tipoActividad)) {
+            _tipoActividadAdministrativa = diaData.tipoActividad;
+          }
+
+          // Validar que el objetivo de abordaje existe en la lista
+          if (_objetivosAbordaje.contains(diaData.comentario)) {
+            _objetivoAbordajeSeleccionado = diaData.comentario;
+          }
+        });
+
+        print('Datos existentes cargados para $diaSeleccionado');
+        print('Objetivo: $_objetivoSeleccionado');
+        print('Ruta: $_rutaSeleccionada');
+        print('Tipo actividad: $_tipoActividadAdministrativa');
+        print('Objetivo abordaje: $_objetivoAbordajeSeleccionado');
+      }
+    } catch (e) {
+      print('Error al cargar datos existentes: $e');
     }
   }
 
   Future<void> _guardarConfiguracion() async {
-    // Crear el modelo del día
-    final diaTrabajo = DiaTrabajoModelo(
-      dia: diaSeleccionado,
-      objetivo: _objetivoSeleccionado,
-      tipo:
-          _objetivoSeleccionado == 'Gestión de cliente'
-              ? 'gestion_cliente'
-              : 'administrativo',
-      centroDistribucion: _centroSeleccionado,
-      rutaId: _rutaSeleccionada,
-      rutaNombre: _rutaSeleccionada, // Por ahora usamos el mismo valor
-      tipoActividad: _tipoActividadAdministrativa,
-      comentario:
-          _comentarioController.text.isNotEmpty
-              ? _comentarioController.text
-              : null,
-    );
-
-    // Actualizar el día en el plan
-    await _planServicio.actualizarDiaTrabajo(
-      semana,
-      liderId,
-      diaSeleccionado,
-      diaTrabajo,
-    );
-
-    if (context.mounted &&
-        _objetivoSeleccionado == 'Actividad administrativa') {
-      // Mostrar confirmación visual
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle, color: Colors.white),
-              const SizedBox(width: 8),
-              Text('$diaSeleccionado configurado correctamente'),
-            ],
-          ),
-          backgroundColor: Colors.green,
-          duration: const Duration(seconds: 2),
-        ),
+    try {
+      // Crear el modelo del día
+      final diaTrabajo = DiaTrabajoModelo(
+        dia: diaSeleccionado,
+        objetivo: _objetivoSeleccionado,
+        tipo:
+            _objetivoSeleccionado == 'Gestión de cliente'
+                ? 'gestion_cliente'
+                : 'administrativo',
+        centroDistribucion:
+            _centroDistribucionInterno, // Capturado internamente
+        rutaId: _rutaSeleccionada,
+        rutaNombre:
+            _rutaSeleccionada != null
+                ? _rutasDisponibles
+                    .firstWhere(
+                      (ruta) => ruta.nombre == _rutaSeleccionada,
+                      orElse:
+                          () => Ruta(
+                            asesor: '',
+                            nombre: _rutaSeleccionada!,
+                            negocios: [],
+                          ),
+                    )
+                    .nombre
+                : null,
+        tipoActividad: _tipoActividadAdministrativa,
+        comentario:
+            _objetivoAbordajeSeleccionado, // Guardar objetivo de abordaje
       );
+
+      // Actualizar el día en el plan
+      await _planServicio.actualizarDiaTrabajo(
+        semana,
+        liderId,
+        diaSeleccionado,
+        diaTrabajo,
+      );
+
+      print('Configuración guardada para $diaSeleccionado');
+      print('Tipo: ${diaTrabajo.tipo}');
+      print('Centro (interno): $_centroDistribucionInterno');
+    } catch (e) {
+      print('Error al guardar configuración: $e');
+      rethrow;
     }
   }
 
@@ -145,7 +210,6 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
       _currentIndex = index;
     });
 
-    // Navegación según el índice
     switch (index) {
       case 0:
         Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
@@ -168,7 +232,7 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          'Programar Día',
+          esEdicion ? 'Editar Día' : 'Programar Día',
           style: GoogleFonts.poppins(
             color: const Color(0xFF1C2120),
             fontWeight: FontWeight.bold,
@@ -186,24 +250,44 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFBD59).withOpacity(0.1),
+                color: (esEdicion ? Colors.orange : const Color(0xFFFFBD59))
+                    .withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFFFBD59), width: 1),
+                border: Border.all(
+                  color: esEdicion ? Colors.orange : const Color(0xFFFFBD59),
+                  width: 1,
+                ),
               ),
               child: Row(
                 children: [
-                  const Icon(
-                    Icons.calendar_today,
-                    color: Color(0xFFDE1327),
+                  Icon(
+                    esEdicion ? Icons.edit_calendar : Icons.calendar_today,
+                    color: const Color(0xFFDE1327),
                     size: 24,
                   ),
                   const SizedBox(width: 12),
-                  Text(
-                    'Configurando: $diaSeleccionado',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF1C2120),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${esEdicion ? 'Editando' : 'Configurando'}: $diaSeleccionado',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF1C2120),
+                          ),
+                        ),
+                        if (esEdicion)
+                          Text(
+                            'Modificando plan enviado',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: Colors.orange.shade700,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ],
@@ -277,12 +361,18 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                     onChanged: (value) {
                       setState(() {
                         _objetivoSeleccionado = value;
-                        _centroSeleccionado = null;
-                        _rutaSeleccionada = null;
-                        _rutasDisponibles = [];
-                        // Limpiar campos específicos de actividad administrativa
-                        if (value != 'Actividad administrativa') {
+                        // Limpiar campos dependientes al cambiar objetivo
+                        if (value == 'Actividad administrativa') {
+                          // Para actividad administrativa, limpiar campos de gestión de cliente
+                          _rutaSeleccionada = null;
+                          _objetivoAbordajeSeleccionado = null;
+                        } else if (value == 'Gestión de cliente') {
+                          // Para gestión de cliente, limpiar campos administrativos y auto-seleccionar ruta si aplica
                           _tipoActividadAdministrativa = null;
+                          // Auto-seleccionar ruta si solo hay una disponible
+                          if (_rutasDisponibles.length == 1) {
+                            _rutaSeleccionada = _rutasDisponibles.first.nombre;
+                          }
                         }
                       });
                     },
@@ -388,125 +478,54 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 20),
-                    Text(
-                      'Comentario (opcional):',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF1C2120),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _comentarioController,
-                      maxLines: 3,
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        color: const Color(0xFF1C2120),
-                      ),
-                      decoration: InputDecoration(
-                        hintText:
-                            'Escriba aquí cualquier comentario adicional...',
-                        hintStyle: GoogleFonts.poppins(
-                          fontSize: 14,
-                          color: Colors.grey,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: Colors.grey),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFDE1327),
-                            width: 2,
-                          ),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                      ),
-                    ),
                   ],
 
-                  // Campos adicionales para Gestión de cliente
+                  // Campos EXCLUSIVOS para Gestión de cliente
                   if (_objetivoSeleccionado == 'Gestión de cliente') ...[
                     const SizedBox(height: 20),
-                    Text(
-                      'Centro de distribución:',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF1C2120),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      decoration: InputDecoration(
-                        hintText: 'SELECCIONE UN CENTRO',
-                        hintStyle: GoogleFonts.poppins(
-                          fontSize: 14,
-                          color: Colors.grey,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: Colors.grey),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFDE1327),
-                            width: 2,
+                    Row(
+                      children: [
+                        Text(
+                          'Ruta disponible:',
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF1C2120),
                           ),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                      ),
-                      value: _centroSeleccionado,
-                      items:
-                          _centros
-                              .map(
-                                (centro) => DropdownMenuItem(
-                                  value: centro,
-                                  child: Text(
-                                    centro,
-                                    style: GoogleFonts.poppins(fontSize: 14),
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          _centroSeleccionado = value;
-                          _rutaSeleccionada = null;
-                          _rutasDisponibles = _rutasPorCentro[value] ?? [];
-                        });
-                      },
-                      validator: (value) {
-                        if (_objetivoSeleccionado == 'Gestión de cliente' &&
-                            (value == null || value.isEmpty)) {
-                          return 'Por favor seleccione un centro';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      'Ruta disponible:',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF1C2120),
-                      ),
+                        if (_rutasDisponibles.length == 1) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade100,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.green.shade300),
+                            ),
+                            child: Text(
+                              'AUTO',
+                              style: GoogleFonts.poppins(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green.shade700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
                       decoration: InputDecoration(
-                        hintText: 'SELECCIONE UNA RUTA',
+                        hintText:
+                            _rutasDisponibles.isEmpty
+                                ? 'CARGANDO RUTAS...'
+                                : _rutasDisponibles.length == 1
+                                ? 'RUTA SELECCIONADA AUTOMÁTICAMENTE'
+                                : 'SELECCIONE UNA RUTA',
                         hintStyle: GoogleFonts.poppins(
                           fontSize: 14,
                           color: Colors.grey,
@@ -532,19 +551,22 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                           _rutasDisponibles
                               .map(
                                 (ruta) => DropdownMenuItem(
-                                  value: ruta,
+                                  value: ruta.nombre,
                                   child: Text(
-                                    ruta,
+                                    '${ruta.nombre} - ${ruta.asesor}',
                                     style: GoogleFonts.poppins(fontSize: 14),
                                   ),
                                 ),
                               )
                               .toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          _rutaSeleccionada = value;
-                        });
-                      },
+                      onChanged:
+                          _rutasDisponibles.isNotEmpty
+                              ? (value) {
+                                setState(() {
+                                  _rutaSeleccionada = value;
+                                });
+                              }
+                              : null,
                       validator: (value) {
                         if (_objetivoSeleccionado == 'Gestión de cliente' &&
                             (value == null || value.isEmpty)) {
@@ -555,7 +577,7 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      'Comentario (opcional):',
+                      'Objetivo de abordaje:',
                       style: GoogleFonts.poppins(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -563,16 +585,9 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _comentarioController,
-                      maxLines: 3,
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        color: const Color(0xFF1C2120),
-                      ),
+                    DropdownButtonFormField<String>(
                       decoration: InputDecoration(
-                        hintText:
-                            'Escriba aquí cualquier comentario adicional...',
+                        hintText: 'SELECCIONE OBJETIVO DE ABORDAJE',
                         hintStyle: GoogleFonts.poppins(
                           fontSize: 14,
                           color: Colors.grey,
@@ -593,40 +608,100 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                           vertical: 12,
                         ),
                       ),
+                      value: _objetivoAbordajeSeleccionado,
+                      items:
+                          _objetivosAbordaje
+                              .map(
+                                (objetivo) => DropdownMenuItem(
+                                  value: objetivo,
+                                  child: Text(
+                                    objetivo,
+                                    style: GoogleFonts.poppins(fontSize: 14),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _objetivoAbordajeSeleccionado = value;
+                        });
+                      },
+                      validator: (value) {
+                        if (_objetivoSeleccionado == 'Gestión de cliente' &&
+                            (value == null || value.isEmpty)) {
+                          return 'Por favor seleccione un objetivo de abordaje';
+                        }
+                        return null;
+                      },
                     ),
                   ],
 
-                  // Mensaje informativo para actividad administrativa
-                  if (_objetivoSeleccionado == 'Actividad administrativa') ...[
-                    const SizedBox(height: 20),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: Colors.blue.shade200,
-                          width: 1,
-                        ),
+                  // Mensaje informativo
+                  const SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color:
+                          (_objetivoSeleccionado == 'Actividad administrativa'
+                                  ? Colors.blue
+                                  : Colors.green)
+                              .shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color:
+                            (_objetivoSeleccionado == 'Actividad administrativa'
+                                    ? Colors.blue
+                                    : Colors.green)
+                                .shade200,
+                        width: 1,
                       ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            color: Colors.blue.shade700,
-                            size: 24,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'Al presionar GUARDAR, se registrará esta actividad administrativa para el $diaSeleccionado',
-                              style: GoogleFonts.poppins(
-                                fontSize: 13,
-                                color: Colors.blue.shade700,
-                              ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          color:
+                              (_objetivoSeleccionado ==
+                                          'Actividad administrativa'
+                                      ? Colors.blue
+                                      : Colors.green)
+                                  .shade700,
+                          size: 24,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            _objetivoSeleccionado == 'Actividad administrativa'
+                                ? 'Al presionar GUARDAR, se registrará esta actividad administrativa para el $diaSeleccionado'
+                                : _objetivoSeleccionado == 'Gestión de cliente'
+                                ? 'Al presionar SIGUIENTE, procederá a la asignación de clientes para la ruta seleccionada'
+                                : 'Seleccione un objetivo para continuar',
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              color:
+                                  _objetivoSeleccionado ==
+                                          'Actividad administrativa'
+                                      ? Colors.blue.shade700
+                                      : _objetivoSeleccionado ==
+                                          'Gestión de cliente'
+                                      ? Colors.green.shade700
+                                      : Colors.grey.shade700,
                             ),
                           ),
-                        ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Información del centro (solo para debug, no visible al usuario)
+                  if (_centroDistribucionInterno.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Centro: $_centroDistribucionInterno (capturado internamente)',
+                      style: GoogleFonts.poppins(
+                        fontSize: 10,
+                        color: Colors.grey.shade500,
+                        fontStyle: FontStyle.italic,
                       ),
                     ),
                   ],
@@ -663,32 +738,80 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                   child: ElevatedButton(
                     onPressed: () async {
                       if (_formKey.currentState!.validate()) {
-                        // Primero guardar la configuración básica
-                        await _guardarConfiguracion();
-
-                        if (_objetivoSeleccionado == 'Gestión de cliente') {
-                          // Navegar a asignación de clientes
-                          final resultado = await Navigator.pushNamed(
-                            context,
-                            '/asignacion_clientes',
-                            arguments: {
-                              'dia': diaSeleccionado,
-                              'ruta': _rutaSeleccionada,
-                              'centro': _centroSeleccionado,
-                              'semana': semana,
-                              'liderId': liderId,
-                            },
+                        try {
+                          // Mostrar loading
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder:
+                                (context) => const Center(
+                                  child: CircularProgressIndicator(
+                                    color: Color(0xFFDE1327),
+                                  ),
+                                ),
                           );
 
-                          if (resultado == true && context.mounted) {
-                            Navigator.pop(context, true);
+                          // Guardar la configuración básica
+                          await _guardarConfiguracion();
+
+                          // Cerrar loading
+                          if (mounted) Navigator.of(context).pop();
+
+                          if (_objetivoSeleccionado == 'Gestión de cliente') {
+                            // Navegar a asignación de clientes
+                            final resultado = await Navigator.pushNamed(
+                              context,
+                              '/asignacion_clientes',
+                              arguments: {
+                                'dia': diaSeleccionado,
+                                'ruta': _rutaSeleccionada,
+                                'centro': _centroDistribucionInterno,
+                                'semana': semana,
+                                'liderId': liderId,
+                                'esEdicion': esEdicion,
+                              },
+                            );
+
+                            if (resultado == true && mounted) {
+                              Navigator.pop(context, true);
+                            }
+                          } else if (_objetivoSeleccionado ==
+                              'Actividad administrativa') {
+                            // Mostrar confirmación y regresar
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.check_circle,
+                                        color: Colors.white,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        '$diaSeleccionado configurado correctamente',
+                                      ),
+                                    ],
+                                  ),
+                                  backgroundColor: Colors.green,
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                              Navigator.pop(context, true);
+                            }
                           }
-                        } else if (_objetivoSeleccionado ==
-                            'Actividad administrativa') {
-                          // Ya se guardó en _guardarConfiguracion
-                          // Redirigir inmediatamente
-                          if (context.mounted) {
-                            Navigator.pop(context, true);
+                        } catch (e) {
+                          // Cerrar loading si está abierto
+                          if (mounted) Navigator.of(context).pop();
+
+                          // Mostrar error
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Error al guardar: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
                           }
                         }
                       }
