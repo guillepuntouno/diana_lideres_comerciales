@@ -5,8 +5,8 @@ import 'package:flutter/foundation.dart';
 class LiderComercialServicio {
   final String _baseUrl =
       kIsWeb
-          ? 'http://localhost:60148/api/lideres' // Para web
-          : 'http://10.0.2.2:60148/api/lideres'; // Para Android emulator
+          ? 'http://guillermosofnux-001-site1.stempurl.com/api/lideres' // Para web
+          : 'http://guillermosofnux-001-site1.stempurl.com/api/lideres'; // Para Android emulator
 
   Future<Map<String, dynamic>?> obtenerPorClave(String clave) async {
     try {

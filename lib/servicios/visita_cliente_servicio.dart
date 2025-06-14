@@ -11,7 +11,9 @@ class VisitaClienteServicio {
   VisitaClienteServicio._internal();
 
   // URL base del servidor
-  static const String _baseUrl = 'http://localhost:60148/api/visitas';
+  //static const String _baseUrl = 'http://localhost:60148/api/visitas';
+  static const String _baseUrl =
+      'http://guillermosofnux-001-site1.stempurl.com/api/visitas';
 
   // Headers comunes para las peticiones
   Map<String, String> get _headers => {
