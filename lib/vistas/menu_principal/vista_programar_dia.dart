@@ -156,6 +156,43 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
     }
   }
 
+  // Método auxiliar para calcular fechas de la semana
+  (String, String) _calcularFechasSemana() {
+    try {
+      // Extraer el número de semana del string "SEMANA XX - YYYY"
+      final partes = semana.split(' ');
+      final numeroSemana = int.parse(partes[1]);
+      final ano = int.parse(partes[3]);
+
+      // Calcular el primer día del año
+      final primerDiaAno = DateTime(ano, 1, 1);
+
+      // Calcular cuántos días hay que sumar para llegar a la semana deseada
+      final diasHastaSemana = (numeroSemana - 1) * 7;
+
+      // Ajustar para que empiece en lunes
+      final primerLunesAno = primerDiaAno.add(
+        Duration(days: (8 - primerDiaAno.weekday) % 7),
+      );
+
+      // Calcular fecha de inicio y fin de la semana
+      final fechaInicio = primerLunesAno.add(Duration(days: diasHastaSemana));
+      final fechaFin = fechaInicio.add(Duration(days: 4)); // Lunes a Viernes
+
+      final formato = DateFormat('dd/MM/yyyy');
+      return (formato.format(fechaInicio), formato.format(fechaFin));
+    } catch (e) {
+      print('⚠️ Error al calcular fechas, usando fechas por defecto: $e');
+      // Fallback: usar fecha actual
+      final ahora = DateTime.now();
+      final inicioSemana = ahora.subtract(Duration(days: ahora.weekday - 1));
+      final finSemana = inicioSemana.add(Duration(days: 4));
+
+      final formato = DateFormat('dd/MM/yyyy');
+      return (formato.format(inicioSemana), formato.format(finSemana));
+    }
+  }
+
   Future<void> _guardarConfiguracion() async {
     try {
       // Crear el modelo del día
@@ -166,8 +203,7 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
             _objetivoSeleccionado == 'Gestión de cliente'
                 ? 'gestion_cliente'
                 : 'administrativo',
-        centroDistribucion:
-            _centroDistribucionInterno, // Capturado internamente
+        centroDistribucion: _centroDistribucionInterno,
         rutaId: _rutaSeleccionada,
         rutaNombre:
             _rutaSeleccionada != null
@@ -184,24 +220,96 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                     .nombre
                 : null,
         tipoActividad: _tipoActividadAdministrativa,
-        comentario:
-            _objetivoAbordajeSeleccionado, // Guardar objetivo de abordaje
+        comentario: _objetivoAbordajeSeleccionado,
       );
 
-      // Actualizar el día en el plan
-      await _planServicio.actualizarDiaTrabajo(
-        semana,
-        liderId,
-        diaSeleccionado,
-        diaTrabajo,
-      );
+      // PASO 1: Verificar si existe el plan, si no existe, crearlo
+      PlanTrabajoModelo? planExistente;
+      try {
+        planExistente = await _planServicio.obtenerPlanTrabajo(semana, liderId);
+        print('📋 Plan existente encontrado para $semana');
+      } catch (e) {
+        print('📋 No existe plan para $semana, creando uno nuevo...');
+        planExistente = null;
+      }
 
-      print('Configuración guardada para $diaSeleccionado');
-      print('Tipo: ${diaTrabajo.tipo}');
-      print('Centro (interno): $_centroDistribucionInterno');
+      if (planExistente == null) {
+        // CREAR NUEVO PLAN DE TRABAJO
+        print('🆕 Creando nuevo plan de trabajo...');
+
+        // Calcular fechas de la semana
+        final (fechaInicio, fechaFin) = _calcularFechasSemana();
+
+        final nuevoPlan = PlanTrabajoModelo(
+          semana: semana,
+          fechaInicio: fechaInicio,
+          fechaFin: fechaFin,
+          liderId: liderId,
+          liderNombre: _liderComercial?.nombre ?? 'Líder',
+          centroDistribucion: _centroDistribucionInterno,
+          estatus: 'borrador',
+          dias: {diaSeleccionado: diaTrabajo}, // Inicializar con el día actual
+          fechaCreacion: DateTime.now(),
+          sincronizado: false,
+        );
+
+        // Guardar el nuevo plan usando el método de creación
+        await _crearPlanTrabajo(nuevoPlan);
+        print('✅ Nuevo plan creado exitosamente');
+      } else {
+        // ACTUALIZAR PLAN EXISTENTE
+        print('📝 Actualizando plan existente...');
+        await _planServicio.actualizarDiaTrabajo(
+          semana,
+          liderId,
+          diaSeleccionado,
+          diaTrabajo,
+        );
+        print('✅ Plan actualizado exitosamente');
+      }
+
+      print('💾 Configuración guardada para $diaSeleccionado');
+      print('   └── Tipo: ${diaTrabajo.tipo}');
+      print('   └── Centro: $_centroDistribucionInterno');
+      print('   └── Ruta: $_rutaSeleccionada');
+      print('   └── Objetivo: $_objetivoSeleccionado');
     } catch (e) {
-      print('Error al guardar configuración: $e');
+      print('❌ Error al guardar configuración: $e');
       rethrow;
+    }
+  }
+
+  // Método para crear un plan de trabajo nuevo (integrado en la vista)
+  Future<void> _crearPlanTrabajo(PlanTrabajoModelo plan) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Obtener planes existentes
+      const keyPlanes = 'planes_trabajo_local';
+      final planesJson = prefs.getString(keyPlanes) ?? '{}';
+      final Map<String, dynamic> todosLosPlanes = jsonDecode(planesJson);
+
+      // Crear clave única para el plan
+      final clavePlan = '${plan.liderId}_${plan.semana}';
+
+      // Verificar que no exista ya
+      if (todosLosPlanes.containsKey(clavePlan)) {
+        throw Exception('Ya existe un plan para esta semana y líder');
+      }
+
+      // Agregar el nuevo plan
+      todosLosPlanes[clavePlan] = plan.toJson();
+
+      // Guardar en SharedPreferences
+      await prefs.setString(keyPlanes, jsonEncode(todosLosPlanes));
+
+      print('✅ Plan creado y guardado: $clavePlan');
+      print('   └── Semana: ${plan.semana}');
+      print('   └── Líder: ${plan.liderId}');
+      print('   └── Días configurados: ${plan.dias.length}');
+    } catch (e) {
+      print('❌ Error al crear plan de trabajo: $e');
+      throw Exception('Error al crear plan de trabajo: $e');
     }
   }
 
