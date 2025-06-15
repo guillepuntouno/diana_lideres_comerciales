@@ -10,6 +10,14 @@
       "StackName": "amplify-liderescomerciales-dev-34a4a",
       "StackId": "arn:aws:cloudformation:us-east-1:003549399450:stack/amplify-liderescomerciales-dev-34a4a/4638ffa0-4a13-11f0-a1d3-0e45265c229d",
       "AmplifyAppId": "d1j7nn3x0snvol"
+    },
+    "categories": {
+      "hosting": {
+        "amplifyhosting": {
+          "appId": "d1j7nn3x0snvol",
+          "type": "manual"
+        }
+      }
     }
   }
 }
