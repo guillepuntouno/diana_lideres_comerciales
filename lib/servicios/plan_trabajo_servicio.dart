@@ -15,7 +15,7 @@ class PlanTrabajoServicio {
   //static const String _baseUrl = 'http://localhost:60148/api/planes';
   //static const String _baseUrl = 'http://localhost:60148/api/planes';
   static const String _baseUrl =
-      'http://guillermosofnux-001-site1.stempurl.com/api/planes';
+      'https://guillermosofnux-001-site1.stempurl.com/api/planes';
 
   // Headers comunes para las peticiones
   Map<String, String> get _headers => {

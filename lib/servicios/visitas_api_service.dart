@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class VisitasApiService {
-  static const String baseUrl = 'http://localhost:60148/api';
+  //static const String baseUrl = 'http://localhost:60148/api';
+  static const String baseUrl =
+      'https://guillermosofnux-001-site1.stempurl.com/api';
 
   // Headers comunes para las peticiones
   static Map<String, String> get headers => {
