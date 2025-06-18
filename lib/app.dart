@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'rutas/rutas.dart';
 import 'temas/tema_diana.dart';
+import 'package:diana_lc_front/vistas/login/pantalla_login.dart'; // Importa PantallaLogin
 
 class DianaApp extends StatelessWidget {
   const DianaApp({super.key});
@@ -11,7 +12,7 @@ class DianaApp extends StatelessWidget {
       title: 'Diana - Líderes Comerciales',
       debugShowCheckedModeBanner: false,
       theme: temaDiana,
-      initialRoute: '/login',
+      home: const PantallaLogin(),
       routes: rutas,
     );
   }
