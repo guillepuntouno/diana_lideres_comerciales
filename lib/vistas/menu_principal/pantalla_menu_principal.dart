@@ -256,7 +256,7 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
                   title: const Text('Cerrar Sesión'),
                   onTap: () async {
                     Navigator.pop(context);
-                    await SesionServicio.cerrarSesion();
+                    await SesionServicio.cerrarSesion(context);
                     if (context.mounted) {
                       Navigator.pushReplacementNamed(context, '/login');
                     }

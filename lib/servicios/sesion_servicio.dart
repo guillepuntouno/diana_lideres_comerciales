@@ -1,6 +1,10 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../modelos/lider_comercial_modelo.dart';
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'auth_guard.dart';
+  
 
 class SesionServicio {
   static const String _keyLiderComercial = 'lider_comercial';
@@ -34,9 +38,18 @@ class SesionServicio {
   }
 
   // Cerrar sesión
-  static Future<void> cerrarSesion() async {
+  static Future<void> cerrarSesion(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_keyLiderComercial);
-    await prefs.setBool(_keyUsuarioLogueado, false);
+    // Si importaste AuthGuard y las constantes son públicas, úsalas así:
+    await prefs.remove(AuthGuard.tokenKey);
+    await prefs.remove(AuthGuard.userKey);
+
+    // o define aquí las constantes si no quieres importar:
+    // await prefs.remove('id_token');
+    // await prefs.remove('usuario');
+
+    // Navegación
+    Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
   }
+
 }
