@@ -21,6 +21,10 @@ dependencies:
   http: ^1.1.0  # ← Nueva dependencia agregada
   geolocator: ^10.1.0
   permission_handler: ^11.3.1
+  go_router: ^13.1.0
+  shared_preferences: ^2.2.2
+  connectivity_plus: ^5.0.2
+
 
 dev_dependencies:
   flutter_test:
