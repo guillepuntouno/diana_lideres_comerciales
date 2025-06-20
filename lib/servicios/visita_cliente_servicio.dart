@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../modelos/visita_cliente_modelo.dart';
 import 'sesion_servicio.dart';
+import '../configuracion/ambiente_config.dart';
 
 class VisitaClienteServicio {
   static final VisitaClienteServicio _instance =
@@ -10,10 +11,12 @@ class VisitaClienteServicio {
   factory VisitaClienteServicio() => _instance;
   VisitaClienteServicio._internal();
 
-  // URL base del servidor
-  //static const String _baseUrl = 'http://localhost:60148/api/visitas';
-  static const String _baseUrl =
-      'https://guillermosofnux-001-site1.stempurl.com/api/visitas';
+  // URL base del servidor - Se configura automáticamente según el ambiente
+  static String get _baseUrl => '${AmbienteConfig.baseUrl}/visitas';
+  
+  // URLs disponibles por ambiente:
+  // DEV: http://localhost:60148/api/visitas
+  // QA:  https://guillermosofnux-001-site1.stempurl.com/api/visitas
 
   // Headers comunes para las peticiones
   Map<String, String> get _headers => {

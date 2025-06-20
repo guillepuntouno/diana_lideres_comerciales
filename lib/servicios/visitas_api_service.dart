@@ -1,11 +1,15 @@
 // lib/servicios/visitas_api_service.dart
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../configuracion/ambiente_config.dart';
 
 class VisitasApiService {
-  //static const String baseUrl = 'http://localhost:60148/api';
-  static const String baseUrl =
-      'https://guillermosofnux-001-site1.stempurl.com/api';
+  // URL base del servidor - Se configura automáticamente según el ambiente
+  static String get baseUrl => AmbienteConfig.baseUrl;
+  
+  // URLs disponibles por ambiente:
+  // DEV: http://localhost:60148/api
+  // QA:  https://guillermosofnux-001-site1.stempurl.com/api
 
   // Headers comunes para las peticiones
   static Map<String, String> get headers => {
