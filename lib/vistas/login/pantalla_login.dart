@@ -60,7 +60,7 @@ class PantallaLogin extends StatelessWidget {
                     key: vm.formKey,
                     child: Column(
                       children: [
-                        Image.asset('assets/logo_diana.png', height: 240),
+                        Image.asset('assets/logo_diana.png', height: 320),
                         const SizedBox(height: 32),
                         Text(
                           'Bienvenido',

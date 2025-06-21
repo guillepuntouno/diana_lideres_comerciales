@@ -1,12 +1,14 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
+import '../configuracion/ambiente_config.dart';
 
 class LiderComercialServicio {
-  final String _baseUrl =
-      kIsWeb
-          ? 'https://guillermosofnux-001-site1.stempurl.com/api/lideres' // Para web
-          : 'https://guillermosofnux-001-site1.stempurl.com/api/lideres'; // Para Android emulator
+  String get _baseUrl => '${AmbienteConfig.baseUrl}/lideres';
+  
+  // URLs comentadas para referencia:
+  // DEV: http://localhost:60148/api/lideres
+  // QA:  https://guillermosofnux-001-site1.stempurl.com/api/lideres
 
   Future<Map<String, dynamic>?> obtenerPorClave(String clave) async {
     try {
@@ -27,7 +29,7 @@ class LiderComercialServicio {
             },
           )
           .timeout(
-            const Duration(seconds: 10),
+            const Duration(seconds: 30),
             onTimeout: () {
               throw Exception('Timeout: No se pudo conectar al servidor');
             },

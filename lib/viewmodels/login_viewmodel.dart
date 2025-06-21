@@ -47,9 +47,16 @@ class LoginViewModel extends ChangeNotifier {
         _setError('Usuario no encontrado o credenciales inválidas');
       }
     } catch (e) {
-      _setError(
-        'Error de conexión. Verifique su internet e intente nuevamente.',
-      );
+      String errorMessage;
+      if (e.toString().contains('Timeout')) {
+        errorMessage = 'El servidor está tardando en responder. Intente nuevamente.';
+      } else if (e.toString().contains('Connection refused') || 
+                 e.toString().contains('SocketException')) {
+        errorMessage = 'No se puede conectar al servidor. Verifique su conexión.';
+      } else {
+        errorMessage = 'Error de conexión. Verifique su internet e intente nuevamente.';
+      }
+      _setError(errorMessage);
       debugPrint('Error en login: $e');
     } finally {
       _setLoading(false);

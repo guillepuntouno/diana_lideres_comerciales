@@ -5,17 +5,19 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../modelos/plan_trabajo_modelo.dart';
 import 'sesion_servicio.dart';
+import '../configuracion/ambiente_config.dart';
 
 class PlanTrabajoServicio {
   static final PlanTrabajoServicio _instance = PlanTrabajoServicio._internal();
   factory PlanTrabajoServicio() => _instance;
   PlanTrabajoServicio._internal();
 
-  // URL base del servidor - cambiar según tu configuración
-  //static const String _baseUrl = 'http://localhost:60148/api/planes';
-  //static const String _baseUrl = 'http://localhost:60148/api/planes';
-  static const String _baseUrl =
-      'https://guillermosofnux-001-site1.stempurl.com/api/planes';
+  // URL base del servidor - Se configura automáticamente según el ambiente
+  static String get _baseUrl => '${AmbienteConfig.baseUrl}/planes';
+  
+  // URLs disponibles por ambiente:
+  // DEV: http://localhost:60148/api/planes
+  // QA:  https://guillermosofnux-001-site1.stempurl.com/api/planes
 
   // Headers comunes para las peticiones
   Map<String, String> get _headers => {

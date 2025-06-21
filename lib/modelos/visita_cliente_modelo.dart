@@ -1,21 +1,56 @@
 // lib/modelos/visita_cliente_modelo.dart
 
-/// Modelo principal de la visita al cliente
+/// Modelo principal para gestión de visitas a clientes.
+/// 
+/// Representa una visita completa desde check-in hasta check-out,
+/// incluyendo formularios dinámicos y control de estados según
+/// reglas de negocio del sistema DIANA.
 class VisitaClienteModelo {
+  /// Identificador único de la visita generado por el sistema.
   final String visitaId;
+  
+  /// Clave del líder comercial responsable de la visita.
   final String liderClave;
+  
+  /// Identificador del cliente visitado según catálogo maestro.
   final String clienteId;
+  
+  /// Nombre completo del cliente para visualización.
   final String clienteNombre;
+  
+  /// ID del plan de trabajo al que pertenece esta visita.
   final String planId;
+  
+  /// Día de la semana asignado (lunes-domingo) según plan.
   final String dia;
+  
+  /// Timestamp de creación del registro de visita.
   final DateTime fechaCreacion;
+  
+  /// Datos del check-in obligatorio al iniciar visita.
   final CheckInModelo checkIn;
+  
+  /// Datos del check-out, null mientras visita esté activa.
   final CheckOutModelo? checkOut;
+  
+  /// Formularios dinámicos completados durante la visita.
+  /// Key: ID formulario, Value: respuestas estructuradas.
   final Map<String, dynamic> formularios;
-  final String estatus; // 'en_proceso', 'completada', 'cancelada'
+  
+  /// Estado actual: 'en_proceso', 'completada', 'cancelada'.
+  /// Define permisos de edición según reglas de negocio.
+  final String estatus;
+  
+  /// Última modificación del registro.
   final DateTime? fechaModificacion;
+  
+  /// Timestamp cuando se completó la visita.
   final DateTime? fechaFinalizacion;
+  
+  /// Timestamp de cancelación si aplica.
   final DateTime? fechaCancelacion;
+  
+  /// Justificación requerida al cancelar visita.
   final String? motivoCancelacion;
 
   VisitaClienteModelo({
@@ -36,7 +71,8 @@ class VisitaClienteModelo {
     this.motivoCancelacion,
   });
 
-  /// Crear desde JSON del servidor
+  /// Constructor desde JSON del backend.
+  /// Maneja campos opcionales y validaciones de formato.
   factory VisitaClienteModelo.fromJson(Map<String, dynamic> json) {
     return VisitaClienteModelo(
       visitaId: json['VisitaId'] ?? '',
@@ -60,7 +96,8 @@ class VisitaClienteModelo {
     );
   }
 
-  /// Convertir a JSON para envío al servidor
+  /// Serialización a JSON para API REST.
+  /// Formato compatible con endpoints de sincronización.
   Map<String, dynamic> toJson() {
     return {
       'VisitaId': visitaId,
@@ -81,7 +118,8 @@ class VisitaClienteModelo {
     };
   }
 
-  /// Helper para parsear fechas de manera segura
+  /// Parser robusto de fechas desde múltiples formatos.
+  /// Retorna DateTime.now() como fallback para evitar nulls.
   static DateTime _parseDateTime(dynamic dateValue) {
     if (dateValue == null) return DateTime.now();
 
@@ -98,22 +136,23 @@ class VisitaClienteModelo {
     return DateTime.now();
   }
 
-  /// Verificar si la visita está en proceso
+  /// Visita activa, permite edición de formularios.
   bool get estaEnProceso => estatus == 'en_proceso';
 
-  /// Verificar si la visita está completada
+  /// Visita finalizada con check-out, solo lectura.
   bool get estaCompletada => estatus == 'completada';
 
-  /// Verificar si la visita está cancelada
+  /// Visita cancelada con justificación, inmutable.
   bool get estaCancelada => estatus == 'cancelada';
 
-  /// Calcular duración de la visita (si está completada)
+  /// Duración total entre check-in y check-out.
+  /// Null si visita aún activa.
   Duration? get duracion {
     if (checkOut == null) return null;
     return checkOut!.timestamp.difference(checkIn.timestamp);
   }
 
-  /// Obtener duración en minutos
+  /// Duración en minutos para reportes de productividad.
   int? get duracionMinutos {
     final d = duracion;
     return d?.inMinutes;
@@ -124,10 +163,18 @@ class VisitaClienteModelo {
       'VisitaClienteModelo(visitaId: $visitaId, estatus: $estatus)';
 }
 
-/// Modelo para el check-in (inicio de visita)
+/// Registro de inicio de visita con validación GPS.
+/// 
+/// Captura ubicación exacta y timestamp para control
+/// de asistencia y cumplimiento de rutas.
 class CheckInModelo {
+  /// Momento exacto del check-in para auditoría.
   final DateTime timestamp;
+  
+  /// Observaciones del líder al iniciar visita.
   final String comentarios;
+  
+  /// Coordenadas GPS validadas del punto de check-in.
   final UbicacionModelo ubicacion;
 
   CheckInModelo({
@@ -170,11 +217,21 @@ class CheckInModelo {
   String toString() => 'CheckInModelo(timestamp: $timestamp)';
 }
 
-/// Modelo para el check-out (finalización de visita)
+/// Registro de finalización de visita.
+/// 
+/// Cierra el ciclo de visita calculando duración
+/// y validando ubicación de salida.
 class CheckOutModelo {
+  /// Momento exacto del check-out.
   final DateTime timestamp;
+  
+  /// Resumen o conclusiones de la visita.
   final String comentarios;
+  
+  /// Coordenadas GPS del punto de salida.
   final UbicacionModelo ubicacion;
+  
+  /// Duración calculada automáticamente en minutos.
   final int duracionMinutos;
 
   CheckOutModelo({
@@ -221,11 +278,21 @@ class CheckOutModelo {
       'CheckOutModelo(timestamp: $timestamp, duracion: ${duracionMinutos}min)';
 }
 
-/// Modelo para la ubicación GPS
+/// Datos de geolocalización para trazabilidad.
+/// 
+/// Valida coordenadas y precisión según políticas
+/// de verificación de asistencia en campo.
 class UbicacionModelo {
+  /// Latitud en grados decimales WGS84.
   final double latitud;
+  
+  /// Longitud en grados decimales WGS84.
   final double longitud;
+  
+  /// Precisión del GPS en metros.
   final double precision;
+  
+  /// Dirección geocodificada para referencia.
   final String direccion;
 
   UbicacionModelo({
@@ -269,10 +336,10 @@ class UbicacionModelo {
     return 0.0;
   }
 
-  /// Verificar si la ubicación es válida
+  /// Valida coordenadas no-cero para control de calidad.
   bool get esValida => latitud != 0.0 && longitud != 0.0;
 
-  /// Obtener coordenadas como String
+  /// Formato legible de coordenadas para UI.
   String get coordenadas =>
       'Lat: ${latitud.toStringAsFixed(6)}, Lng: ${longitud.toStringAsFixed(6)}';
 
@@ -281,9 +348,15 @@ class UbicacionModelo {
       'UbicacionModelo($coordenadas, precisión: ${precision}m)';
 }
 
-/// Clase auxiliar para crear check-in fácilmente
+/// Builder pattern para construcción de check-in.
+/// 
+/// Facilita creación con validaciones requeridas
+/// según reglas de negocio.
 class CheckInBuilder {
+  /// Comentarios opcionales del check-in.
   String _comentarios = '';
+  
+  /// Ubicación requerida para validar presencia.
   UbicacionModelo? _ubicacion;
 
   CheckInBuilder comentarios(String comentarios) {
@@ -319,10 +392,18 @@ class CheckInBuilder {
   }
 }
 
-/// Clase auxiliar para crear check-out fácilmente
+/// Builder pattern para construcción de check-out.
+/// 
+/// Calcula duración automáticamente basado en
+/// timestamp de inicio proporcionado.
 class CheckOutBuilder {
+  /// Resumen o conclusiones de la visita.
   String _comentarios = '';
+  
+  /// Ubicación de salida requerida.
   UbicacionModelo? _ubicacion;
+  
+  /// Timestamp del check-in para cálculo de duración.
   DateTime? _inicioVisita;
 
   CheckOutBuilder comentarios(String comentarios) {
