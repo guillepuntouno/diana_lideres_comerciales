@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../modelos/plan_trabajo_modelo.dart';
-import '../../servicios/plan_trabajo_servicio.dart';
+import '../../servicios/plan_trabajo_offline_service.dart';
 import '../../servicios/sesion_servicio.dart';
 import '../../modelos/lider_comercial_modelo.dart';
 
@@ -14,7 +14,7 @@ class VistaAsignacionClientes extends StatefulWidget {
 }
 
 class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
-  final PlanTrabajoServicio _planServicio = PlanTrabajoServicio();
+  final PlanTrabajoOfflineService _planServicio = PlanTrabajoOfflineService();
 
   // Parámetros recibidos
   late String diaAsignado;
@@ -106,9 +106,17 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
 
   Future<void> _cargarAsignacionesExistentes() async {
     try {
-      final plan = await _planServicio.obtenerPlanTrabajo(semana, liderId);
+      // Inicializar el servicio offline
+      await _planServicio.initialize();
+      
+      // Obtener el plan usando el servicio offline
+      final plan = await _planServicio.obtenerOCrearPlan(
+        semana, 
+        liderId,
+        _liderComercial!,
+      );
 
-      if (plan != null && plan.dias.containsKey(diaAsignado)) {
+      if (plan.dias.containsKey(diaAsignado)) {
         final diaData = plan.dias[diaAsignado]!;
 
         // Marcar clientes ya asignados
@@ -184,60 +192,70 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
             ),
       );
 
-      // Obtener el plan actual
-      final plan = await _planServicio.obtenerPlanTrabajo(semana, liderId);
+      // Inicializar el servicio offline si no lo está
+      await _planServicio.initialize();
+      
+      // Obtener el plan actual usando el servicio offline
+      final plan = await _planServicio.obtenerOCrearPlan(
+        semana, 
+        liderId,
+        _liderComercial!,
+      );
 
-      if (plan != null && plan.dias.containsKey(diaAsignado)) {
-        final diaData = plan.dias[diaAsignado]!;
+      // Crear el día de trabajo con las asignaciones
+      final diaData = DiaTrabajoModelo(
+        dia: diaAsignado,
+        objetivo: 'Gestión de cliente', // Objetivo por defecto para asignación de clientes
+        tipo: 'gestion_cliente',
+        centroDistribucion: centroDistribucion,
+        rutaId: rutaSeleccionada,
+        rutaNombre: rutaSeleccionada,
+        clientesAsignados: [],
+      );
 
-        // Limpiar asignaciones existentes
-        diaData.clientesAsignados.clear();
-
-        // Agregar nuevas asignaciones
-        for (var cliente in clientesSeleccionadosList) {
-          diaData.clientesAsignados.add(
-            ClienteAsignadoModelo(
-              clienteId: cliente.clave,
-              clienteNombre: cliente.nombre,
-              clienteDireccion:
-                  'Dirección no disponible', // Los negocios no tienen dirección en el modelo
-              clienteTipo:
-                  cliente.canal.toLowerCase().contains('detalle')
-                      ? 'detalle'
-                      : 'mayoreo',
-            ),
-          );
-        }
-
-        // Actualizar el plan en el servidor
-        await _planServicio.actualizarDiaTrabajo(
-          semana,
-          liderId,
-          diaAsignado,
-          diaData,
+      // Agregar nuevas asignaciones
+      for (var cliente in clientesSeleccionadosList) {
+        diaData.clientesAsignados.add(
+          ClienteAsignadoModelo(
+            clienteId: cliente.clave,
+            clienteNombre: cliente.nombre,
+            clienteDireccion:
+                'Dirección no disponible', // Los negocios no tienen dirección en el modelo
+            clienteTipo:
+                cliente.canal.toLowerCase().contains('detalle')
+                    ? 'detalle'
+                    : 'mayoreo',
+          ),
         );
+      }
 
-        // Cerrar loading
-        if (mounted) Navigator.of(context).pop();
+      // Guardar la configuración del día usando el servicio offline
+      await _planServicio.guardarConfiguracionDia(
+        semana,
+        liderId,
+        diaData,
+      );
 
-        // Mostrar éxito y regresar
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  const Icon(Icons.check_circle, color: Colors.white),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${clientesSeleccionadosList.length} clientes asignados correctamente',
-                  ),
-                ],
-              ),
-              backgroundColor: Colors.green,
+      // Cerrar loading
+      if (mounted) Navigator.of(context).pop();
+
+      // Mostrar éxito y regresar
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 8),
+                Text(
+                  '${clientesSeleccionadosList.length} clientes asignados correctamente',
+                ),
+              ],
             ),
-          );
-          Navigator.pop(context, true);
-        }
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.pop(context, true);
       }
     } catch (e) {
       // Cerrar loading

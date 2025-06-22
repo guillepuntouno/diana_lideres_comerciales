@@ -1,17 +1,18 @@
 // lib/rutas/rutas.dart
 
-import 'package:diana_lc_front/vistas/menu_principal/vista_configuracion_plan.dart';
 import 'package:flutter/material.dart';
 import '../vistas/login/pantalla_login.dart';
 import '../vistas/menu_principal/pantalla_menu_principal.dart';
 import '../vistas/menu_principal/vista_programar_dia.dart';
 import '../vistas/menu_principal/vista_asignacion_clientes.dart';
+import '../vistas/menu_principal/vista_configuracion_plan.dart';
 import '../vistas/planes_trabajo/vista_planes_trabajo.dart';
 import '../vistas/planes_trabajo/rutina_diaria.dart';
 import '../vistas/visita_cliente/pantalla_visita_cliente.dart';
 import '../vistas/formulario_dinamico/pantalla_formulario_dinamico.dart';
 import '../vistas/resumen/pantalla_resumen_visita.dart';
 import '../vistas/notificaciones/pantalla_notificaciones.dart';
+import '../vistas/debug/pantalla_debug_hive.dart';
 
 final Map<String, WidgetBuilder> rutas = {
   '/login': (BuildContext context) => const PantallaLogin(),
@@ -31,4 +32,7 @@ final Map<String, WidgetBuilder> rutas = {
   '/resumen_visita': (context) => const PantallaResumenVisita(),
   // Rutas de resumen y notificaciones
   '/notificaciones': (context) => const PantallaNotificaciones(),
+
+  // Ruta de debug
+  '/debug_hive': (context) => const PantallaDebugHive(),
 };

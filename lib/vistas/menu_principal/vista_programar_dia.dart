@@ -7,6 +7,9 @@ import '../../modelos/plan_trabajo_modelo.dart';
 import '../../servicios/plan_trabajo_servicio.dart';
 import '../../servicios/sesion_servicio.dart';
 import '../../modelos/lider_comercial_modelo.dart';
+import '../../servicios/plan_trabajo_offline_service.dart';
+import '../../modelos/hive/cliente_hive.dart';
+import '../../modelos/hive/objetivo_hive.dart';
 
 class VistaProgramarDia extends StatefulWidget {
   const VistaProgramarDia({super.key});
@@ -18,6 +21,7 @@ class VistaProgramarDia extends StatefulWidget {
 class _VistaProgramarDiaState extends State<VistaProgramarDia> {
   final _formKey = GlobalKey<FormState>();
   final PlanTrabajoServicio _planServicio = PlanTrabajoServicio();
+  final PlanTrabajoOfflineService _planOfflineService = PlanTrabajoOfflineService();
 
   // Variables de estado
   late String diaSeleccionado;
@@ -223,52 +227,14 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
         comentario: _objetivoAbordajeSeleccionado,
       );
 
-      // PASO 1: Verificar si existe el plan, si no existe, crearlo
-      PlanTrabajoModelo? planExistente;
-      try {
-        planExistente = await _planServicio.obtenerPlanTrabajo(semana, liderId);
-        print('📋 Plan existente encontrado para $semana');
-      } catch (e) {
-        print('📋 No existe plan para $semana, creando uno nuevo...');
-        planExistente = null;
-      }
+      // Guardar usando el servicio offline
+      await _planOfflineService.guardarConfiguracionDia(
+        semana,
+        liderId,
+        diaTrabajo,
+      );
 
-      if (planExistente == null) {
-        // CREAR NUEVO PLAN DE TRABAJO
-        print('🆕 Creando nuevo plan de trabajo...');
-
-        // Calcular fechas de la semana
-        final (fechaInicio, fechaFin) = _calcularFechasSemana();
-
-        final nuevoPlan = PlanTrabajoModelo(
-          semana: semana,
-          fechaInicio: fechaInicio,
-          fechaFin: fechaFin,
-          liderId: liderId,
-          liderNombre: _liderComercial?.nombre ?? 'Líder',
-          centroDistribucion: _centroDistribucionInterno,
-          estatus: 'borrador',
-          dias: {diaSeleccionado: diaTrabajo}, // Inicializar con el día actual
-          fechaCreacion: DateTime.now(),
-          sincronizado: false,
-        );
-
-        // Guardar el nuevo plan usando el método de creación
-        await _crearPlanTrabajo(nuevoPlan);
-        print('✅ Nuevo plan creado exitosamente');
-      } else {
-        // ACTUALIZAR PLAN EXISTENTE
-        print('📝 Actualizando plan existente...');
-        await _planServicio.actualizarDiaTrabajo(
-          semana,
-          liderId,
-          diaSeleccionado,
-          diaTrabajo,
-        );
-        print('✅ Plan actualizado exitosamente');
-      }
-
-      print('💾 Configuración guardada para $diaSeleccionado');
+      print('💾 Configuración guardada offline para $diaSeleccionado');
       print('   └── Tipo: ${diaTrabajo.tipo}');
       print('   └── Centro: $_centroDistribucionInterno');
       print('   └── Ruta: $_rutaSeleccionada');
@@ -886,6 +852,12 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                           } else if (_objetivoSeleccionado ==
                               'Actividad administrativa') {
                             // Mostrar confirmación y regresar
+                            print('Actividad administrativa guardada para $diaSeleccionado');
+                            print('Retornando true a la pantalla anterior...');
+                            
+                            // Esperar un poco más para asegurar que Hive complete el guardado
+                            await Future.delayed(Duration(milliseconds: 300));
+                            
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
@@ -902,10 +874,17 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                                     ],
                                   ),
                                   backgroundColor: Colors.green,
-                                  duration: const Duration(seconds: 2),
+                                  duration: const Duration(seconds: 1),
                                 ),
                               );
-                              Navigator.pop(context, true);
+                              
+                              // Esperar a que el SnackBar se muestre
+                              await Future.delayed(Duration(milliseconds: 200));
+                              
+                              print('Ejecutando Navigator.pop(context, true)');
+                              if (mounted) {
+                                Navigator.of(context).pop(true);
+                              }
                             }
                           }
                         } catch (e) {

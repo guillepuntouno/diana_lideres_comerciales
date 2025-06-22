@@ -5,7 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../modelos/activity_model.dart';
 import '../../servicios/geolocalizacion_servicio.dart';
-import '../../servicios/visita_cliente_servicio.dart';
+import '../../servicios/visita_cliente_offline_service.dart';
 import '../../modelos/visita_cliente_modelo.dart';
 
 class AppColors {
@@ -320,7 +320,7 @@ class _PantallaVisitaClienteState extends State<PantallaVisitaCliente> {
 
     try {
       // Importar servicios y modelos
-      final VisitaClienteServicio visitaServicio = VisitaClienteServicio();
+      final VisitaClienteOfflineService visitaServicio = VisitaClienteOfflineService();
 
       // Crear CheckIn usando el builder
       final checkIn =

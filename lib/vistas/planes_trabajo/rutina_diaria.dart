@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'package:google_fonts/google_fonts.dart';
 import '../../modelos/activity_model.dart';
-import '../../servicios/plan_trabajo_servicio.dart';
+import '../../servicios/plan_trabajo_offline_service.dart';
 import '../../servicios/sesion_servicio.dart';
 import '../../servicios/visita_cliente_servicio.dart'; // NUEVO IMPORT
 import '../../modelos/lider_comercial_modelo.dart';
@@ -118,7 +118,7 @@ class PantallaRutinaDiaria extends StatefulWidget {
 }
 
 class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
-  final PlanTrabajoServicio _planServicio = PlanTrabajoServicio();
+  final PlanTrabajoOfflineService _planServicio = PlanTrabajoOfflineService();
   final VisitaClienteServicio _visitaServicio =
       VisitaClienteServicio(); // NUEVO SERVICIO
 
@@ -246,31 +246,30 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
         '🔍 Cargando planes disponibles para líder: ${_liderActual!.clave}',
       );
 
-      // Llamar al endpoint para obtener todos los planes del líder
-      final planes = await _planServicio.obtenerTodosLosPlanes(
-        _liderActual!.clave,
-      );
+      // Inicializar el servicio offline
+      await _planServicio.initialize();
 
-      print('📋 Planes obtenidos: ${planes.length}');
+      // Obtener todos los planes del líder desde Hive
+      final repositorio = _planServicio.getPlanRepository();
+      final planesDelLider = repositorio.obtenerPlanesPorLider(_liderActual!.clave);
+      
+      print('📋 Planes obtenidos: ${planesDelLider.length}');
 
       // Convertir a PlanOpcion y ordenar por semana (más reciente primero)
       List<PlanOpcion> opcionesPlan =
-          planes.map((plan) {
-            // Extraer número de semana del formato "SEMANA 24 - 2025"
-            int numeroSemana = _extraerNumeroSemanaDePlan(plan.semana);
-
-            // Generar planId basado en el patrón del servidor
-            String planId = '${plan.liderId}_SEM$numeroSemana';
+          planesDelLider.map((planHive) {
+            // El número de semana ya está en el modelo, usar valor por defecto si es null
+            int numeroSemana = planHive.numeroSemana ?? 0;
 
             return PlanOpcion(
-              planId: planId,
+              planId: planHive.id,
               semana: numeroSemana,
               etiqueta:
-                  '${plan.semana} (${plan.fechaInicio} - ${plan.fechaFin})',
-              estatus: plan.estatus,
-              fechaInicio: plan.fechaInicio,
-              fechaFin: plan.fechaFin,
-              liderNombre: plan.liderNombre,
+                  '${planHive.semana} (${planHive.fechaInicio} - ${planHive.fechaFin})',
+              estatus: planHive.estatus,
+              fechaInicio: planHive.fechaInicio,
+              fechaFin: planHive.fechaFin,
+              liderNombre: planHive.liderNombre,
             );
           }).toList();
 
@@ -367,22 +366,48 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
         '🔍 Cargando detalle del plan: Semana ${_planSeleccionado!.semana}',
       );
 
-      // Convertir el número de semana a int de manera segura
-      int numeroSemana = _planSeleccionado!.semana;
-
-      print(
-        '📡 Llamando endpoint con: líder=${_liderActual!.clave}, semana=$numeroSemana',
-      );
-
-      // Llamar al endpoint de detalle del plan con int
-      final response = await _planServicio.obtenerDetallePlan(
+      // Obtener el plan completo desde Hive
+      final planModelo = await _planServicio.obtenerOCrearPlan(
+        _planSeleccionado!.etiqueta.split(' (')[0], // Extraer "SEMANA X - YYYY"
         _liderActual!.clave,
-        numeroSemana,
+        _liderActual!,
       );
 
-      if (response != null) {
+      if (planModelo != null) {
         print('📄 Detalle del plan obtenido exitosamente');
-        await _procesarDetallePlan(response);
+        
+        // Convertir el plan a formato esperado por _procesarDetallePlan
+        final Map<String, dynamic> detallePlan = {
+          'datos': {
+            'semana': <String, dynamic>{
+              'fechaInicio': planModelo.fechaInicio,
+              'fechaFin': planModelo.fechaFin,
+              'liderNombre': planModelo.liderNombre,
+              'estatus': planModelo.estatus,
+            }
+          }
+        };
+        
+        // Agregar los días configurados
+        planModelo.dias.forEach((nombreDia, diaModelo) {
+          final semanaMap = detallePlan['datos']['semana'] as Map<String, dynamic>;
+          semanaMap[nombreDia.toLowerCase()] = {
+            'objetivo': diaModelo.objetivo,
+            'tipo': diaModelo.objetivo == 'Gestión de cliente' ? 'gestion_cliente' : 'administrativo',
+            'tipoActividad': diaModelo.tipoActividad,
+            'comentario': diaModelo.comentario,
+            'rutaNombre': diaModelo.rutaNombre,
+            'clientesAsignados': diaModelo.clientesAsignados.map((c) => {
+              'clienteId': c.clienteId,
+              'clienteNombre': c.clienteNombre,
+              'clienteDireccion': c.clienteDireccion,
+              'clienteTipo': c.clienteTipo,
+              'visitado': false, // Por defecto no visitado
+            }).toList(),
+          };
+        });
+        
+        await _procesarDetallePlan(detallePlan);
       } else {
         print('❌ No se encontró detalle para el plan seleccionado');
         setState(() => _actividades = []);

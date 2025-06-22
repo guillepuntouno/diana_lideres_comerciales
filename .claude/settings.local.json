@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter packages pub run:*)",
+      "Bash(dart run:*)",
+      "Bash(flutter pub run build_runner build:*)",
+      "Bash(touch:*)",
+      "Bash(rm:*)",
+      "Bash(ls:*)",
+      "Bash(rg:*)"
+    ],
+    "deny": []
+  }
+}

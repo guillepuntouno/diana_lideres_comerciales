@@ -10,7 +10,12 @@ class PantallaLogin extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => LoginViewModel(),
+      create: (_) {
+        final viewModel = LoginViewModel();
+        // Inicializar el viewModel
+        viewModel.initialize();
+        return viewModel;
+      },
       child: Consumer<LoginViewModel>(
         builder: (context, vm, _) {
           return Scaffold(

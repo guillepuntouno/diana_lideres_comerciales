@@ -2,7 +2,7 @@
 
 ## 🎯 Objetivo del Sistema
 
-El sistema movil tiene como propósito centralizar, digitalizar y optimizar la gestión comercial en campo de la fuerza de ventas de DIANA. Esto incluye:
+El sistema móvil tiene como propósito centralizar, digitalizar y optimizar la gestión comercial en campo de la fuerza de ventas de DIANA. Esto incluye:
 
 - Registrar y monitorear las visitas de los líderes comerciales a los puntos de venta (PDV).
 - Evaluar al personal de ventas mediante formularios estructurados.
@@ -79,6 +79,140 @@ El sistema movil tiene como propósito centralizar, digitalizar y optimizar la g
 
 ---
 
+## 📋 Reglas de Negocio Detalladas
+
+### Autenticación y Sesión
+
+#### R001 - Autenticación de Usuario
+- Todo usuario debe autenticarse antes de acceder a las funcionalidades de la aplicación
+- Las credenciales deben ser validadas contra el sistema central
+- La sesión debe mantenerse activa mientras el usuario esté usando la aplicación
+
+#### R002 - Gestión de Sesión
+- La sesión se cierra automáticamente después de un período de inactividad
+- El usuario puede cerrar sesión manualmente
+- Al cerrar sesión, todos los datos sensibles deben eliminarse de la memoria local
+
+### Geolocalización
+
+#### R003 - Ubicación Requerida
+- La aplicación debe solicitar permisos de ubicación al usuario
+- Las visitas a clientes requieren confirmación de ubicación
+- La ubicación debe registrarse al inicio y fin de cada visita
+
+#### R004 - Precisión de Ubicación
+- La ubicación debe tener una precisión mínima de 10 metros
+- Si no se puede obtener una ubicación precisa, se debe notificar al usuario
+- La aplicación debe funcionar en modo offline con ubicación cached
+
+### Planes de Trabajo
+
+#### R005 - Creación de Planes
+- Todo líder comercial debe tener un plan de trabajo diario
+- Los planes pueden configurarse con anticipación
+- Se permite modificar planes hasta el inicio del día laboral
+
+#### R006 - Asignación de Clientes
+- Los clientes se asignan automáticamente basados en criterios geográficos
+- El líder puede solicitar cambios en la asignación
+- Cada cliente debe tener información de contacto actualizada
+
+#### R007 - Programación de Visitas
+- Las visitas deben programarse dentro del horario laboral
+- Se debe considerar el tiempo de desplazamiento entre clientes
+- Máximo 8 visitas por día laboral
+
+### Visitas a Clientes
+
+#### R008 - Inicio de Visita
+- Toda visita debe iniciarse con confirmación de ubicación
+- Se debe registrar la hora exacta de inicio
+- El formulario de visita debe completarse obligatoriamente
+
+#### R009 - Datos de Visita
+- Información del cliente debe ser verificada al inicio
+- Se requiere foto del establecimiento
+- Comentarios y observaciones son obligatorios
+
+#### R010 - Finalización de Visita
+- La visita debe cerrarse formalmente
+- Se debe registrar la hora de finalización
+- Resumen de la visita debe generarse automáticamente
+
+### Notificaciones
+
+#### R011 - Notificaciones del Sistema
+- Recordatorios de visitas programadas
+- Alertas de cambios en asignaciones
+- Notificaciones de actualizaciones del sistema
+
+#### R012 - Notificaciones de Urgencia
+- Cambios críticos en planes de trabajo
+- Emergencias o situaciones especiales
+- Comunicados importantes de la empresa
+
+### Datos y Sincronización
+
+#### R013 - Sincronización de Datos
+- Los datos se sincronizan automáticamente cuando hay conexión
+- En modo offline, los datos se almacenan localmente
+- La sincronización debe completarse al final del día
+
+#### R014 - Integridad de Datos
+- Todos los registros deben incluir timestamp
+- Los datos críticos requieren validación antes del envío
+- Se mantiene un log de actividades para auditoría
+
+### Seguridad
+
+#### R015 - Protección de Datos
+- Los datos del cliente son confidenciales
+- No se permite captura de pantalla en secciones sensibles
+- Los datos se encriptan antes del almacenamiento
+
+#### R016 - Acceso a Funcionalidades
+- Cada funcionalidad requiere permisos específicos
+- El acceso se controla por rol de usuario
+- Se registra el acceso a funcionalidades críticas
+
+### Reportes y Análisis
+
+#### R017 - Generación de Reportes
+- Reportes diarios automáticos al final de la jornada
+- Métricas de productividad y eficiencia
+- Resúmenes semanales y mensuales
+
+#### R018 - Análisis de Rendimiento
+- Seguimiento de KPIs establecidos
+- Comparación con objetivos y metas
+- Identificación de oportunidades de mejora
+
+### Configuración
+
+#### R019 - Configuración de Usuario
+- Cada usuario puede personalizar su interfaz
+- Configuración de notificaciones por usuario
+- Preferencias de tema y visualización
+
+#### R020 - Configuración de Ambiente
+- Distinción entre ambiente de desarrollo, testing y producción
+- Configuraciones específicas por ambiente
+- Variables de entorno para conexiones a servicios
+
+### Excepciones y Casos Especiales
+
+#### R021 - Manejo de Emergencias
+- Protocolo para situaciones de emergencia
+- Contactos de emergencia accesibles desde la app
+- Modo de emergencia que bypasa ciertas restricciones
+
+#### R022 - Contingencias Técnicas
+- Procedimientos para fallas de conectividad
+- Backup automático de datos críticos
+- Modo degradado para funcionalidad limitada
+
+---
+
 ## 🧠 Notas para el agente Claude Code
 
 Este contexto se puede usar para tareas como:
@@ -87,5 +221,11 @@ Este contexto se puede usar para tareas como:
 - Detectar lógicas mal implementadas (por ejemplo, check-in sin coordenadas)
 - Generar pruebas automatizadas con base en reglas
 - Explicar archivos Dart o Python de backend
+
+---
+
+**Versión:** 1.0  
+**Fecha de última actualización:** Junio 2025  
+**Responsable:** Equipo de Desarrollo DIANA
 
 

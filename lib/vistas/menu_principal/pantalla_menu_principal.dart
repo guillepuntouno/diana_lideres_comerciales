@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../widgets/encabezado_inicio.dart';
+import '../../widgets/connection_status_widget.dart';
 import '../../servicios/sesion_servicio.dart';
 import '../../modelos/lider_comercial_modelo.dart';
 
@@ -51,6 +52,47 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
         children: [
           EncabezadoInicio(nombreUsuario: nombreUsuario),
           const SizedBox(height: 24),
+
+          // Estado de conexión y sincronización (temporalmente deshabilitado)
+          // const ConnectionStatusWidget(),
+          
+          // Widget temporal de estado
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.orange.shade200),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.wifi_off, color: Colors.orange.shade700),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Modo Offline - Datos de Prueba',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.orange.shade700,
+                        ),
+                      ),
+                      Text(
+                        'Funcionalidad completa disponible próximamente',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
 
           // Información del usuario
           if (_liderComercial != null) ...[
@@ -234,7 +276,10 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
           ),
         ],
         onTap: (index) {
-          if (index == 2) {
+          if (index == 1) {
+            // Navegar a Rutinas
+            Navigator.pushNamed(context, '/rutina_diaria');
+          } else if (index == 2) {
             // Mostrar opción de cerrar sesión
             _mostrarOpcionesPerfil(context);
           }
