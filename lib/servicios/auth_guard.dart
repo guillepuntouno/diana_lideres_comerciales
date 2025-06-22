@@ -44,12 +44,12 @@ class AuthGuard {
   static Future<Map<String, dynamic>?> _validateTokenWithBackend(String token) async {
     try {
       final response = await http.get(
-        Uri.parse('http://localhost:3000/auth/session'),
+        Uri.parse('https://ln6rw4qcj7.execute-api.us-east-1.amazonaws.com/auth/session'),
         headers: {
           'Authorization': 'Bearer $token',
         },
       );
-      final uri = Uri.parse('http://localhost:3000/clientes');
+      final uri = Uri.parse('https://ln6rw4qcj7.execute-api.us-east-1.amazonaws.com/clientes');
       final response2 = await http.post(
         uri,
         headers: {
