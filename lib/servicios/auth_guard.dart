@@ -44,12 +44,14 @@ class AuthGuard {
   static Future<Map<String, dynamic>?> _validateTokenWithBackend(String token) async {
     try {
       final response = await http.get(
-        Uri.parse('https://ln6rw4qcj7.execute-api.us-east-1.amazonaws.com/auth/session'),
+        Uri.parse('https://ln6rw4qcj7.execute-api.us-east-1.amazonaws.com/dev/auth/session'),
         headers: {
           'Authorization': 'Bearer $token',
         },
       );
-      final uri = Uri.parse('https://ln6rw4qcj7.execute-api.us-east-1.amazonaws.com/clientes');
+     /*  
+     *******Este codigo hay que colocarlo cuando debes seleccioanr los clientes de un plan de trabajo -> ruta -> dia*****
+     final uri = Uri.parse('https://ln6rw4qcj7.execute-api.us-east-1.amazonaws.com/dev/clientes');
       final response2 = await http.post(
         uri,
         headers: {
@@ -64,7 +66,7 @@ class AuthGuard {
       );
       if (response2.statusCode == 200) {
         print(response2.body);
-      }
+      } */
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
