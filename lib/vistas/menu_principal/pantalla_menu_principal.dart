@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../widgets/encabezado_inicio.dart';
 import '../../servicios/sesion_servicio.dart';
 import '../../modelos/lider_comercial_modelo.dart';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class PantallaMenuPrincipal extends StatefulWidget {
   const PantallaMenuPrincipal({super.key});
@@ -21,20 +23,24 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
   }
 
   Future<void> _cargarDatosUsuario() async {
-    try {
-      final lider = await SesionServicio.obtenerLiderComercial();
-      print('Datos del líder cargados: ${lider?.toJson()}'); // Debug
+    final prefs = await SharedPreferences.getInstance();
+    final userDataString = prefs.getString('usuario');
+    if (userDataString != null) {
+      final Map<String, dynamic> userMap = jsonDecode(userDataString);
+      final lider = LiderComercial.fromJson(userMap);
       setState(() {
         _liderComercial = lider;
         _isLoading = false;
       });
-    } catch (e) {
+    } else {
       setState(() {
         _isLoading = false;
       });
-      debugPrint('Error cargando datos del usuario: $e');
+      print('No se encontró usuario en SharedPreferences');
     }
   }
+
+
 
   @override
   Widget build(BuildContext context) {

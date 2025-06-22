@@ -12,23 +12,29 @@ class SesionServicio {
 
   // Guardar datos del líder comercial
   static Future<void> guardarLiderComercial(LiderComercial lider) async {
-    final prefs = await SharedPreferences.getInstance();
-    final jsonString = jsonEncode(lider.toJson());
-    await prefs.setString(_keyLiderComercial, jsonString);
-    await prefs.setBool(_keyUsuarioLogueado, true);
+    final prefs = await SharedPreferences.getInstance();    
+    final userDataString = prefs.getString('usuario');
+    if (userDataString != null) {
+      final Map<String, dynamic> userMap = jsonDecode(userDataString);
+      final lider = LiderComercial.fromJson(userMap);
+      final jsonString = jsonEncode(lider.toJson());
+      await prefs.setString(_keyLiderComercial, jsonString);
+      await prefs.setBool(_keyUsuarioLogueado, true);
+    } else {
+      print('No se encontró usuario en SharedPreferences');
+    }
   }
 
   // Obtener datos del líder comercial
   static Future<LiderComercial?> obtenerLiderComercial() async {
     final prefs = await SharedPreferences.getInstance();
-    final jsonString = prefs.getString(_keyLiderComercial);
-
-    if (jsonString != null) {
-      final jsonData = jsonDecode(jsonString);
+    final userDataString = prefs.getString('usuario');  
+    if (userDataString != null) {
+      final jsonData = jsonDecode(userDataString);
       return LiderComercial.fromJson(jsonData);
+    } else {
+      print('No se encontró usuario en SharedPreferences');
     }
-
-    return null;
   }
 
   // Verificar si hay una sesión activa

@@ -16,17 +16,11 @@ class AuthGuard {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString(tokenKey);
     if (token == null || token.isEmpty) return false;
-
     if (!_isLocallyValid(token)) return false;
-
-    // ✅ Validar con backend (solo si no lo has hecho antes, o expira sesión, etc.)
     final userData = await _validateTokenWithBackend(token);
     print(userData);
     if (userData == null) return false;
-
-    // Guardar usuario (puedes usar otro esquema si prefieres un state manager)
     await prefs.setString(userKey, jsonEncode(userData));
-
     return true;
   }
 
@@ -50,11 +44,27 @@ class AuthGuard {
   static Future<Map<String, dynamic>?> _validateTokenWithBackend(String token) async {
     try {
       final response = await http.get(
-        Uri.parse('http://localhost:3000/users/64a54c87-9031-4f80-8559-22d920f9228b'),
+        Uri.parse('http://localhost:3000/auth/session'),
         headers: {
           'Authorization': 'Bearer $token',
         },
       );
+      final uri = Uri.parse('http://localhost:3000/clientes');
+      final response2 = await http.post(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'dia': 'Lunes',
+          'lider': 'LIDER SE - GRUPO B',
+          'ruta': 'RUTASED08',
+        }),
+      );
+      if (response2.statusCode == 200) {
+        print(response2.body);
+      }
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
