@@ -5,6 +5,7 @@ import '../../servicios/sesion_servicio.dart';
 import '../../modelos/lider_comercial_modelo.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../configuracion/ambiente_config.dart';
 
 class PantallaMenuPrincipal extends StatefulWidget {
   const PantallaMenuPrincipal({super.key});
@@ -302,6 +303,19 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (!AmbienteConfig.esProduccion) // Mostrar solo en ambientes no productivos
+                  ListTile(
+                    leading: const Icon(Icons.bug_report, color: Colors.blue),
+                    title: const Text('Debug - Datos Hive'),
+                    subtitle: Text(
+                      'Ambiente: ${AmbienteConfig.nombreAmbiente}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/debug_hive');
+                    },
+                  ),
                 ListTile(
                   leading: const Icon(Icons.logout, color: Colors.red),
                   title: const Text('Cerrar Sesión'),

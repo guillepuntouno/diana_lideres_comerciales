@@ -163,8 +163,9 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
   }
 
   Widget _buildPlanesTrabajoTab() {
-    final box = _hiveService.planesTrabajoSemanalesBox;
-    final planes = box.values.toList();
+    try {
+      final box = _hiveService.planesTrabajoSemanalesBox;
+      final planes = box.values.toList();
 
     if (planes.isEmpty) {
       return _buildEmptyState('No hay planes de trabajo guardados');
@@ -276,15 +277,19 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
         );
       },
     );
+    } catch (e) {
+      return _buildEmptyState('Error al cargar planes de trabajo: $e');
+    }
   }
 
   Widget _buildPlanesUnificadosTab() {
-    if (!Hive.isBoxOpen(HiveService.planTrabajoUnificadoBox)) {
-      return _buildEmptyState('Box de planes unificados no está abierta');
-    }
+    try {
+      if (!Hive.isBoxOpen(HiveService.planTrabajoUnificadoBox)) {
+        return _buildEmptyState('Box de planes unificados no está abierta');
+      }
 
-    final box = _hiveService.planesTrabajoUnificadosBox;
-    final planes = box.values.toList();
+      final box = _hiveService.planesTrabajoUnificadosBox;
+      final planes = box.values.toList();
 
     if (planes.isEmpty) {
       return _buildEmptyState('No hay planes unificados guardados');
@@ -352,12 +357,16 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
         );
       },
     );
+    } catch (e) {
+      return _buildEmptyState('Error al cargar planes unificados: $e');
+    }
   }
 
   Widget _buildVisitasTab() {
-    final box = _hiveService.visitasClientes;
-    final visitas = box.values.toList()
-      ..sort((a, b) => b.fechaCreacion.compareTo(a.fechaCreacion));
+    try {
+      final box = _hiveService.visitasClientes;
+      final visitas = box.values.toList()
+        ..sort((a, b) => b.fechaCreacion.compareTo(a.fechaCreacion));
 
     if (visitas.isEmpty) {
       return _buildEmptyState('No hay visitas guardadas');
@@ -408,11 +417,15 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
         );
       },
     );
+    } catch (e) {
+      return _buildEmptyState('Error al cargar visitas: $e');
+    }
   }
 
   Widget _buildClientesTab() {
-    final box = _hiveService.clientesBox;
-    final clientes = box.values.toList();
+    try {
+      final box = _hiveService.clientesBox;
+      final clientes = box.values.toList();
 
     if (clientes.isEmpty) {
       return _buildEmptyState('No hay clientes guardados');
@@ -454,11 +467,15 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
         );
       },
     );
+    } catch (e) {
+      return _buildEmptyState('Error al cargar clientes: $e');
+    }
   }
 
   Widget _buildObjetivosTab() {
-    final box = _hiveService.objetivosBox;
-    final objetivos = box.values.toList();
+    try {
+      final box = _hiveService.objetivosBox;
+      final objetivos = box.values.toList();
 
     if (objetivos.isEmpty) {
       return _buildEmptyState('No hay objetivos guardados');
@@ -488,12 +505,16 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
         );
       },
     );
+    } catch (e) {
+      return _buildEmptyState('Error al cargar objetivos: $e');
+    }
   }
 
   Widget _buildConfiguracionTab() {
-    final syncMetadataBox = _hiveService.syncMetadata;
-    final userBox = _hiveService.usersBox;
-    final stats = _hiveService.getBoxesStats();
+    try {
+      final syncMetadataBox = _hiveService.syncMetadata;
+      final userBox = _hiveService.usersBox;
+      final stats = _hiveService.getBoxesStats();
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -613,6 +634,9 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
         ),
       ],
     );
+    } catch (e) {
+      return _buildEmptyState('Error al cargar configuración: $e');
+    }
   }
 
   Widget _buildDiaInfo(String dia, DiaTrabajoHive diaInfo) {
