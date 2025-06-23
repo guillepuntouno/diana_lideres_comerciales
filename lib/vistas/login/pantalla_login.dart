@@ -3,9 +3,73 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/login_viewmodel.dart';
 import '../../widgets/footer_clipper.dart';
+import 'dart:html' as html;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class PantallaLogin extends StatelessWidget {
+
   const PantallaLogin({super.key});
+
+//ESTE login es de azure preparado para Diana
+/*   void redirectToAzureLogin() {
+    final loginUri = Uri.https(
+      'app-lideres-comerciales.auth.us-east-1.amazoncognito.com',
+      '/login',
+      {
+        'client_id': '18emuo0gi95toqe0q6sidgs5ir',
+        'response_type': 'token',
+        'scope': 'email openid phone profile',
+        'redirect_uri': 'https://main.d35w48mc01xbrz.amplifyapp.com/login',
+        'identity_provider': 'AzureAD',
+      },
+    );
+    html.window.location.href = loginUri.toString();
+  } */
+
+  // Para desarrollo local - usar este método cuando ejecutes localmente
+  void redirectToAzureLogin() {
+    // Obtener el origen actual de la ventana para manejar diferentes puertos
+    final currentOrigin = html.window.location.origin;
+    final redirectUri = '$currentOrigin/login';
+    
+    print('🔗 Redirect URI: $redirectUri');
+    
+    final loginUri = Uri.https(
+      'app-lideres-comerciales.auth.us-east-1.amazoncognito.com',
+      '/login',
+      {
+        'client_id': '18emuo0gi95toqe0q6sidgs5ir',
+        'response_type': 'token',
+        'scope': 'openid email phone profile',
+        'redirect_uri': redirectUri,
+        'identity_provider': 'AzureAD',
+      },
+    );
+    html.window.location.href = loginUri.toString();
+  }
+  
+  // Para producción - descomentar este método cuando hagas deploy
+  /*
+  void redirectToAzureLogin() {
+    final loginUri = Uri.https(
+      'app-lideres-comerciales.auth.us-east-1.amazoncognito.com',
+      '/login',
+      {
+        'client_id': '18emuo0gi95toqe0q6sidgs5ir',
+        'response_type': 'token',
+        'scope': 'openid email phone profile',
+        'redirect_uri': 'https://main.d35w48mc01xbrz.amplifyapp.com/login',
+        'identity_provider': 'AzureAD',
+      },
+    );
+    html.window.location.href = loginUri.toString();
+  }
+  */
+
+  /* 
+  remi.aguilar
+  D:V'jFU#b/3
+   */
 
   @override
   Widget build(BuildContext context) {
@@ -18,6 +82,13 @@ class PantallaLogin extends StatelessWidget {
       },
       child: Consumer<LoginViewModel>(
         builder: (context, vm, _) {
+          // Si el usuario ya está autenticado, redirigir al menú principal
+          if (vm.isAuthenticated) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              Navigator.pushReplacementNamed(context, '/home');
+            });
+          }
+          
           return Scaffold(
             body: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32.0),
@@ -86,62 +157,11 @@ class PantallaLogin extends StatelessWidget {
                             ),
                           ),
                         ],
-
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'CORREO ELECTRÓNICO',
-                            style: GoogleFonts.poppins(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w500,
-                              color: const Color(0xFF8F8E8E),
-                              letterSpacing: 1.2,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        TextFormField(
-                          controller: vm.emailController,
-                          enabled: !vm.isLoading,
-                          decoration: InputDecoration(
-                            hintText: 'LID001@diana.com.sv',
-                            hintStyle: GoogleFonts.poppins(
-                              fontSize: 10,
-                              color: const Color(0xFF1C2120),
-                            ),
-                            filled: true,
-                            fillColor: const Color(0xFF8F8E8E).withOpacity(0.2),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide.none,
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              vertical: 14,
-                              horizontal: 12,
-                            ),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Ingrese su correo';
-                            }
-                            if (!value.contains('@')) {
-                              return 'Correo inválido';
-                            }
-                            return null;
-                          },
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            color: const Color(0xFF1C2120),
-                          ),
-                        ),
                         const SizedBox(height: 32),
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
-                            onPressed:
-                                vm.isLoading
-                                    ? null
-                                    : () => vm.iniciarSesion(context),
+                            onPressed: redirectToAzureLogin,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFFFFBD59),
                               foregroundColor: const Color(0xFF1C2120),

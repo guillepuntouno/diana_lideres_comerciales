@@ -2,20 +2,20 @@ enum Ambiente { desarrollo, qa, preproduccion, produccion }
 
 class AmbienteConfig {
   static const Ambiente _ambienteActual =
-      Ambiente.desarrollo; // Cambiar aquí para alternar ambientes
+      Ambiente.qa; // Cambiar aquí para alternar ambientes
 
   static Ambiente get ambienteActual => _ambienteActual;
 
   static String get baseUrl {
     switch (_ambienteActual) {
       case Ambiente.desarrollo:
-        return 'http://localhost:60148/api';
+        return 'https://ln6rw4qcj7.execute-api.us-east-1.amazonaws.com/dev';
       case Ambiente.qa:
-        return 'https://guillermosofnux-001-site1.stempurl.com/api';
+        return 'https://ln6rw4qcj7.execute-api.us-east-1.amazonaws.com/dev';
       case Ambiente.preproduccion:
-        return 'https://guillermosofnux-001-site1.stempurl.com/api';
+        return 'https://ln6rw4qcj7.execute-api.us-east-1.amazonaws.com/dev';
       case Ambiente.produccion:
-        return 'https://guillermosofnux-001-site1.stempurl.com/api';
+        return 'https://ln6rw4qcj7.execute-api.us-east-1.amazonaws.com/dev';
     }
   }
 

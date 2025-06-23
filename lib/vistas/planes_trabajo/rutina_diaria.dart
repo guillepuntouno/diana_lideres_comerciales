@@ -11,6 +11,7 @@ import '../../servicios/visita_cliente_servicio.dart'; // NUEVO IMPORT
 import '../../modelos/lider_comercial_modelo.dart';
 import '../../modelos/plan_trabajo_modelo.dart';
 import '../../modelos/visita_cliente_modelo.dart'; // NUEVO IMPORT
+import '../../configuracion/ambiente_config.dart'; // IMPORT PARA AMBIENTE
 
 // -----------------------------------------------------------------------------
 // COLORES CORPORATIVOS DIANA
@@ -138,6 +139,18 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
   String _diaActual = '';
   String _semanaActual = '';
   String _fechaFormateada = '';
+  
+  // Variables para simulación de día (solo en desarrollo/QA)
+  String? _diaSimulado;
+  final List<String> _diasDisponibles = [
+    'Lunes',
+    'Martes',
+    'Miércoles',
+    'Jueves',
+    'Viernes',
+    'Sábado',
+    'Domingo',
+  ];
 
   @override
   void initState() {
@@ -440,10 +453,15 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
           detallePlan['datos']['semana'] != null) {
         var datosSemanales = detallePlan['datos']['semana'];
 
-        print('📅 Buscando actividades para el día: $_diaActual');
+        // Usar día simulado si está configurado, sino usar día actual
+        String diaParaBuscar = _diaSimulado ?? _diaActual;
+        print('📅 Buscando actividades para el día: $diaParaBuscar');
+        if (_diaSimulado != null) {
+          print('🔧 Modo desarrollo: simulando día $diaParaBuscar');
+        }
 
         // Buscar el día actual (lunes, martes, etc.)
-        String diaKey = _diaActual.toLowerCase();
+        String diaKey = diaParaBuscar.toLowerCase();
 
         if (datosSemanales[diaKey] != null) {
           var diaData = datosSemanales[diaKey] as Map<String, dynamic>;
@@ -771,6 +789,10 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
 
           // SELECTOR DE PLAN
           _buildSelectorPlan(),
+          
+          // CONTROL DE SIMULACIÓN DE DÍA (Solo en desarrollo/QA)
+          if (AmbienteConfig.esDevelopment || AmbienteConfig.esQA)
+            _buildControlSimulacionDia(),
 
           // HEADER DEL DÍA
           _HeaderHoy(
@@ -781,6 +803,7 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
             progreso: progreso,
             planSeleccionado: _planSeleccionado,
             cargandoDetalle: _cargandoDetalle,
+            diaSimulado: _diaSimulado,
           ),
 
           const SizedBox(height: 16),
@@ -974,6 +997,138 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
       ),
     );
   }
+
+  Widget _buildControlSimulacionDia() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.amber.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.amber.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.bug_report, color: Colors.amber.shade700, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Simulación de Día (${AmbienteConfig.nombreAmbiente}):',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: Colors.amber.shade900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.amber.shade300),
+              borderRadius: BorderRadius.circular(8),
+              color: Colors.white,
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String?>(
+                value: _diaSimulado,
+                isExpanded: true,
+                hint: Text(
+                  'Día actual: $_diaActual (click para cambiar)',
+                  style: GoogleFonts.poppins(
+                    color: Colors.amber.shade700,
+                    fontSize: 13,
+                  ),
+                ),
+                items: [
+                  DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text(
+                      'Usar día actual ($_diaActual)',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  ..._diasDisponibles.map((dia) {
+                    return DropdownMenuItem<String?>(
+                      value: dia,
+                      child: Row(
+                        children: [
+                          Text(
+                            dia,
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              fontWeight: dia == _diaActual
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                          if (dia == _diaActual) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.amber.shade100,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                'HOY',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.amber.shade800,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ],
+                onChanged: (nuevoValor) {
+                  setState(() {
+                    _diaSimulado = nuevoValor;
+                  });
+                  // Recargar actividades con el nuevo día
+                  _cargarDetallePlan();
+                },
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: AppColors.darkGray,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '⚠️ Este control solo está visible en modo ${AmbienteConfig.nombreAmbiente}',
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              color: Colors.amber.shade700,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // WIDGETS HELPER MODIFICADOS
@@ -1004,6 +1159,7 @@ class _HeaderHoy extends StatelessWidget {
   final double progreso;
   final PlanOpcion? planSeleccionado;
   final bool cargandoDetalle;
+  final String? diaSimulado;
 
   const _HeaderHoy({
     required this.diaActual,
@@ -1013,6 +1169,7 @@ class _HeaderHoy extends StatelessWidget {
     required this.progreso,
     this.planSeleccionado,
     required this.cargandoDetalle,
+    this.diaSimulado,
   });
 
   @override
@@ -1040,16 +1197,40 @@ class _HeaderHoy extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Hoy · $diaActual',
-                    style: GoogleFonts.poppins(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.darkGray,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        diaSimulado != null ? 'Simulando · $diaSimulado' : 'Hoy · $diaActual',
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.darkGray,
+                        ),
+                      ),
+                      if (diaSimulado != null) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.shade100,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            'DEV',
+                            style: GoogleFonts.poppins(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.amber.shade800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   Text(
-                    fechaFormateada,
+                    diaSimulado != null 
+                      ? 'Día real: $diaActual - $fechaFormateada'
+                      : fechaFormateada,
                     style: GoogleFonts.poppins(
                       fontSize: 14,
                       color: AppColors.mediumGray,

@@ -16,7 +16,7 @@ class LiderComercial {
   factory LiderComercial.fromJson(Map<String, dynamic> json) {
     print('Parseando JSON: $json'); // Debug
 
-    // Obtener rutas de manera más segura
+    // Obtener rutas de manera más segura - adaptado para nueva estructura AWS
     List<Ruta> rutasList = [];
     final rutasData = json['Rutas'] ?? json['rutas'];
     if (rutasData != null && rutasData is List) {
@@ -28,12 +28,13 @@ class LiderComercial {
               .toList();
     }
 
+    // Adaptación para manejar ambas estructuras (anterior y nueva de AWS)
     return LiderComercial(
       centroDistribucion:
-          json['CentroDistribucion'] ?? json['centroDistribucion'] ?? '',
-      clave: json['Clave'] ?? json['clave'] ?? '',
-      nombre: json['Nombre'] ?? json['nombre'] ?? '',
-      pais: json['Pais'] ?? json['pais'] ?? '',
+          json['CD'] ?? json['CentroDistribucion'] ?? json['centroDistribucion'] ?? '',
+      clave: json['clave'] ?? json['Clave'] ?? json['CoSEupervisor']?.toString() ?? '',
+      nombre: json['nombre'] ?? json['Nombre'] ?? json['idLider'] ?? json['Supervisor'] ?? '',
+      pais: json['pais'] ?? json['Pais'] ?? '',
       rutas: rutasList,
     );
   }
@@ -70,9 +71,10 @@ class Ruta {
               .toList();
     }
 
+    // Adaptación para nueva estructura AWS
     return Ruta(
-      asesor: json['Asesor'] ?? json['asesor'] ?? '',
-      nombre: json['Nombre'] ?? json['nombre'] ?? '',
+      asesor: json['Asesor'] ?? json['asesor'] ?? json['Canal_clientevend'] ?? '',
+      nombre: json['Ruta'] ?? json['idRuta'] ?? json['Nombre'] ?? json['nombre'] ?? '',
       negocios: negociosList,
     );
   }

@@ -7,10 +7,39 @@ class PlanTrabajoRepository {
   late Box<PlanTrabajoSemanalHive> _box;
 
   Future<void> init() async {
-    if (Hive.isBoxOpen(_boxName)) {
-      _box = Hive.box<PlanTrabajoSemanalHive>(_boxName);
-    } else {
-      _box = await Hive.openBox<PlanTrabajoSemanalHive>(_boxName);
+    try {
+      if (Hive.isBoxOpen(_boxName)) {
+        _box = Hive.box<PlanTrabajoSemanalHive>(_boxName);
+      } else {
+        _box = await Hive.openBox<PlanTrabajoSemanalHive>(_boxName);
+      }
+    } catch (e) {
+      print('❌ Error abriendo caja $_boxName: $e');
+      
+      // Si hay error por typeId desconocido, intentar limpiar y recrear
+      if (e.toString().contains('unknown typeId')) {
+        print('🔄 Intentando limpiar y recrear la caja $_boxName...');
+        
+        try {
+          // Cerrar la caja si está abierta
+          if (Hive.isBoxOpen(_boxName)) {
+            await Hive.box(_boxName).close();
+          }
+          
+          // Eliminar la caja corrupta
+          await Hive.deleteBoxFromDisk(_boxName);
+          print('🗑️ Caja corrupta eliminada');
+          
+          // Crear nueva caja limpia
+          _box = await Hive.openBox<PlanTrabajoSemanalHive>(_boxName);
+          print('✅ Nueva caja creada exitosamente');
+        } catch (cleanupError) {
+          print('❌ Error al limpiar caja: $cleanupError');
+          rethrow;
+        }
+      } else {
+        rethrow;
+      }
     }
   }
 

@@ -842,6 +842,7 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                                 'centro': _centroDistribucionInterno,
                                 'semana': semana,
                                 'liderId': liderId,
+                                'liderNombre': _liderComercial?.nombre ?? '', // Agregar nombre del líder
                                 'esEdicion': esEdicion,
                               },
                             );

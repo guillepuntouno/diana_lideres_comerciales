@@ -6,6 +6,8 @@ import '../repositorios/lider_comercial_repository.dart';
 import '../modelos/hive/lider_comercial_hive.dart';
 import '../servicios/offline_sync_manager.dart';
 import '../servicios/plan_trabajo_offline_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../servicios/auth_guard.dart';
 
 class LoginViewModel extends ChangeNotifier {
   final TextEditingController emailController = TextEditingController();
@@ -17,9 +19,11 @@ class LoginViewModel extends ChangeNotifier {
 
   bool _isLoading = false;
   String? _errorMessage;
+  bool _isAuthenticated = false;
 
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  bool get isAuthenticated => _isAuthenticated;
 
   bool validarFormulario() {
     return formKey.currentState?.validate() ?? false;
@@ -27,7 +31,7 @@ class LoginViewModel extends ChangeNotifier {
 
   /// Inicializa el ViewModel
   Future<void> initialize() async {
-    print('✅ LoginViewModel inicializado - Usando endpoint real');
+    print('✅ LoginViewModel inicializado - Verificando autenticación AWS');
     // El sync manager ya no se inicializa aquí porque HiveService se inicializa en main
     // Solo verificamos que esté listo
     try {
@@ -36,117 +40,58 @@ class LoginViewModel extends ChangeNotifier {
       print('⚠️ OfflineSyncManager no se pudo inicializar: $e');
       // Continuamos sin funcionalidad de sync
     }
+    
+    // Verificar si ya hay un token válido de AWS
+    await _checkExistingAuth();
   }
-
-  Future<void> iniciarSesion(BuildContext context) async {
-    if (!validarFormulario()) return;
-
-    _setLoading(true);
-    _setError(null);
-
+  
+  /// Verifica si ya existe autenticación válida
+  Future<void> _checkExistingAuth() async {
     try {
-      // Extraer la clave del email (parte antes del @)
-      final email = emailController.text.trim();
-      final clave = email.split('@')[0].toUpperCase();
-
-      print('🔑 Intentando login con clave: $clave');
-
-      // Primero intentar obtener datos del endpoint
-      final liderData = await _liderServicio.obtenerPorClave(clave);
-
-      if (liderData != null) {
-        // Convertir los datos del API a nuestro modelo
-        final liderComercial = LiderComercial.fromJson(liderData);
-
-        // Guardar en la sesión (SharedPreferences)
-        await SesionServicio.guardarLiderComercial(liderComercial);
-
-        // Intentar guardar en Hive para funcionalidad offline
-        try {
-          final liderHive = LiderComercialHive.fromLiderComercial(liderComercial);
-          await _liderRepository.save(liderHive);
-          print('💾 Datos guardados en Hive para uso offline');
-        } catch (hiveError) {
-          print('⚠️ No se pudieron guardar datos en Hive: $hiveError');
-          // Continuar sin funcionalidad offline
-        }
-
-        // Intentar guardar token de auth
-        try {
-          await _syncManager.saveAuthToken('${liderComercial.clave}_token');
-        } catch (syncError) {
-          print('⚠️ No se pudo guardar token de auth: $syncError');
-          // Continuar sin funcionalidad de sync
-        }
-
-        // Cargar datos para trabajo offline (clientes, objetivos, etc.)
-        try {
-          await _planOfflineService.cargarDatosIniciales();
-          print('📦 Datos offline cargados correctamente');
-        } catch (offlineError) {
-          print('⚠️ No se pudieron cargar todos los datos offline: $offlineError');
-          // Continuar sin algunos datos offline
-        }
-
-        print('✅ Login exitoso para: $clave');
-        print('📱 Datos guardados en SharedPreferences y Hive');
-
-        // Navegar a la pantalla principal
-        if (context.mounted) {
-          Navigator.pushReplacementNamed(context, '/home');
-        }
-      } else {
-        // Si no hay conexión, intentar buscar en Hive
-        try {
-          final liderOffline = _liderRepository.getByClave(clave);
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString(AuthGuard.tokenKey);
+      
+      if (token != null && token.isNotEmpty) {
+        print('🔑 Token AWS encontrado, verificando validez...');
+        
+        // Verificar si el token es válido
+        final isValid = await AuthGuard.isAuthenticated();
+        
+        if (isValid) {
+          print('✅ Token válido, usuario ya autenticado');
+          // El usuario ya está autenticado, podemos redirigir
+          _isAuthenticated = true;
+          notifyListeners();
+        } else {
+          print('❌ Token inválido o error de validación');
           
-          if (liderOffline != null) {
-            // Convertir de Hive a modelo regular para sesión
-            final liderComercial = liderOffline.toLiderComercial();
-            await SesionServicio.guardarLiderComercial(liderComercial);
-
-            print('✅ Login offline exitoso para: $clave');
-            print('📱 Usando datos almacenados localmente');
-
-            if (context.mounted) {
-              Navigator.pushReplacementNamed(context, '/home');
-            }
-          } else {
-            _setError('Usuario no encontrado.\n\nVerifica tu conexión a internet o que el usuario esté registrado en el sistema.');
+          // Verificar si es error de CORS
+          final authError = prefs.getString('auth_error');
+          if (authError == 'cors_error') {
+            _setError(
+              'Error de conexión con el servidor\n\n'
+              'No se puede validar tu sesión debido a un problema de configuración (CORS).\n'
+              'El servidor está configurado para aceptar conexiones desde el puerto 51052, '
+              'pero tu aplicación está ejecutándose en un puerto diferente.\n\n'
+              'Por favor, contacta al administrador del sistema.'
+            );
+            await prefs.remove('auth_error');
           }
-        } catch (hiveError) {
-          print('⚠️ Error accediendo a datos offline: $hiveError');
-          _setError('Usuario no encontrado.\n\nNo se pudo acceder a los datos offline. Verifica tu conexión a internet.');
+          
+          // Limpiar el token inválido
+          await prefs.remove(AuthGuard.tokenKey);
         }
       }
     } catch (e) {
-      print('❌ Error en login: $e');
-      
-      // En caso de error, intentar login offline como fallback
-      try {
-        final email = emailController.text.trim();
-        final clave = email.split('@')[0].toUpperCase();
-        final liderOffline = _liderRepository.getByClave(clave);
-        
-        if (liderOffline != null) {
-          final liderComercial = liderOffline.toLiderComercial();
-          await SesionServicio.guardarLiderComercial(liderComercial);
-          
-          print('✅ Login offline de respaldo exitoso para: $clave');
-          
-          if (context.mounted) {
-            Navigator.pushReplacementNamed(context, '/home');
-          }
-        } else {
-          _setError('Error de conexión: $e\n\nNo se encontraron datos offline para este usuario.');
-        }
-      } catch (offlineError) {
-        print('⚠️ Error en fallback offline: $offlineError');
-        _setError('Error de login: $e\n\nNo fue posible conectar con el servidor ni encontrar datos offline.');
-      }
-    } finally {
-      _setLoading(false);
+      print('⚠️ Error verificando autenticación existente: $e');
     }
+  }
+
+  // Este método ya no se usa porque el login es a través de AWS Cognito
+  // Se mantiene por si se necesita en el futuro para login local/offline
+  Future<void> iniciarSesion(BuildContext context) async {
+    print('⚠️ El login ahora se maneja a través de AWS Cognito');
+    // Redirigir a AWS Cognito se hace desde el botón en la pantalla
   }
 
   void _setLoading(bool loading) {

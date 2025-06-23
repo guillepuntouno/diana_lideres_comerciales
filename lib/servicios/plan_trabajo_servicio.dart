@@ -3,6 +3,7 @@
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../modelos/plan_trabajo_modelo.dart';
 import 'sesion_servicio.dart';
 import '../configuracion/ambiente_config.dart';
@@ -15,23 +16,29 @@ class PlanTrabajoServicio {
   // URL base del servidor - Se configura automáticamente según el ambiente
   static String get _baseUrl => '${AmbienteConfig.baseUrl}/planes';
   
-  // URLs disponibles por ambiente:
-  // DEV: http://localhost:60148/api/planes
-  // QA:  https://guillermosofnux-001-site1.stempurl.com/api/planes
+  // URL de AWS API Gateway
+  // Todos los ambientes apuntan a: https://ln6rw4qcj7.execute-api.us-east-1.amazonaws.com/dev/planes
 
   // Headers comunes para las peticiones
-  Map<String, String> get _headers => {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-  };
+  Future<Map<String, String>> get _headers async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('id_token');
+    
+    return {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
 
   /// Crear un nuevo plan de trabajo (POST)
   /// Se ejecuta cuando se configura el primer día
   Future<String> crearPlanTrabajo(String liderClave) async {
     try {
+      final headers = await _headers;
       final response = await http.post(
         Uri.parse(_baseUrl),
-        headers: _headers,
+        headers: headers,
         body: jsonEncode({'liderClave': liderClave}),
       );
 
@@ -55,9 +62,10 @@ class PlanTrabajoServicio {
     Map<String, dynamic> datos,
   ) async {
     try {
+      final headers = await _headers;
       final response = await http.put(
         Uri.parse(_baseUrl),
-        headers: _headers,
+        headers: headers,
         body: jsonEncode({'planId': planId, 'datos': datos}),
       );
 
@@ -87,9 +95,10 @@ class PlanTrabajoServicio {
 
       final numeroSemana = match.group(1)!;
 
+      final headers = await _headers;
       final response = await http.get(
         Uri.parse('$_baseUrl/$liderClave/semana/$numeroSemana'),
-        headers: _headers,
+        headers: headers,
       );
 
       print('Response status: ${response.statusCode}'); // Debug
@@ -166,9 +175,10 @@ class PlanTrabajoServicio {
     String liderClave,
   ) async {
     try {
+      final headers = await _headers;
       final response = await http.get(
         Uri.parse('$_baseUrl/lider/$liderClave'),
-        headers: _headers,
+        headers: headers,
       );
 
       if (response.statusCode == 200) {
@@ -201,9 +211,10 @@ class PlanTrabajoServicio {
       print('🔍 Obteniendo detalle del plan: $liderClave, semana $semana');
 
       final url = Uri.parse('$_baseUrl/$liderClave/semana/$semana');
+      final headers = await _headers;
 
       final response = await http
-          .get(url, headers: _headers)
+          .get(url, headers: headers)
           .timeout(
             const Duration(seconds: 10),
             onTimeout: () {

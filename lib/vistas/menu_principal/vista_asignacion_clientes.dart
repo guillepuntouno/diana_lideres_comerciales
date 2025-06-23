@@ -4,6 +4,7 @@ import '../../modelos/plan_trabajo_modelo.dart';
 import '../../servicios/plan_trabajo_offline_service.dart';
 import '../../servicios/sesion_servicio.dart';
 import '../../modelos/lider_comercial_modelo.dart';
+import '../../servicios/clientes_servicio.dart';
 
 class VistaAsignacionClientes extends StatefulWidget {
   const VistaAsignacionClientes({super.key});
@@ -15,6 +16,7 @@ class VistaAsignacionClientes extends StatefulWidget {
 
 class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
   final PlanTrabajoOfflineService _planServicio = PlanTrabajoOfflineService();
+  final ClientesServicio _clientesServicio = ClientesServicio();
 
   // Parámetros recibidos
   late String diaAsignado;
@@ -22,6 +24,7 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
   late String centroDistribucion;
   late String semana;
   late String liderId;
+  late String liderNombre;
   bool esEdicion = false;
 
   // Datos precargados
@@ -46,6 +49,7 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
     centroDistribucion = args['centro'] ?? '';
     semana = args['semana'] ?? '';
     liderId = args['liderId'] ?? '';
+    liderNombre = args['liderNombre'] ?? '';
     esEdicion = args['esEdicion'] ?? false;
 
     _cargarDatos();
@@ -73,8 +77,8 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
         // Precargar asesor
         _asesorAsignado = _rutaActual!.asesor;
 
-        // Precargar clientes de la ruta
-        _clientesDisponibles = _rutaActual!.negocios;
+        // Cargar clientes desde el servicio AWS
+        await _cargarClientesDeRuta();
 
         // Inicializar selección de clientes
         _clientesSeleccionados = {
@@ -102,6 +106,67 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
     }
 
     setState(() => _cargando = false);
+  }
+
+  Future<void> _cargarClientesDeRuta() async {
+    try {
+      print('🔄 Cargando clientes para ruta: $rutaSeleccionada');
+      
+      // Primero intentar cargar desde la ruta (por compatibilidad)
+      if (_rutaActual!.negocios.isNotEmpty) {
+        _clientesDisponibles = _rutaActual!.negocios;
+        print('✅ Clientes cargados desde la ruta: ${_clientesDisponibles.length}');
+        return;
+      }
+      
+      // Preparar parámetros para el servicio AWS
+      final liderParam = liderNombre.isNotEmpty ? liderNombre : _liderComercial!.nombre;
+      print('📋 Parámetros para obtener clientes:');
+      print('   - Día: $diaAsignado');
+      print('   - Líder: $liderParam');
+      print('   - Ruta: $rutaSeleccionada');
+      
+      // Si no hay negocios en la ruta, cargar desde el servicio AWS
+      final clientesData = await _clientesServicio.obtenerClientesPorRuta(
+        dia: diaAsignado,
+        lider: liderParam,
+        ruta: rutaSeleccionada,
+      );
+      
+      if (clientesData != null && clientesData.isNotEmpty) {
+        // Convertir los datos a objetos Negocio
+        _clientesDisponibles = clientesData
+            .map((clienteData) => ClientesServicio.convertirClienteANegocio(clienteData))
+            .toList();
+        
+        print('✅ Clientes cargados desde AWS: ${_clientesDisponibles.length}');
+        
+        // Mostrar información del primer cliente convertido para debug
+        if (_clientesDisponibles.isNotEmpty) {
+          final primerCliente = _clientesDisponibles.first;
+          print('🔍 Primer cliente convertido:');
+          print('   - Clave: ${primerCliente.clave}');
+          print('   - Nombre: ${primerCliente.nombre}');
+          print('   - Canal: ${primerCliente.canal}');
+          print('   - Clasificación: ${primerCliente.clasificacion}');
+          print('   - Exhibidor: ${primerCliente.exhibidor}');
+        }
+        
+        // Opcionalmente, actualizar la ruta en memoria para futuras consultas
+        _rutaActual = Ruta(
+          asesor: _rutaActual!.asesor,
+          nombre: _rutaActual!.nombre,
+          negocios: _clientesDisponibles,
+        );
+      } else {
+        print('⚠️ No se encontraron clientes para esta ruta');
+        _clientesDisponibles = [];
+      }
+    } catch (e) {
+      print('❌ Error al cargar clientes: $e');
+      // Mantener lista vacía si hay error
+      _clientesDisponibles = [];
+    }
   }
 
   Future<void> _cargarAsignacionesExistentes() async {

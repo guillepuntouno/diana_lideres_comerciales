@@ -26,15 +26,29 @@ class PlanTrabajoOfflineService {
   Future<void> initialize() async {
     if (_isInitialized) return;
 
-    _planRepository ??= PlanTrabajoRepository();
-    _clienteRepository ??= ClienteRepository();
-    _objetivoRepository ??= ObjetivoRepository();
+    try {
+      // Asegurar que HiveService esté inicializado primero
+      final hiveService = HiveService();
+      if (!hiveService.isInitialized) {
+        print('⚠️ HiveService no inicializado, inicializando ahora...');
+        await hiveService.initialize();
+      }
 
-    await _planRepository!.init();
-    await _clienteRepository!.init();
-    await _objetivoRepository!.init();
+      _planRepository ??= PlanTrabajoRepository();
+      _clienteRepository ??= ClienteRepository();
+      _objetivoRepository ??= ObjetivoRepository();
 
-    _isInitialized = true;
+      await _planRepository!.init();
+      await _clienteRepository!.init();
+      await _objetivoRepository!.init();
+
+      _isInitialized = true;
+      print('✅ PlanTrabajoOfflineService inicializado correctamente');
+    } catch (e) {
+      print('❌ Error al inicializar PlanTrabajoOfflineService: $e');
+      _isInitialized = false;
+      rethrow;
+    }
   }
 
   // ============ CARGA DE DATOS DURANTE LOGIN ============
