@@ -19,6 +19,12 @@ class SesionServicio {
     print('✅ Líder comercial guardado en sesión: ${lider.clave}');
   }
 
+  // Obtener token de autenticación
+  static Future<String?> obtenerToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('id_token');
+  }
+
   // Obtener datos del líder comercial
   static Future<LiderComercial?> obtenerLiderComercial() async {
     final prefs = await SharedPreferences.getInstance();

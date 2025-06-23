@@ -8,6 +8,7 @@ import '../modelos/hive/objetivo_hive.dart';
 import '../modelos/hive/cliente_hive.dart';
 import '../modelos/hive/plan_trabajo_semanal_hive.dart';
 import '../modelos/hive/dia_trabajo_hive.dart';
+import '../modelos/hive/plan_trabajo_unificado_hive.dart';
 
 class HiveService {
   static final HiveService _instance = HiveService._internal();
@@ -27,6 +28,7 @@ class HiveService {
   static const String objetivoBox = 'objetivos';
   static const String clienteBox = 'clientes';
   static const String planTrabajoSemanalBox = 'planes_trabajo_semanal';
+  static const String planTrabajoUnificadoBox = 'planes_trabajo_unificado';
 
   /// Inicializa Hive y registra todos los adaptadores
   Future<void> initialize() async {
@@ -94,6 +96,34 @@ class HiveService {
     if (!Hive.isAdapterRegistered(14)) {
       Hive.registerAdapter(DiaTrabajoHiveAdapter());
     }
+    // Registrar adaptadores del modelo unificado
+    if (!Hive.isAdapterRegistered(15)) {
+      Hive.registerAdapter(PlanTrabajoUnificadoHiveAdapter());
+    }
+    if (!Hive.isAdapterRegistered(16)) {
+      Hive.registerAdapter(DiaPlanHiveAdapter());
+    }
+    if (!Hive.isAdapterRegistered(17)) {
+      Hive.registerAdapter(VisitaClienteUnificadaHiveAdapter());
+    }
+    if (!Hive.isAdapterRegistered(18)) {
+      Hive.registerAdapter(CuestionarioHiveAdapter());
+    }
+    if (!Hive.isAdapterRegistered(19)) {
+      Hive.registerAdapter(TipoExhibidorHiveAdapter());
+    }
+    if (!Hive.isAdapterRegistered(20)) {
+      Hive.registerAdapter(EstandaresEjecucionHiveAdapter());
+    }
+    if (!Hive.isAdapterRegistered(21)) {
+      Hive.registerAdapter(DisponibilidadHiveAdapter());
+    }
+    if (!Hive.isAdapterRegistered(22)) {
+      Hive.registerAdapter(CompromisoHiveAdapter());
+    }
+    if (!Hive.isAdapterRegistered(23)) {
+      Hive.registerAdapter(UbicacionUnificadaHiveAdapter());
+    }
   }
 
   /// Abre todas las cajas necesarias con tipos específicos
@@ -148,6 +178,11 @@ class HiveService {
       await Hive.openBox<PlanTrabajoSemanalHive>(planTrabajoSemanalBox);
       print('📦 Caja "$planTrabajoSemanalBox" abierta correctamente');
     }
+    
+    if (!Hive.isBoxOpen(planTrabajoUnificadoBox)) {
+      await Hive.openBox<PlanTrabajoUnificadoHive>(planTrabajoUnificadoBox);
+      print('📦 Caja "$planTrabajoUnificadoBox" abierta correctamente');
+    }
   }
 
   /// Obtiene una caja específica
@@ -186,6 +221,9 @@ class HiveService {
   
   /// Obtiene la caja de planes de trabajo semanales
   Box<PlanTrabajoSemanalHive> get planesTrabajoSemanalesBox => getBox<PlanTrabajoSemanalHive>(planTrabajoSemanalBox);
+  
+  /// Obtiene la caja de planes de trabajo unificados
+  Box<PlanTrabajoUnificadoHive> get planesTrabajoUnificadosBox => getBox<PlanTrabajoUnificadoHive>(planTrabajoUnificadoBox);
 
   /// Limpia todas las cajas (útil para logout o reset)
   Future<void> clearAllBoxes() async {
@@ -201,6 +239,7 @@ class HiveService {
         objetivoBox,
         clienteBox,
         planTrabajoSemanalBox,
+        planTrabajoUnificadoBox,
       ];
 
       for (String boxName in boxes) {

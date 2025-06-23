@@ -19,6 +19,16 @@ void main() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('id_token', tokenFromUrl);
     hasNewToken = true;
+    
+    // DEBUG: Imprimir token JWT para pruebas
+    print('🔐 TOKEN JWT OBTENIDO DEL LOGIN:');
+    print('=====================================');
+    print(tokenFromUrl);
+    print('=====================================');
+    print('📋 Token guardado en SharedPreferences con clave: id_token');
+    print('🔗 Puedes usar este token para probar los endpoints');
+    print('=====================================');
+    
     _clearUrlFragment();
   }
   

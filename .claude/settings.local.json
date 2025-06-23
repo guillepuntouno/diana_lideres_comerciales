@@ -7,7 +7,9 @@
       "Bash(touch:*)",
       "Bash(rm:*)",
       "Bash(ls:*)",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "Bash(/mnt/c/flutter/bin/dart run build_runner build --delete-conflicting-outputs)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }

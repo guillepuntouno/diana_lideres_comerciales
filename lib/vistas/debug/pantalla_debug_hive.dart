@@ -3,8 +3,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../servicios/hive_service.dart';
 import '../../modelos/hive/plan_trabajo_semanal_hive.dart';
+import '../../modelos/hive/dia_trabajo_hive.dart';
+import '../../modelos/hive/plan_trabajo_unificado_hive.dart';
 import '../../modelos/hive/cliente_hive.dart';
 import '../../modelos/hive/objetivo_hive.dart';
+import '../../modelos/hive/visita_cliente_hive.dart';
+import '../../modelos/hive/user_hive.dart';
+import '../../modelos/hive/lider_comercial_hive.dart';
 import 'dart:convert';
 
 class PantallaDebugHive extends StatefulWidget {
@@ -19,10 +24,12 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
   int _selectedIndex = 0;
   
   final List<String> _tabs = [
-    'Planes de Trabajo',
+    'Planes Trabajo',
+    'Planes Unificados',
+    'Visitas',
     'Clientes',
     'Objetivos',
-    'Configuración',
+    'Config',
   ];
 
   @override
@@ -55,9 +62,21 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
                 if (confirmar == true) {
                   await _limpiarTodosLosDatos();
                 }
+              } else if (value == 'export_all') {
+                _exportarTodosLosDatos();
               }
             },
             itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'export_all',
+                child: Row(
+                  children: [
+                    Icon(Icons.download, color: Colors.blue),
+                    SizedBox(width: 8),
+                    Text('Exportar todos los datos'),
+                  ],
+                ),
+              ),
               const PopupMenuItem(
                 value: 'clear_all',
                 child: Row(
@@ -77,14 +96,15 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
           // Tabs
           Container(
             color: Colors.white,
-            child: Row(
-              children: List.generate(_tabs.length, (index) {
-                final isSelected = _selectedIndex == index;
-                return Expanded(
-                  child: InkWell(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: List.generate(_tabs.length, (index) {
+                  final isSelected = _selectedIndex == index;
+                  return InkWell(
                     onTap: () => setState(() => _selectedIndex = index),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                       decoration: BoxDecoration(
                         border: Border(
                           bottom: BorderSide(
@@ -97,7 +117,6 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
                       ),
                       child: Text(
                         _tabs[index],
-                        textAlign: TextAlign.center,
                         style: GoogleFonts.poppins(
                           color: isSelected 
                               ? const Color(0xFFDE1327) 
@@ -109,9 +128,9 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
                         ),
                       ),
                     ),
-                  ),
-                );
-              }),
+                  );
+                }),
+              ),
             ),
           ),
           
@@ -129,10 +148,14 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
       case 0:
         return _buildPlanesTrabajoTab();
       case 1:
-        return _buildClientesTab();
+        return _buildPlanesUnificadosTab();
       case 2:
-        return _buildObjetivosTab();
+        return _buildVisitasTab();
       case 3:
+        return _buildClientesTab();
+      case 4:
+        return _buildObjetivosTab();
+      case 5:
         return _buildConfiguracionTab();
       default:
         return const Center(child: Text('Tab no implementado'));
@@ -174,44 +197,10 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
                 ),
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _getStatusColor(plan.estatus).withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        plan.estatus.toUpperCase(),
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: _getStatusColor(plan.estatus),
-                        ),
-                      ),
-                    ),
+                    _buildStatusChip(plan.estatus),
                     const SizedBox(width: 8),
                     if (!plan.sincronizado)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          'NO SINCRONIZADO',
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.orange,
-                          ),
-                        ),
-                      ),
+                      _buildSyncChip(false),
                   ],
                 ),
               ],
@@ -228,6 +217,8 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
                     _buildInfoRow('Fecha Fin', plan.fechaFin),
                     _buildInfoRow('Creación', plan.fechaCreacion.toString()),
                     _buildInfoRow('Modificación', plan.fechaModificacion.toString()),
+                    _buildInfoRow('Núm. Semana', plan.numeroSemana?.toString() ?? 'N/A'),
+                    _buildInfoRow('Año', plan.anio?.toString() ?? 'N/A'),
                     const SizedBox(height: 16),
                     Text(
                       'Días Configurados:',
@@ -237,66 +228,7 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    ...plan.dias.entries.map((entry) {
-                      final dia = entry.value;
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: dia.configurado 
-                              ? Colors.green.withOpacity(0.1)
-                              : Colors.grey.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: dia.configurado 
-                                ? Colors.green 
-                                : Colors.grey,
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  entry.key,
-                                  style: GoogleFonts.poppins(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                Icon(
-                                  dia.configurado 
-                                      ? Icons.check_circle 
-                                      : Icons.radio_button_unchecked,
-                                  color: dia.configurado 
-                                      ? Colors.green 
-                                      : Colors.grey,
-                                  size: 20,
-                                ),
-                              ],
-                            ),
-                            if (dia.configurado) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                'Objetivo: ${dia.objetivoNombre ?? "No definido"}',
-                                style: GoogleFonts.poppins(fontSize: 12),
-                              ),
-                              if (dia.rutaNombre != null)
-                                Text(
-                                  'Ruta: ${dia.rutaNombre}',
-                                  style: GoogleFonts.poppins(fontSize: 12),
-                                ),
-                              if (dia.clienteIds.isNotEmpty)
-                                Text(
-                                  'Clientes asignados: ${dia.clienteIds.length}',
-                                  style: GoogleFonts.poppins(fontSize: 12),
-                                ),
-                            ],
-                          ],
-                        ),
-                      );
-                    }).toList(),
+                    ...plan.dias.entries.map((entry) => _buildDiaInfo(entry.key, entry.value)),
                     const SizedBox(height: 16),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -308,6 +240,15 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
                         ),
                         const SizedBox(width: 8),
                         TextButton.icon(
+                          onPressed: () => _editarPlan(plan),
+                          icon: const Icon(Icons.edit, color: Colors.blue),
+                          label: Text(
+                            'Editar',
+                            style: TextStyle(color: Colors.blue),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        TextButton.icon(
                           onPressed: () async {
                             final confirmar = await _mostrarDialogoConfirmacion(
                               'Eliminar Plan',
@@ -316,12 +257,7 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
                             if (confirmar == true) {
                               await box.delete(plan.id);
                               setState(() {});
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Plan eliminado'),
-                                  backgroundColor: Colors.green,
-                                ),
-                              );
+                              _mostrarSnackBar('Plan eliminado', Colors.green);
                             }
                           },
                           icon: const Icon(Icons.delete, color: Colors.red),
@@ -336,6 +272,138 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
                 ),
               ),
             ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPlanesUnificadosTab() {
+    if (!Hive.isBoxOpen(HiveService.planTrabajoUnificadoBox)) {
+      return _buildEmptyState('Box de planes unificados no está abierta');
+    }
+
+    final box = _hiveService.planesTrabajoUnificadosBox;
+    final planes = box.values.toList();
+
+    if (planes.isEmpty) {
+      return _buildEmptyState('No hay planes unificados guardados');
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: planes.length,
+      itemBuilder: (context, index) {
+        final plan = planes[index];
+        return Card(
+          margin: const EdgeInsets.only(bottom: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: ExpansionTile(
+            title: Text(
+              'Plan Unificado: ${plan.semana}',
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Líder: ${plan.liderNombre} (${plan.liderClave})',
+                  style: GoogleFonts.poppins(fontSize: 14),
+                ),
+                Row(
+                  children: [
+                    _buildStatusChip(plan.estatus),
+                    const SizedBox(width: 8),
+                    if (!plan.sincronizado)
+                      _buildSyncChip(false),
+                  ],
+                ),
+              ],
+            ),
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildInfoRow('ID', plan.id),
+                    _buildInfoRow('Progreso', '${plan.diasConfigurados}/6 días'),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton.icon(
+                          onPressed: () => _mostrarJsonCompleto(plan.toJsonCompleto()),
+                          icon: const Icon(Icons.code),
+                          label: Text('Ver JSON Completo'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildVisitasTab() {
+    final box = _hiveService.visitasClientes;
+    final visitas = box.values.toList()
+      ..sort((a, b) => b.fechaCreacion.compareTo(a.fechaCreacion));
+
+    if (visitas.isEmpty) {
+      return _buildEmptyState('No hay visitas guardadas');
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: visitas.length,
+      itemBuilder: (context, index) {
+        final visita = visitas[index];
+        return Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundColor: _getVisitaStatusColor(visita.estatus),
+              child: Icon(
+                _getVisitaStatusIcon(visita.estatus),
+                color: Colors.white,
+              ),
+            ),
+            title: Text(
+              visita.clienteNombre,
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Día: ${visita.dia}'),
+                Text('Estatus: ${visita.estatus}'),
+                if (visita.checkIn != null)
+                  Text('Check-in: ${_formatTime(visita.checkIn.timestamp)}'),
+                if (visita.checkOut != null)
+                  Text('Check-out: ${_formatTime(visita.checkOut!.timestamp)}'),
+              ],
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!visita.requiresSync)
+                  Icon(Icons.cloud_done, color: Colors.green, size: 20),
+                IconButton(
+                  icon: const Icon(Icons.info_outline),
+                  onPressed: () => _mostrarJsonCompleto(visita.toJson()),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -425,6 +493,7 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
   Widget _buildConfiguracionTab() {
     final syncMetadataBox = _hiveService.syncMetadata;
     final userBox = _hiveService.usersBox;
+    final stats = _hiveService.getBoxesStats();
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -463,81 +532,6 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Datos del Usuario',
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _buildInfoRow(
-                  'Usuarios registrados',
-                  '${userBox.length} usuarios',
-                ),
-                if (userBox.isNotEmpty) ...[
-                  _buildInfoRow(
-                    'Primer usuario',
-                    userBox.values.first.nombreCompleto,
-                  ),
-                  _buildInfoRow(
-                    'Email',
-                    userBox.values.first.email,
-                  ),
-                  _buildInfoRow(
-                    'Rol',
-                    userBox.values.first.rol,
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Líder Comercial Actual',
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                if (_hiveService.lideresComerciales.isNotEmpty) ...[
-                  _buildInfoRow(
-                    'Nombre',
-                    _hiveService.lideresComerciales.values.first.nombre,
-                  ),
-                  _buildInfoRow(
-                    'Clave',
-                    _hiveService.lideresComerciales.values.first.clave,
-                  ),
-                  _buildInfoRow(
-                    'Centro Dist.',
-                    _hiveService.lideresComerciales.values.first.centroDistribucion,
-                  ),
-                  _buildInfoRow(
-                    'Rutas',
-                    '${_hiveService.lideresComerciales.values.first.rutas.length} rutas',
-                  ),
-                ] else
-                  const Text('No hay líder comercial guardado'),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
                   'Estadísticas de Almacenamiento',
                   style: GoogleFonts.poppins(
                     fontWeight: FontWeight.bold,
@@ -545,23 +539,202 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                _buildInfoRow(
-                  'Planes de trabajo',
-                  '${_hiveService.planesTrabajoSemanalesBox.length} registros',
+                ...stats.entries.map((entry) => 
+                  _buildInfoRow(entry.key, '${entry.value} registros')
                 ),
-                _buildInfoRow(
-                  'Clientes',
-                  '${_hiveService.clientesBox.length} registros',
+                const SizedBox(height: 8),
+                FutureBuilder<int>(
+                  future: _hiveService.getStorageUsage(),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasData) {
+                      final mb = (snapshot.data! / 1024 / 1024).toStringAsFixed(2);
+                      return _buildInfoRow('Uso estimado', '$mb MB');
+                    }
+                    return _buildInfoRow('Uso estimado', 'Calculando...');
+                  },
                 ),
-                _buildInfoRow(
-                  'Objetivos',
-                  '${_hiveService.objetivosBox.length} registros',
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Acciones de Mantenimiento',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    // Limpiar datos de sincronización antiguos
+                    final metadata = syncMetadataBox.toMap();
+                    int cleaned = 0;
+                    metadata.forEach((key, value) {
+                      if (key.toString().startsWith('temp_') || 
+                          key.toString().startsWith('old_')) {
+                        syncMetadataBox.delete(key);
+                        cleaned++;
+                      }
+                    });
+                    _mostrarSnackBar('$cleaned registros temporales eliminados', Colors.green);
+                  },
+                  icon: const Icon(Icons.cleaning_services),
+                  label: const Text('Limpiar datos temporales'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    // Compactar las cajas
+                    await Hive.box(HiveService.planTrabajoSemanalBox).compact();
+                    await Hive.box(HiveService.clienteBox).compact();
+                    await Hive.box(HiveService.visitaClienteBox).compact();
+                    _mostrarSnackBar('Bases de datos compactadas', Colors.green);
+                  },
+                  icon: const Icon(Icons.compress),
+                  label: const Text('Compactar bases de datos'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                  ),
                 ),
               ],
             ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildDiaInfo(String dia, DiaTrabajoHive diaInfo) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: diaInfo.configurado 
+            ? Colors.green.withOpacity(0.1)
+            : Colors.grey.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: diaInfo.configurado 
+              ? Colors.green 
+              : Colors.grey,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                dia,
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Icon(
+                diaInfo.configurado 
+                    ? Icons.check_circle 
+                    : Icons.radio_button_unchecked,
+                color: diaInfo.configurado 
+                    ? Colors.green 
+                    : Colors.grey,
+                size: 20,
+              ),
+            ],
+          ),
+          if (diaInfo.configurado) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Objetivo: ${diaInfo.objetivoNombre ?? "No definido"}',
+              style: GoogleFonts.poppins(fontSize: 12),
+            ),
+            if (diaInfo.tipo != null)
+              Text(
+                'Tipo: ${diaInfo.tipo}',
+                style: GoogleFonts.poppins(fontSize: 12),
+              ),
+            if (diaInfo.rutaNombre != null)
+              Text(
+                'Ruta: ${diaInfo.rutaNombre}',
+                style: GoogleFonts.poppins(fontSize: 12),
+              ),
+            if (diaInfo.tipoActividadAdministrativa != null)
+              Text(
+                'Actividad: ${diaInfo.tipoActividadAdministrativa}',
+                style: GoogleFonts.poppins(fontSize: 12),
+              ),
+            if (diaInfo.clienteIds.isNotEmpty)
+              Text(
+                'Clientes asignados: ${diaInfo.clienteIds.length}',
+                style: GoogleFonts.poppins(fontSize: 12),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusChip(String status) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 8,
+        vertical: 4,
+      ),
+      decoration: BoxDecoration(
+        color: _getStatusColor(status).withOpacity(0.2),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        status.toUpperCase(),
+        style: GoogleFonts.poppins(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: _getStatusColor(status),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSyncChip(bool synced) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 8,
+        vertical: 4,
+      ),
+      decoration: BoxDecoration(
+        color: synced ? Colors.green.withOpacity(0.2) : Colors.orange.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            synced ? Icons.cloud_done : Icons.cloud_off,
+            size: 14,
+            color: synced ? Colors.green : Colors.orange,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            synced ? 'SINCRONIZADO' : 'NO SINCRONIZADO',
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: synced ? Colors.green : Colors.orange,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -628,6 +801,36 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
     }
   }
 
+  Color _getVisitaStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'completada':
+        return Colors.green;
+      case 'en_proceso':
+        return Colors.blue;
+      case 'cancelada':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _getVisitaStatusIcon(String status) {
+    switch (status.toLowerCase()) {
+      case 'completada':
+        return Icons.check_circle;
+      case 'en_proceso':
+        return Icons.access_time;
+      case 'cancelada':
+        return Icons.cancel;
+      default:
+        return Icons.help_outline;
+    }
+  }
+
+  String _formatTime(DateTime dateTime) {
+    return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+  }
+
   Future<bool?> _mostrarDialogoConfirmacion(String titulo, String mensaje) {
     return showDialog<bool>(
       context: context,
@@ -657,7 +860,7 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
       builder: (context) => Dialog(
         child: Container(
           padding: const EdgeInsets.all(16),
-          constraints: const BoxConstraints(maxWidth: 600),
+          constraints: const BoxConstraints(maxWidth: 800, maxHeight: 600),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -672,9 +875,23 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
                       fontSize: 18,
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.copy),
+                        onPressed: () {
+                          // Copiar al portapapeles en web
+                          final jsonStr = const JsonEncoder.withIndent('  ').convert(json);
+                          // En una app real, usarías clipboard
+                          _mostrarSnackBar('JSON copiado (simulado)', Colors.green);
+                        },
+                        tooltip: 'Copiar JSON',
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -701,27 +918,98 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
     );
   }
 
+  void _editarPlan(PlanTrabajoSemanalHive plan) {
+    final TextEditingController estatusController = TextEditingController(text: plan.estatus);
+    final TextEditingController liderNombreController = TextEditingController(text: plan.liderNombre);
+    bool sincronizado = plan.sincronizado;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Editar Plan ${plan.semana}'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: estatusController,
+                decoration: const InputDecoration(
+                  labelText: 'Estatus',
+                  helperText: 'borrador, enviado, rechazado',
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: liderNombreController,
+                decoration: const InputDecoration(
+                  labelText: 'Nombre del Líder',
+                ),
+              ),
+              const SizedBox(height: 16),
+              SwitchListTile(
+                title: const Text('Sincronizado'),
+                value: sincronizado,
+                onChanged: (value) {
+                  setState(() {
+                    sincronizado = value;
+                  });
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              plan.estatus = estatusController.text;
+              plan.liderNombre = liderNombreController.text;
+              plan.sincronizado = sincronizado;
+              plan.fechaModificacion = DateTime.now();
+              
+              await plan.save();
+              Navigator.pop(context);
+              setState(() {});
+              _mostrarSnackBar('Plan actualizado', Colors.green);
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _limpiarTodosLosDatos() async {
     try {
-      await _hiveService.planesTrabajoSemanalesBox.clear();
-      await _hiveService.clientesBox.clear();
-      await _hiveService.objetivosBox.clear();
-      
+      await _hiveService.clearAllBoxes();
       setState(() {});
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Todos los datos han sido eliminados'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      _mostrarSnackBar('Todos los datos han sido eliminados', Colors.green);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al limpiar datos: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _mostrarSnackBar('Error al limpiar datos: $e', Colors.red);
     }
+  }
+
+  void _exportarTodosLosDatos() {
+    final allData = {
+      'exportDate': DateTime.now().toIso8601String(),
+      'planes': _hiveService.planesTrabajoSemanalesBox.values.map((p) => p.toJson()).toList(),
+      'clientes': _hiveService.clientesBox.values.map((c) => c.toJson()).toList(),
+      'objetivos': _hiveService.objetivosBox.values.map((o) => o.toJson()).toList(),
+      'visitas': _hiveService.visitasClientes.values.map((v) => v.toJson()).toList(),
+    };
+
+    _mostrarJsonCompleto(allData);
+  }
+
+  void _mostrarSnackBar(String mensaje, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(mensaje),
+        backgroundColor: color,
+      ),
+    );
   }
 }
