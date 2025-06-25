@@ -6,6 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import '../../modelos/activity_model.dart';
 import '../../servicios/geolocalizacion_servicio.dart';
 import '../../servicios/visita_cliente_offline_service.dart';
+import '../../servicios/visita_cliente_unificado_service.dart';
 import '../../modelos/visita_cliente_modelo.dart';
 
 class AppColors {
@@ -319,9 +320,6 @@ class _PantallaVisitaClienteState extends State<PantallaVisitaCliente> {
     );
 
     try {
-      // Importar servicios y modelos
-      final VisitaClienteOfflineService visitaServicio = VisitaClienteOfflineService();
-
       // Crear CheckIn usando el builder
       final checkIn =
           CheckInBuilder()
@@ -334,49 +332,103 @@ class _PantallaVisitaClienteState extends State<PantallaVisitaCliente> {
               )
               .build();
 
-      // Extraer información del día actual
-      String diaActual = _obtenerDiaActual();
-
       print('🏁 Realizando check-in:');
       print('   └── Cliente: ${actividad!.title}');
       print('   └── ID Cliente: ${actividad!.cliente}');
-      print('   └── Día: $diaActual');
       print('   └── Comentarios: ${_comentariosController.text}');
       print('   └── Ubicación: $_ubicacionActual');
       print('   └── Precisión: ${_posicionActual!.accuracy} metros');
 
-      // Crear visita en el servidor
-      final visita = await visitaServicio.crearVisitaDesdeActividad(
-        clienteId: actividad!.cliente ?? 'UNKNOWN',
-        clienteNombre: actividad!.title,
-        dia: diaActual,
-        checkIn: checkIn,
-        planId: null, // TODO: Obtener desde el contexto del plan actual
-      );
+      // Verificar si tenemos metadata del plan unificado
+      final metadata = actividad!.metadata;
+      if (metadata != null && metadata['planId'] != null) {
+        // Usar el servicio unificado
+        print('📊 Usando plan unificado:');
+        print('   └── Plan ID: ${metadata['planId']}');
+        print('   └── Día: ${metadata['dia']}');
+        print('   └── Es FOCO: ${metadata['esFoco']}');
 
-      print('✅ Check-in realizado exitosamente');
-      print('   └── Visita ID: ${visita.visitaId}');
-      print('   └── Estatus: ${visita.estatus}');
-
-      // Cerrar loading
-      if (mounted) Navigator.of(context).pop();
-
-      // Navegar al formulario dinámico con toda la información
-      if (mounted) {
-        final resultado = await Navigator.pushNamed(
-          context,
-          '/formulario_dinamico',
-          arguments: {
-            'actividad': actividad,
-            'visita': visita,
-            'checkIn': checkIn,
-            'visitaServicio': visitaServicio,
-          },
+        final visitaUnificadaService = VisitaClienteUnificadoService();
+        final resultadoCheckIn = await visitaUnificadaService.iniciarVisitaEnPlanUnificado(
+          planId: metadata['planId'],
+          dia: metadata['dia'],
+          clienteId: actividad!.cliente ?? 'UNKNOWN',
+          checkIn: checkIn,
         );
 
-        // Si el formulario se completó exitosamente, regresar con resultado positivo
-        if (resultado == true && mounted) {
-          Navigator.pop(context, true);
+        if (resultadoCheckIn['exitoso'] == true) {
+          print('✅ Check-in realizado exitosamente en plan unificado');
+          if (resultadoCheckIn['esNuevoClienteFoco'] == true) {
+            print('   └── Cliente agregado a lista FOCO');
+          }
+
+          // Cerrar loading
+          if (mounted) Navigator.of(context).pop();
+
+          // Navegar al formulario dinámico con información del plan unificado
+          if (mounted) {
+            final resultado = await Navigator.pushNamed(
+              context,
+              '/formulario_dinamico',
+              arguments: {
+                'actividad': actividad,
+                'checkIn': checkIn,
+                'planUnificado': {
+                  'planId': metadata['planId'],
+                  'dia': metadata['dia'],
+                  'clienteId': actividad!.cliente,
+                  'visitaId': resultadoCheckIn['visitaId'],
+                },
+              },
+            );
+
+            // Si el formulario se completó exitosamente, regresar con resultado positivo
+            if (resultado == true && mounted) {
+              Navigator.pop(context, true);
+            }
+          }
+        } else {
+          throw Exception(resultadoCheckIn['error'] ?? 'Error desconocido');
+        }
+      } else {
+        // Fallback al servicio tradicional si no hay metadata
+        print('⚠️ Sin metadata del plan, usando servicio tradicional');
+        
+        final VisitaClienteOfflineService visitaServicio = VisitaClienteOfflineService();
+        String diaActual = _obtenerDiaActual();
+        
+        final visita = await visitaServicio.crearVisitaDesdeActividad(
+          clienteId: actividad!.cliente ?? 'UNKNOWN',
+          clienteNombre: actividad!.title,
+          dia: diaActual,
+          checkIn: checkIn,
+          planId: null,
+        );
+
+        print('✅ Check-in realizado exitosamente (modo tradicional)');
+        print('   └── Visita ID: ${visita.visitaId}');
+        print('   └── Estatus: ${visita.estatus}');
+
+        // Cerrar loading
+        if (mounted) Navigator.of(context).pop();
+
+        // Navegar al formulario dinámico con toda la información
+        if (mounted) {
+          final resultado = await Navigator.pushNamed(
+            context,
+            '/formulario_dinamico',
+            arguments: {
+              'actividad': actividad,
+              'visita': visita,
+              'checkIn': checkIn,
+              'visitaServicio': visitaServicio,
+            },
+          );
+
+          // Si el formulario se completó exitosamente, regresar con resultado positivo
+          if (resultado == true && mounted) {
+            Navigator.pop(context, true);
+          }
         }
       }
     } catch (e) {

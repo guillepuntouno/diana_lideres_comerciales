@@ -111,36 +111,43 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
   Future<void> _cargarClientesDeRuta() async {
     try {
       print('🔄 Cargando clientes para ruta: $rutaSeleccionada');
-      
+
       // Primero intentar cargar desde la ruta (por compatibilidad)
       if (_rutaActual!.negocios.isNotEmpty) {
         _clientesDisponibles = _rutaActual!.negocios;
-        print('✅ Clientes cargados desde la ruta: ${_clientesDisponibles.length}');
+        print(
+          '✅ Clientes cargados desde la ruta: ${_clientesDisponibles.length}',
+        );
         return;
       }
-      
+
       // Preparar parámetros para el servicio AWS
-      final liderParam = liderNombre.isNotEmpty ? liderNombre : _liderComercial!.nombre;
+      final liderParam =
+          liderNombre.isNotEmpty ? liderNombre : _liderComercial!.nombre;
       print('📋 Parámetros para obtener clientes:');
       print('   - Día: $diaAsignado');
       print('   - Líder: $liderParam');
       print('   - Ruta: $rutaSeleccionada');
-      
+
       // Si no hay negocios en la ruta, cargar desde el servicio AWS
       final clientesData = await _clientesServicio.obtenerClientesPorRuta(
         dia: diaAsignado,
         lider: liderParam,
         ruta: rutaSeleccionada,
       );
-      
+
       if (clientesData != null && clientesData.isNotEmpty) {
         // Convertir los datos a objetos Negocio
-        _clientesDisponibles = clientesData
-            .map((clienteData) => ClientesServicio.convertirClienteANegocio(clienteData))
-            .toList();
-        
+        _clientesDisponibles =
+            clientesData
+                .map(
+                  (clienteData) =>
+                      ClientesServicio.convertirClienteANegocio(clienteData),
+                )
+                .toList();
+
         print('✅ Clientes cargados desde AWS: ${_clientesDisponibles.length}');
-        
+
         // Mostrar información del primer cliente convertido para debug
         if (_clientesDisponibles.isNotEmpty) {
           final primerCliente = _clientesDisponibles.first;
@@ -151,7 +158,7 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
           print('   - Clasificación: ${primerCliente.clasificacion}');
           print('   - Exhibidor: ${primerCliente.exhibidor}');
         }
-        
+
         // Opcionalmente, actualizar la ruta en memoria para futuras consultas
         _rutaActual = Ruta(
           asesor: _rutaActual!.asesor,
@@ -173,10 +180,10 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
     try {
       // Inicializar el servicio offline
       await _planServicio.initialize();
-      
+
       // Obtener el plan usando el servicio offline
       final plan = await _planServicio.obtenerOCrearPlan(
-        semana, 
+        semana,
         liderId,
         _liderComercial!,
       );
@@ -259,10 +266,10 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
 
       // Inicializar el servicio offline si no lo está
       await _planServicio.initialize();
-      
+
       // Obtener el plan actual usando el servicio offline
       final plan = await _planServicio.obtenerOCrearPlan(
-        semana, 
+        semana,
         liderId,
         _liderComercial!,
       );
@@ -270,7 +277,8 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
       // Crear el día de trabajo con las asignaciones
       final diaData = DiaTrabajoModelo(
         dia: diaAsignado,
-        objetivo: 'Gestión de cliente', // Objetivo por defecto para asignación de clientes
+        objetivo:
+            'Gestión de cliente', // Objetivo por defecto para asignación de clientes
         tipo: 'gestion_cliente',
         centroDistribucion: centroDistribucion,
         rutaId: rutaSeleccionada,
@@ -295,11 +303,7 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
       }
 
       // Guardar la configuración del día usando el servicio offline
-      await _planServicio.guardarConfiguracionDia(
-        semana,
-        liderId,
-        diaData,
-      );
+      await _planServicio.guardarConfiguracionDia(semana, liderId, diaData);
 
       // Cerrar loading
       if (mounted) Navigator.of(context).pop();
@@ -719,7 +723,7 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Seleccionar clientes:',
+                      'Seleccionar clientes FOCO :',
                       style: GoogleFonts.poppins(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -751,7 +755,7 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
                 // Opción de seleccionar todos
                 CheckboxListTile(
                   title: Text(
-                    'Seleccionar todos los clientes de la ruta',
+                    'Seleccionar todos.',
                     style: GoogleFonts.poppins(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,

@@ -10,7 +10,10 @@ import 'package:intl/intl.dart';
 
 class PlanTrabajoUnificadoService {
   final PlanTrabajoUnificadoRepository _repository = PlanTrabajoUnificadoRepository();
-  final String baseUrl = AmbienteConfig.apiBaseUrl;
+  final String baseUrl = AmbienteConfig.baseUrl;
+  
+  // Getter público para el repositorio
+  PlanTrabajoUnificadoRepository get repository => _repository;
 
   // Obtener o crear plan para una semana
   Future<PlanTrabajoUnificadoHive> obtenerOCrearPlan(

@@ -2,9 +2,11 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../modelos/lider_comercial_modelo.dart';
+import 'package:diana_lc_front/configuracion/ambiente_config.dart';
 
 class ClientesServicio {
-  static const String _baseUrl = 'https://ln6rw4qcj7.execute-api.us-east-1.amazonaws.com/dev';
+  //static const String _baseUrl = 'https://ln6rw4qcj7.execute-api.us-east-1.amazonaws.com/dev';
+  static String get _baseUrl => AmbienteConfig.baseUrl;
 
   /// Obtiene todos los clientes disponibles
   Future<List<Map<String, dynamic>>?> obtenerTodosLosClientes() async {
@@ -12,7 +14,7 @@ class ClientesServicio {
       // Obtener token de SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('id_token');
-      
+
       if (token == null || token.isEmpty) {
         print('❌ No hay token de autenticación');
         return null;
@@ -22,22 +24,20 @@ class ClientesServicio {
 
       final response = await http.get(
         Uri.parse('$_baseUrl/clientes'),
-        headers: {
-          'Authorization': 'Bearer $token',
-        },
+        headers: {'Authorization': 'Bearer $token'},
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         print('✅ Clientes obtenidos: ${data.length} registros');
-        
+
         // Retornar la lista de clientes
         if (data is List) {
           return data.cast<Map<String, dynamic>>();
         } else if (data is Map && data.containsKey('clientes')) {
           return (data['clientes'] as List).cast<Map<String, dynamic>>();
         }
-        
+
         return [];
       } else {
         print('❌ Error al obtener clientes: ${response.statusCode}');
@@ -60,17 +60,21 @@ class ClientesServicio {
       // Obtener token de SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('id_token');
-      
+
       if (token == null || token.isEmpty) {
         print('❌ No hay token de autenticación');
         return null;
       }
 
-      print('🔍 Obteniendo clientes para ruta: $ruta, día: $dia, líder: $lider');
-      print('🔑 Token JWT: ${token.substring(0, 20)}...'); // Mostrar solo el inicio del token
+      print(
+        '🔍 Obteniendo clientes para ruta: $ruta, día: $dia, líder: $lider',
+      );
+      print(
+        '🔑 Token JWT: ${token.substring(0, 20)}...',
+      ); // Mostrar solo el inicio del token
 
       final uri = Uri.parse('$_baseUrl/clientes');
-      
+
       print('📡 URL: $uri');
       print('📤 Enviando como POST con body');
 
@@ -80,17 +84,13 @@ class ClientesServicio {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
-        body: jsonEncode({
-          'dia': dia,
-          'lider': lider,
-          'ruta': ruta,
-        }),
+        body: jsonEncode({'dia': dia, 'lider': lider, 'ruta': ruta}),
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         print('✅ Respuesta exitosa del servidor');
-        
+
         // Retornar la lista de clientes
         if (data is List) {
           print('📊 Datos recibidos: ${data.length} clientes');
@@ -105,23 +105,25 @@ class ClientesServicio {
           return data.cast<Map<String, dynamic>>();
         } else if (data is Map && data.containsKey('clientes')) {
           final clientesList = (data['clientes'] as List);
-          print('📊 Datos recibidos (en objeto): ${clientesList.length} clientes');
+          print(
+            '📊 Datos recibidos (en objeto): ${clientesList.length} clientes',
+          );
           return clientesList.cast<Map<String, dynamic>>();
         }
-        
+
         print('⚠️ Formato de respuesta no reconocido');
         return [];
       } else {
         print('❌ Error al obtener clientes: ${response.statusCode}');
         print('   Respuesta: ${response.body}');
         print('   Headers enviados: ${response.request?.headers}');
-        
+
         // Si es error 401, verificar el token
         if (response.statusCode == 401) {
           print('⚠️ Error de autenticación. Verificando token...');
           print('   Token guardado: ${token.substring(0, 20)}...');
         }
-        
+
         return null;
       }
     } catch (e) {
@@ -134,10 +136,26 @@ class ClientesServicio {
   static Negocio convertirClienteANegocio(Map<String, dynamic> clienteData) {
     // Mapeo actualizado para la nueva estructura de AWS
     return Negocio(
-      clave: clienteData['Cliente_ID'] ?? clienteData['clave'] ?? clienteData['id'] ?? '',
-      nombre: clienteData['Negocio'] ?? clienteData['nombre'] ?? clienteData['razonSocial'] ?? '',
-      canal: clienteData['Tipovendedor'] ?? clienteData['canal'] ?? clienteData['tipoNegocio'] ?? '',
-      clasificacion: clienteData['Clasificación'] ?? clienteData['clasificacion'] ?? clienteData['segmento'] ?? '',
+      clave:
+          clienteData['Cliente_ID'] ??
+          clienteData['clave'] ??
+          clienteData['id'] ??
+          '',
+      nombre:
+          clienteData['Negocio'] ??
+          clienteData['nombre'] ??
+          clienteData['razonSocial'] ??
+          '',
+      canal:
+          clienteData['Tipovendedor'] ??
+          clienteData['canal'] ??
+          clienteData['tipoNegocio'] ??
+          '',
+      clasificacion:
+          clienteData['Clasificación'] ??
+          clienteData['clasificacion'] ??
+          clienteData['segmento'] ??
+          '',
       exhibidor: clienteData['Exhibidor'] ?? clienteData['exhibidor'] ?? 'NO',
     );
   }

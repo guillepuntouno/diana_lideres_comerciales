@@ -1,21 +1,33 @@
+import 'package:flutter/foundation.dart'; // para kDebugMode
+
 enum Ambiente { desarrollo, qa, preproduccion, produccion }
 
 class AmbienteConfig {
   static const Ambiente _ambienteActual =
-      Ambiente.qa; // Cambiar aquí para alternar ambientes
+      Ambiente.desarrollo; // Cambiar aquí para alternar ambientes
 
   static Ambiente get ambienteActual => _ambienteActual;
 
   static String get baseUrl {
+    // Si estamos en modo debug *y* el ambiente seleccionado es desarrollo, usar URL local:
+    if (kDebugMode && ambienteActual == Ambiente.desarrollo) {
+      return 'http://localhost:8080/proxy/dev'; // URL local para desarrollo en debug
+    }
+
+    // Caso contrario, devolver según configuración del ambiente:
     switch (_ambienteActual) {
       case Ambiente.desarrollo:
-        return 'https://ln6rw4qcj7.execute-api.us-east-1.amazonaws.com/dev';
+        return 'http://localhost:8080/proxy/dev';
+      //return 'https://ln6rw4qcj7.execute-api.us-east-1.amazonaws.com/dev';
       case Ambiente.qa:
-        return 'https://ln6rw4qcj7.execute-api.us-east-1.amazonaws.com/dev';
+        return 'http://localhost:8080/proxy/dev';
+      // return 'https://ln6rw4qcj7.execute-api.us-east-1.amazonaws.com/dev';
       case Ambiente.preproduccion:
-        return 'https://ln6rw4qcj7.execute-api.us-east-1.amazonaws.com/dev';
+        return 'http://localhost:8080/proxy/dev';
+      //return 'https://ln6rw4qcj7.execute-api.us-east-1.amazonaws.com/dev';
       case Ambiente.produccion:
-        return 'https://ln6rw4qcj7.execute-api.us-east-1.amazonaws.com/dev';
+        return 'http://localhost:8080/proxy/dev';
+      //return 'https://ln6rw4qcj7.execute-api.us-east-1.amazonaws.com/dev';
     }
   }
 

@@ -6,6 +6,7 @@ import '../vistas/login/pantalla_login.dart';
 import '../rutas/rutas.dart';
 import '../vistas/menu_principal/pantalla_menu_principal.dart';
 import 'package:http/http.dart' as http;
+import 'package:diana_lc_front/configuracion/ambiente_config.dart'; // asegúrate de importar esta clase
 
 class AuthGuard {
   static const tokenKey = 'id_token';
@@ -16,17 +17,17 @@ class AuthGuard {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString(tokenKey);
     if (token == null || token.isEmpty) return false;
-    
+
     // Imprimir información del token para debug
     print('🔐 Token JWT recibido');
     _debugPrintTokenInfo(token);
-    
+
     if (!_isLocallyValid(token)) return false;
-    
+
     // Intentar validar con el backend
     final userData = await _validateTokenWithBackend(token);
     print('📡 Respuesta del backend: $userData');
-    
+
     // Si userData es null, es por el error de CORS
     if (userData == null) {
       // Guardar error para mostrar en la UI
@@ -34,7 +35,7 @@ class AuthGuard {
       print('❌ Error de CORS: No se puede validar el token con el backend');
       return false;
     }
-    
+
     // Limpiar cualquier error previo
     await prefs.remove('auth_error');
     await prefs.setString(userKey, jsonEncode(userData));
@@ -58,15 +59,19 @@ class AuthGuard {
   }
 
   /// Llama a tu backend para verificar el token
-  static Future<Map<String, dynamic>?> _validateTokenWithBackend(String token) async {
+  static Future<Map<String, dynamic>?> _validateTokenWithBackend(
+    String token,
+  ) async {
     try {
       final response = await http.get(
-        Uri.parse('https://ln6rw4qcj7.execute-api.us-east-1.amazonaws.com/dev/auth/session'),
-        headers: {
-          'Authorization': 'Bearer $token',
-        },
+        // Uri.parse(
+        // 'https://ln6rw4qcj7.execute-api.us-east-1.amazonaws.com/dev/auth/session',
+        //),
+        Uri.parse('${AmbienteConfig.baseUrl}/auth/session'),
+        headers: {'Authorization': 'Bearer $token'},
       );
-     /*  
+
+      /*  
      *******Este codigo hay que colocarlo cuando debes seleccioanr los clientes de un plan de trabajo -> ruta -> dia*****
      final uri = Uri.parse('https://ln6rw4qcj7.execute-api.us-east-1.amazonaws.com/dev/clientes');
       final response2 = await http.post(
@@ -101,17 +106,21 @@ class AuthGuard {
         print('❌ Token JWT inválido - no tiene 3 partes');
         return;
       }
-      
+
       final payloadBase64 = parts[1];
       final normalized = base64.normalize(payloadBase64);
       final decoded = utf8.decode(base64Url.decode(normalized));
       final payload = json.decode(decoded);
-      
+
       print('📋 Contenido del token JWT:');
-      print('- Usuario: ${payload['cognito:username'] ?? payload['email'] ?? 'No encontrado'}');
+      print(
+        '- Usuario: ${payload['cognito:username'] ?? payload['email'] ?? 'No encontrado'}',
+      );
       print('- Email: ${payload['email'] ?? 'No encontrado'}');
       print('- Sub: ${payload['sub'] ?? 'No encontrado'}');
-      print('- Expiración: ${DateTime.fromMillisecondsSinceEpoch((payload['exp'] ?? 0) * 1000)}');
+      print(
+        '- Expiración: ${DateTime.fromMillisecondsSinceEpoch((payload['exp'] ?? 0) * 1000)}',
+      );
       print('- Token completo payload: $payload');
     } catch (e) {
       print('❌ Error al decodificar token: $e');
@@ -119,8 +128,14 @@ class AuthGuard {
   }
 
   // 🔀 Centraliza todas las rutas y aplica validación
-  static Route<dynamic> handleRoute(RouteSettings settings, Map<String, WidgetBuilder> rutas) {
-    final isLoginRoute = settings.name == '/login' || settings.name == '' || settings.name == '/';
+  static Route<dynamic> handleRoute(
+    RouteSettings settings,
+    Map<String, WidgetBuilder> rutas,
+  ) {
+    final isLoginRoute =
+        settings.name == '/login' ||
+        settings.name == '' ||
+        settings.name == '/';
 
     return MaterialPageRoute(
       builder: (context) {
@@ -128,14 +143,20 @@ class AuthGuard {
           future: isAuthenticated(),
           builder: (context, snapshot) {
             if (!snapshot.hasData) {
-              return const Scaffold(body: Center(child: CircularProgressIndicator()));
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
             }
 
             final auth = snapshot.data!;
 
             if (auth && isLoginRoute) {
-              Future.microtask(() => Navigator.of(context).pushReplacementNamed('/home'));
-              return const Scaffold(body: Center(child: CircularProgressIndicator()));
+              Future.microtask(
+                () => Navigator.of(context).pushReplacementNamed('/home'),
+              );
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
             }
 
             if (!auth && !isLoginRoute) {
@@ -145,12 +166,13 @@ class AuthGuard {
             final pageBuilder = rutas[settings.name];
             if (pageBuilder != null) return pageBuilder(context);
 
-            return const Scaffold(body: Center(child: Text('Ruta no encontrada')));
+            return const Scaffold(
+              body: Center(child: Text('Ruta no encontrada')),
+            );
           },
         );
       },
       settings: settings,
     );
   }
-
 }

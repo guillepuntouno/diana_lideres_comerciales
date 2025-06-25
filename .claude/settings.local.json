@@ -11,7 +11,8 @@
       "Bash(/mnt/c/flutter/bin/dart run build_runner build --delete-conflicting-outputs)",
       "Bash(grep:*)",
       "Bash(flutter analyze:*)",
-      "Bash(dart analyze:*)"
+      "Bash(dart analyze:*)",
+      "Bash(flutter:*)"
     ],
     "deny": []
   }

@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../modelos/activity_model.dart';
 import '../../modelos/visita_cliente_modelo.dart';
+import '../../modelos/hive/plan_trabajo_unificado_hive.dart';
+import '../../servicios/visita_cliente_unificado_service.dart';
 
 class AppColors {
   static const Color dianaRed = Color(0xFFDE1327);
@@ -14,11 +16,62 @@ class AppColors {
   static const Color mediumGray = Color(0xFF8F8E8E);
 }
 
-class PantallaResumenVisita extends StatelessWidget {
+class PantallaResumenVisita extends StatefulWidget {
   const PantallaResumenVisita({super.key});
 
   @override
+  State<PantallaResumenVisita> createState() => _PantallaResumenVisitaState();
+}
+
+class _PantallaResumenVisitaState extends State<PantallaResumenVisita> {
+  final VisitaClienteUnificadoService _visitaUnificadoService = 
+      VisitaClienteUnificadoService();
+  
+  bool _isLoading = true;
+  VisitaClienteUnificadaHive? _visitaUnificada;
+  bool _modoConsulta = false;
+  
+  @override
+  void initState() {
+    super.initState();
+    _cargarDatos();
+  }
+  
+  Future<void> _cargarDatos() async {
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    
+    if (args != null && args['modoConsulta'] == true) {
+      _modoConsulta = true;
+      
+      // Cargar datos del plan unificado
+      final planId = args['planId'] as String?;
+      final dia = args['dia'] as String?;
+      final clienteId = args['clienteId'] as String?;
+      
+      if (planId != null && dia != null && clienteId != null) {
+        _visitaUnificada = await _visitaUnificadoService.obtenerVisitaDesdeplan(
+          planId: planId,
+          dia: dia,
+          clienteId: clienteId,
+        );
+      }
+    }
+    
+    setState(() => _isLoading = false);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(
+          child: CircularProgressIndicator(color: AppColors.dianaRed),
+        ),
+      );
+    }
+    
     final args =
         ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
 
@@ -42,9 +95,14 @@ class PantallaResumenVisita extends StatelessWidget {
 
     final ActivityModel? actividad = args['actividad'] as ActivityModel?;
     final VisitaClienteModelo? visita = args['visita'] as VisitaClienteModelo?;
-    final Map<String, dynamic>? formularios =
+    Map<String, dynamic>? formularios =
         args['formularios'] as Map<String, dynamic>?;
     final Duration? duracion = args['duracion'] as Duration?;
+    
+    // En modo consulta, construir formularios desde la visita unificada
+    if (_modoConsulta && _visitaUnificada != null) {
+      formularios = _construirFormulariosDesdeUnificada(_visitaUnificada!);
+    }
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -56,7 +114,7 @@ class PantallaResumenVisita extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'Resumen de Visita',
+          _modoConsulta ? 'Detalle de Visita' : 'Resumen de Visita',
           style: GoogleFonts.poppins(
             color: Colors.white,
             fontWeight: FontWeight.bold,
@@ -65,11 +123,12 @@ class PantallaResumenVisita extends StatelessWidget {
         ),
         centerTitle: true,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.share, color: Colors.white),
-            onPressed: () => _compartirResumen(context, actividad, visita),
-            tooltip: 'Compartir resumen',
-          ),
+          if (!_modoConsulta)
+            IconButton(
+              icon: const Icon(Icons.share, color: Colors.white),
+              onPressed: () => _compartirResumen(context, actividad, visita),
+              tooltip: 'Compartir resumen',
+            ),
         ],
       ),
       body: SingleChildScrollView(
@@ -77,13 +136,17 @@ class PantallaResumenVisita extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header de éxito
-            _buildHeaderExito(actividad, duracion),
+            // Header de éxito o consulta
+            _modoConsulta
+                ? _buildHeaderConsulta(args)
+                : _buildHeaderExito(actividad, duracion),
 
             const SizedBox(height: 24),
 
             // Información del cliente
-            _buildInfoCliente(actividad, visita),
+            _modoConsulta
+                ? _buildInfoClienteUnificada(args, _visitaUnificada)
+                : _buildInfoCliente(actividad, visita),
 
             const SizedBox(height: 24),
 
@@ -99,7 +162,9 @@ class PantallaResumenVisita extends StatelessWidget {
             const SizedBox(height: 32),
 
             // Botones de acción
-            _buildBotonesAccion(context),
+            _modoConsulta
+                ? _buildBotonesAccionConsulta(context)
+                : _buildBotonesAccion(context),
           ],
         ),
       ),
@@ -661,6 +726,253 @@ class PantallaResumenVisita extends StatelessWidget {
         ),
         backgroundColor: AppColors.dianaYellow,
       ),
+    );
+  }
+  
+  Widget _buildHeaderConsulta(Map<String, dynamic>? args) {
+    final clienteNombre = args?['clienteNombre'] ?? 'Cliente';
+    final dia = args?['dia'] ?? '';
+    
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [AppColors.dianaRed, AppColors.dianaRed.withOpacity(0.8)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.dianaRed.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.visibility, color: Colors.white, size: 64),
+          const SizedBox(height: 16),
+          Text(
+            'Detalle de Visita',
+            style: GoogleFonts.poppins(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            clienteNombre,
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              color: Colors.white.withOpacity(0.9),
+            ),
+            textAlign: TextAlign.center,
+          ),
+          if (dia.isNotEmpty) ...[  
+            const SizedBox(height: 8),
+            Text(
+              'Día: $dia',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: Colors.white.withOpacity(0.8),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildInfoClienteUnificada(
+    Map<String, dynamic>? args,
+    VisitaClienteUnificadaHive? visitaUnificada,
+  ) {
+    final clienteNombre = args?['clienteNombre'] ?? 'N/A';
+    final clienteId = args?['clienteId'] ?? 'N/A';
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Información de la Visita',
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppColors.darkGray,
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          _buildInfoRow('Cliente:', clienteNombre),
+          _buildInfoRow('ID Cliente:', clienteId),
+          
+          if (visitaUnificada != null) ...[
+            if (visitaUnificada.horaInicio != null)
+              _buildInfoRow(
+                'Hora inicio:',
+                _formatearFecha(DateTime.parse(visitaUnificada.horaInicio!)),
+              ),
+            if (visitaUnificada.horaFin != null)
+              _buildInfoRow(
+                'Hora fin:',
+                _formatearFecha(DateTime.parse(visitaUnificada.horaFin!)),
+              ),
+            _buildInfoRow('Estado:', visitaUnificada.estatus.toUpperCase()),
+            
+            if (visitaUnificada.ubicacionInicio != null)
+              _buildInfoRow(
+                'Ubicación:',
+                'Lat: ${visitaUnificada.ubicacionInicio!.lat.toStringAsFixed(4)}, '
+                'Lon: ${visitaUnificada.ubicacionInicio!.lon.toStringAsFixed(4)}',
+              ),
+              
+            if (visitaUnificada.comentarioInicio?.isNotEmpty == true)
+              _buildInfoRow('Comentario inicio:', visitaUnificada.comentarioInicio!),
+          ],
+        ],
+      ),
+    );
+  }
+  
+  Map<String, dynamic> _construirFormulariosDesdeUnificada(
+    VisitaClienteUnificadaHive visitaUnificada,
+  ) {
+    final formularios = <String, dynamic>{};
+    
+    // Construir sección 1: Tipo de Exhibidor
+    if (visitaUnificada.cuestionario?.tipoExhibidor != null) {
+      final tipo = visitaUnificada.cuestionario!.tipoExhibidor!;
+      formularios['seccion1'] = {
+        'poseeAdecuado': tipo.poseeAdecuado,
+        if (tipo.tipo != null) 'tipo': tipo.tipo,
+        if (tipo.modelo != null) 'modelo': tipo.modelo,
+        if (tipo.cantidad != null) 'cantidad': tipo.cantidad,
+      };
+    }
+    
+    // Construir sección 2: Estándares de Ejecución
+    if (visitaUnificada.cuestionario?.estandaresEjecucion != null) {
+      final estandares = visitaUnificada.cuestionario!.estandaresEjecucion!;
+      formularios['seccion2'] = {
+        'primeraPosicion': estandares.primeraPosicion,
+        'planograma': estandares.planograma,
+        'portafolioFoco': estandares.portafolioFoco,
+        'anclaje': estandares.anclaje,
+      };
+    }
+    
+    // Construir sección 3: Disponibilidad
+    if (visitaUnificada.cuestionario?.disponibilidad != null) {
+      final disponibilidad = visitaUnificada.cuestionario!.disponibilidad!;
+      formularios['seccion3'] = {
+        'ristras': disponibilidad.ristras,
+        'max': disponibilidad.max,
+        'familiar': disponibilidad.familiar,
+        'dulce': disponibilidad.dulce,
+        'galleta': disponibilidad.galleta,
+      };
+    }
+    
+    // Construir sección 4: Compromisos
+    if (visitaUnificada.compromisos.isNotEmpty) {
+      formularios['seccion4'] = {
+        'compromisos': visitaUnificada.compromisos.map((c) => {
+          'tipo': c.tipo,
+          'detalle': c.detalle,
+          'cantidad': c.cantidad,
+          'fechaFormateada': c.fechaPlazo,
+        }).toList(),
+      };
+    }
+    
+    // Construir sección 5: Comentarios
+    if (visitaUnificada.retroalimentacion?.isNotEmpty == true ||
+        visitaUnificada.reconocimiento?.isNotEmpty == true) {
+      formularios['seccion5'] = {
+        if (visitaUnificada.retroalimentacion?.isNotEmpty == true)
+          'retroalimentacion': visitaUnificada.retroalimentacion,
+        if (visitaUnificada.reconocimiento?.isNotEmpty == true)
+          'reconocimiento': visitaUnificada.reconocimiento,
+      };
+    }
+    
+    return formularios;
+  }
+  
+  Widget _buildBotonesAccionConsulta(BuildContext context) {
+    return Column(
+      children: [
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            label: Text(
+              'Volver a Rutinas',
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.dianaRed,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () => Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/home',
+              (route) => false,
+            ),
+            icon: const Icon(Icons.home, color: AppColors.dianaRed),
+            label: Text(
+              'Ir al Inicio',
+              style: GoogleFonts.poppins(
+                color: AppColors.dianaRed,
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+              ),
+            ),
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: AppColors.dianaRed),
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

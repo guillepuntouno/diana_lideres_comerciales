@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../../modelos/activity_model.dart';
 import '../../servicios/visita_cliente_servicio.dart';
+import '../../servicios/visita_cliente_unificado_service.dart';
 import '../../servicios/sesion_servicio.dart';
 import '../../servicios/notificaciones_servicio.dart'; // NUEVO IMPORT
 import '../../modelos/visita_cliente_modelo.dart';
@@ -30,12 +31,17 @@ class _PantallaFormularioDinamicoState
     extends State<PantallaFormularioDinamico> {
   // Servicios
   final VisitaClienteServicio _visitaServicio = VisitaClienteServicio();
+  final VisitaClienteUnificadoService _visitaUnificadoService = VisitaClienteUnificadoService();
 
   // Control de visita
   String? _claveVisita;
   VisitaClienteModelo? _visitaActual;
   bool _visitaCreada = false;
   bool _guardandoEnAPI = false;
+
+  // Datos del plan unificado
+  Map<String, dynamic>? _planUnificadoData;
+  bool _usandoPlanUnificado = false;
 
   // Datos recibidos de la navegación
   ActivityModel? actividad;
@@ -161,6 +167,16 @@ class _PantallaFormularioDinamicoState
         actividad = args['actividad'] as ActivityModel?;
         comentarios = args['comentarios'] as String?;
         ubicacion = args['ubicacion'] as String?;
+        
+        // Verificar si hay datos del plan unificado
+        if (args['planUnificado'] != null) {
+          _planUnificadoData = args['planUnificado'] as Map<String, dynamic>;
+          _usandoPlanUnificado = true;
+          print('📊 Usando plan unificado:');
+          print('   └── Plan ID: ${_planUnificadoData!['planId']}');
+          print('   └── Día: ${_planUnificadoData!['dia']}');
+          print('   └── Cliente ID: ${_planUnificadoData!['clienteId']}');
+        }
 
         print('📋 Map de argumentos:');
         print('   └── Cliente: ${actividad?.title}');
@@ -502,25 +518,44 @@ class _PantallaFormularioDinamicoState
   }
 
   Future<void> _guardarEnAPI() async {
-    if (_guardandoEnAPI || _claveVisita == null) return;
+    if (_guardandoEnAPI) return;
+    
+    // Verificar si tenemos clave de visita o datos del plan unificado
+    if (!_usandoPlanUnificado && _claveVisita == null) return;
 
     setState(() {
       _guardandoEnAPI = true;
     });
 
     try {
-      // Preparar estructura de formularios para la API
+      // Preparar estructura de formularios
       final formularios = {
-        'evaluacion_desarrollo_campo': {
-          ...datosFormulario,
-          'fechaActualizacion': DateTime.now().toIso8601String(),
-          'version': '1.0',
+        'cuestionario': {
+          'tipoExhibidor': datosFormulario['seccion1'],
+          'estandaresEjecucion': datosFormulario['seccion2'],
+          'disponibilidad': datosFormulario['seccion3'],
         },
+        'compromisos': datosFormulario['seccion4']['compromisos'] ?? [],
+        'retroalimentacion': datosFormulario['seccion5']['retroalimentacion'],
+        'reconocimiento': datosFormulario['seccion5']['reconocimiento'],
+        'fechaActualizacion': DateTime.now().toIso8601String(),
+        'version': '1.0',
       };
 
-      await _visitaServicio.actualizarFormularios(_claveVisita!, formularios);
-
-      print('☁️ Formularios sincronizados con API');
+      if (_usandoPlanUnificado && _planUnificadoData != null) {
+        // Usar servicio unificado
+        await _visitaUnificadoService.actualizarFormulariosEnPlanUnificado(
+          planId: _planUnificadoData!['planId'],
+          dia: _planUnificadoData!['dia'],
+          clienteId: _planUnificadoData!['clienteId'],
+          formularios: formularios,
+        );
+        print('☁️ Formularios sincronizados con plan unificado');
+      } else {
+        // Usar servicio tradicional
+        await _visitaServicio.actualizarFormularios(_claveVisita!, formularios);
+        print('☁️ Formularios sincronizados con API tradicional');
+      }
 
       // Mostrar feedback visual discreto
       if (mounted) {
@@ -740,35 +775,62 @@ class _PantallaFormularioDinamicoState
   }
 
   Future<void> _finalizarVisitaEnAPI() async {
-    if (_claveVisita == null || !_visitaCreada) return;
+    // Verificar si tenemos datos para finalizar
+    if (!_usandoPlanUnificado && (_claveVisita == null || !_visitaCreada)) return;
 
     try {
-      print('🏁 Finalizando visita en API...');
+      print('🏁 Finalizando visita...');
 
-      // Calcular duración desde el check-in
-      final duracionMinutos =
-          _visitaActual?.checkIn.timestamp != null
-              ? DateTime.now()
-                  .difference(_visitaActual!.checkIn.timestamp)
-                  .inMinutes
-              : 60;
+      if (_usandoPlanUnificado && _planUnificadoData != null) {
+        // Calcular duración desde el check-in (aproximado por ahora)
+        final duracionMinutos = 60; // TODO: Obtener duración real del plan
 
-      final checkOut = CheckOutModelo(
-        timestamp: DateTime.now(),
-        comentarios: 'Formulario completado exitosamente',
-        ubicacion: UbicacionModelo(
-          latitud: 0.0, // TODO: Obtener ubicación real
-          longitud: 0.0,
-          precision: 0.0,
-          direccion: ubicacion ?? '',
-        ),
-        duracionMinutos: duracionMinutos,
-      );
+        final checkOut = CheckOutModelo(
+          timestamp: DateTime.now(),
+          comentarios: 'Formulario completado exitosamente',
+          ubicacion: UbicacionModelo(
+            latitud: 0.0, // TODO: Obtener ubicación real
+            longitud: 0.0,
+            precision: 0.0,
+            direccion: ubicacion ?? '',
+          ),
+          duracionMinutos: duracionMinutos,
+        );
 
-      await _visitaServicio.finalizarVisitaConCheckOut(_claveVisita!, checkOut);
-      print('✅ Visita finalizada exitosamente en API');
+        // Finalizar en plan unificado
+        await _visitaUnificadoService.finalizarVisitaEnPlanUnificado(
+          planId: _planUnificadoData!['planId'],
+          dia: _planUnificadoData!['dia'],
+          clienteId: _planUnificadoData!['clienteId'],
+          checkOut: checkOut,
+        );
+        print('✅ Visita finalizada exitosamente en plan unificado');
+      } else if (_claveVisita != null && _visitaCreada) {
+        // Usar servicio tradicional
+        final duracionMinutos =
+            _visitaActual?.checkIn.timestamp != null
+                ? DateTime.now()
+                    .difference(_visitaActual!.checkIn.timestamp)
+                    .inMinutes
+                : 60;
+
+        final checkOut = CheckOutModelo(
+          timestamp: DateTime.now(),
+          comentarios: 'Formulario completado exitosamente',
+          ubicacion: UbicacionModelo(
+            latitud: 0.0, // TODO: Obtener ubicación real
+            longitud: 0.0,
+            precision: 0.0,
+            direccion: ubicacion ?? '',
+          ),
+          duracionMinutos: duracionMinutos,
+        );
+
+        await _visitaServicio.finalizarVisitaConCheckOut(_claveVisita!, checkOut);
+        print('✅ Visita finalizada exitosamente en API tradicional');
+      }
     } catch (e) {
-      print('⚠️ Error al finalizar visita en API: $e');
+      print('⚠️ Error al finalizar visita: $e');
       // No bloquear al usuario, la visita se puede finalizar localmente
     }
   }

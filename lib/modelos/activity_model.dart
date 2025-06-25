@@ -12,6 +12,7 @@ class ActivityModel {
   ActivityStatus status;
   DateTime? horaInicio;
   DateTime? horaFin;
+  Map<String, dynamic>? metadata; // Para datos adicionales del plan unificado
 
   ActivityModel({
     required this.id,
@@ -23,6 +24,7 @@ class ActivityModel {
     this.status = ActivityStatus.pendiente,
     this.horaInicio,
     this.horaFin,
+    this.metadata,
   });
 
   Map<String, dynamic> toJson() => {
@@ -35,6 +37,7 @@ class ActivityModel {
     'status': status.name,
     'horaInicio': horaInicio?.millisecondsSinceEpoch,
     'horaFin': horaFin?.millisecondsSinceEpoch,
+    'metadata': metadata,
   };
 
   factory ActivityModel.fromJson(Map<String, dynamic> json) => ActivityModel(
@@ -53,5 +56,6 @@ class ActivityModel {
         json['horaFin'] != null
             ? DateTime.fromMillisecondsSinceEpoch(json['horaFin'])
             : null,
+    metadata: json['metadata'],
   );
 }

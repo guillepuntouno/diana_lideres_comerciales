@@ -11,6 +11,9 @@ import '../../modelos/hive/visita_cliente_hive.dart';
 import '../../modelos/hive/user_hive.dart';
 import '../../modelos/hive/lider_comercial_hive.dart';
 import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '../../configuracion/ambiente_config.dart';
+import '../../servicios/sesion_servicio.dart';
 
 class PantallaDebugHive extends StatefulWidget {
   const PantallaDebugHive({super.key});
@@ -283,83 +286,17 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
   }
 
   Widget _buildPlanesUnificadosTab() {
-    try {
-      if (!Hive.isBoxOpen(HiveService.planTrabajoUnificadoBox)) {
-        return _buildEmptyState('Box de planes unificados no está abierta');
-      }
-
-      final box = _hiveService.planesTrabajoUnificadosBox;
-      final planes = box.values.toList();
-
-    if (planes.isEmpty) {
-      return _buildEmptyState('No hay planes unificados guardados');
-    }
-
-    return ListView.builder(
+    return ListView(
       padding: const EdgeInsets.all(16),
-      itemCount: planes.length,
-      itemBuilder: (context, index) {
-        final plan = planes[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: ExpansionTile(
-            title: Text(
-              'Plan Unificado: ${plan.semana}',
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Líder: ${plan.liderNombre} (${plan.liderClave})',
-                  style: GoogleFonts.poppins(fontSize: 14),
-                ),
-                Row(
-                  children: [
-                    _buildStatusChip(plan.estatus),
-                    const SizedBox(width: 8),
-                    if (!plan.sincronizado)
-                      _buildSyncChip(false),
-                  ],
-                ),
-              ],
-            ),
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildInfoRow('ID', plan.id),
-                    _buildInfoRow('Progreso', '${plan.diasConfigurados}/6 días'),
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton.icon(
-                          onPressed: () => _mostrarJsonCompleto(plan.toJsonCompleto()),
-                          icon: const Icon(Icons.code),
-                          label: Text('Ver JSON Completo'),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+      children: [
+        // Tarjeta GET /planes?userId
+        GetPlanesCard(),
+        
+        const SizedBox(height: 16),
+        
+        // TODO: Aquí irán las demás tarjetas (POST, PUT, DELETE)
+      ],
     );
-    } catch (e) {
-      return _buildEmptyState('Error al cargar planes unificados: $e');
-    }
   }
 
   Widget _buildVisitasTab() {
@@ -1037,3 +974,378 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
     );
   }
 }
+
+// Tarjeta para GET /planes?userId
+class GetPlanesCard extends StatefulWidget {
+  const GetPlanesCard({super.key});
+
+  @override
+  State<GetPlanesCard> createState() => _GetPlanesCardState();
+}
+
+class _GetPlanesCardState extends State<GetPlanesCard> {
+  // Estado
+  bool _isLoading = false;
+  String? _userId;
+  String? _responseData;
+  String? _errorMessage;
+  bool _showToken = false;
+  
+  // Controladores
+  final TextEditingController _tokenController = TextEditingController();
+  
+  @override
+  void initState() {
+    super.initState();
+    _loadUserIdAndToken();
+  }
+  
+  Future<void> _loadUserIdAndToken() async {
+    try {
+      // Obtener el líder comercial actual
+      final lider = await SesionServicio.obtenerLiderComercial();
+      if (lider != null) {
+        setState(() {
+          _userId = lider.clave; // CoSEupervisor
+        });
+      }
+      
+      // Intentar obtener el token
+      final token = await SesionServicio.obtenerToken();
+      if (token != null) {
+        _tokenController.text = token;
+      }
+    } catch (e) {
+      print('Error cargando datos iniciales: $e');
+    }
+  }
+  
+  @override
+  void dispose() {
+    _tokenController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final String url = '${AmbienteConfig.baseUrl}/planes?userId=${_userId ?? ''}';
+    
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header con título y descripción
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.cloud_download,
+                    color: Colors.blue,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'GET /planes?userId',
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey[800],
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Este endpoint recupera la lista de planes del líder comercial logeado.',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 20),
+            const Divider(),
+            const SizedBox(height: 20),
+            
+            // Campo URL (solo lectura)
+            TextField(
+              controller: TextEditingController(text: url),
+              readOnly: true,
+              decoration: InputDecoration(
+                labelText: 'URL del Endpoint',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                filled: true,
+                fillColor: Colors.grey[100],
+                prefixIcon: const Icon(Icons.link),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.copy),
+                  onPressed: () {
+                    // TODO: Implementar copiar al portapapeles
+                    _showSnackBar('URL copiada', Colors.green);
+                  },
+                  tooltip: 'Copiar URL',
+                ),
+              ),
+              style: GoogleFonts.robotoMono(fontSize: 12),
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Campo Token
+            TextFormField(
+              controller: _tokenController,
+              obscureText: !_showToken,
+              decoration: InputDecoration(
+                labelText: 'Token de Autenticación',
+                hintText: 'Bearer eyJhbGc...',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                prefixIcon: const Icon(Icons.security),
+                suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: Icon(
+                        _showToken ? Icons.visibility_off : Icons.visibility,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _showToken = !_showToken;
+                        });
+                      },
+                      tooltip: _showToken ? 'Ocultar token' : 'Mostrar token',
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.refresh),
+                      onPressed: _loadUserIdAndToken,
+                      tooltip: 'Recargar token de sesión',
+                    ),
+                  ],
+                ),
+              ),
+              style: GoogleFonts.robotoMono(fontSize: 12),
+            ),
+            
+            const SizedBox(height: 20),
+            
+            // Botón Ejecutar
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _isLoading ? null : _executeGetRequest,
+                icon: _isLoading 
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.send),
+                label: Text(
+                  _isLoading ? 'Cargando...' : 'Ejecutar GET',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+            
+            const SizedBox(height: 20),
+            
+            // Resultado
+            if (_responseData != null || _errorMessage != null)
+              Container(
+                decoration: BoxDecoration(
+                  color: _errorMessage != null 
+                      ? Colors.red.withOpacity(0.05)
+                      : Colors.green.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: _errorMessage != null
+                        ? Colors.red.withOpacity(0.3)
+                        : Colors.green.withOpacity(0.3),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header del resultado
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: _errorMessage != null
+                            ? Colors.red.withOpacity(0.1)
+                            : Colors.green.withOpacity(0.1),
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(8),
+                          topRight: Radius.circular(8),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _errorMessage != null
+                                ? Icons.error_outline
+                                : Icons.check_circle_outline,
+                            color: _errorMessage != null
+                                ? Colors.red
+                                : Colors.green,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _errorMessage != null
+                                ? 'Error en la petición'
+                                : 'Respuesta exitosa (200)',
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.bold,
+                              color: _errorMessage != null
+                                  ? Colors.red
+                                  : Colors.green,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    // Body del resultado
+                    if (_errorMessage != null)
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(
+                          _errorMessage!,
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            color: Colors.red[700],
+                          ),
+                        ),
+                      )
+                    else if (_responseData != null)
+                      Container(
+                        margin: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        constraints: const BoxConstraints(maxHeight: 400),
+                        child: SingleChildScrollView(
+                          child: SelectableText(
+                            _responseData!,
+                            style: GoogleFonts.robotoMono(fontSize: 11),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Future<void> _executeGetRequest() async {
+    // Validar que tenemos userId y token
+    if (_userId == null || _userId!.isEmpty) {
+      _showSnackBar('Completa userId y token para continuar', Colors.orange);
+      return;
+    }
+    
+    if (_tokenController.text.isEmpty) {
+      _showSnackBar('Completa userId y token para continuar', Colors.orange);
+      return;
+    }
+    
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+      _responseData = null;
+    });
+    
+    try {
+      final url = Uri.parse('${AmbienteConfig.baseUrl}/planes?userId=$_userId');
+      final token = _tokenController.text;
+      
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+      
+      if (response.statusCode == 200) {
+        // Formatear JSON de respuesta
+        try {
+          final jsonData = jsonDecode(response.body);
+          setState(() {
+            _responseData = const JsonEncoder.withIndent('  ').convert(jsonData);
+            _errorMessage = null;
+          });
+        } catch (e) {
+          setState(() {
+            _responseData = response.body;
+            _errorMessage = null;
+          });
+        }
+      } else {
+        setState(() {
+          _errorMessage = 'Error ${response.statusCode}: ${response.reasonPhrase}';
+          _responseData = null;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Error de conexión: $e';
+        _responseData = null;
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+  
+  void _showSnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: color,
+      ),
+    );
+  }
+}
+
+// ELIMINADO: Toda la implementación anterior de _PlanUnificadoDebugCard
