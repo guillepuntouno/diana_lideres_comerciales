@@ -187,3 +187,121 @@ La pantalla está diseñada como herramienta de desarrollo pero tiene potencial 
 - Monitor de salud del sistema
 
 El patrón de tarjetas HTTP es reutilizable y podría extraerse a un widget genérico para testing de otros endpoints.
+
+---
+
+## 📅 Sesión de trabajo - 26/01/2025 15:45
+
+### 🎯 Cambios implementados
+
+#### 1. **Respuesta JSON copiable en tarjeta GET**
+**Problema**: La respuesta JSON del endpoint GET se mostraba como texto estático, impidiendo copiarla fácilmente.
+
+**Solución implementada**:
+- Cambié el `Container` con `Text` por un `TextField` con `readOnly: true`
+- Agregué un `IconButton` con ícono de copiar junto al título "Body:"
+- Implementé funcionalidad de copiado al portapapeles usando `Clipboard.setData()`
+- Agregué importación de `flutter/services.dart` para acceder a `Clipboard`
+- Se muestra un `SnackBar` confirmando cuando se copia el contenido
+
+**Código modificado en `_mostrarRespuesta()` de `GetPlanesCard`**:
+```dart
+// Antes: Container con Text simple
+Container(
+  child: Text(_formatearRespuesta(response.body))
+)
+
+// Después: TextField editable con botón de copiar
+TextField(
+  controller: bodyController,
+  maxLines: null,
+  readOnly: true,
+  // ... configuración completa
+)
+```
+
+#### 2. **Nueva pestaña "Planes Unificados (Local)"**
+
+**Cambios en la estructura de pestañas**:
+- Renombré "Planes Unificados" → "Planes Unificados (Webservice)"
+- Agregué nueva pestaña "Planes Unificados (Local)" después de Webservice
+- Actualicé el array `_tabs` y el método `_buildTabContent()`
+
+**Funcionalidades implementadas en la nueva pestaña**:
+
+##### 🔍 **Listado de planes locales**
+- Lee datos del HiveBox `'planes_trabajo_unificado'`
+- Muestra tarjetas con información básica: ID, semana, fechas, estatus
+- Indicador visual de sincronización (verde/naranja)
+- Pull-to-refresh con `RefreshIndicator`
+
+##### 🎯 **Vista expandible del plan**
+- Al presionar el botón expandir/contraer se muestra:
+  - Editor JSON completo del plan
+  - Botones de editar/guardar/cancelar
+  - Botón de copiar JSON al portapapeles
+  - Información de última actualización
+
+##### 🧾 **Editor JSON embebido**
+- `TextField` multiline que muestra el JSON formateado
+- Modo lectura por defecto, se habilita edición con botón "Editar"
+- Validación de JSON al intentar guardar
+- Al guardar, actualiza `fechaModificacion` del plan
+
+##### 🗑️ **Eliminación de plan local**
+- Botón de eliminar con confirmación mediante `AlertDialog`
+- Mensaje específico: "¿Estás seguro de eliminar este plan local? Esta acción no afecta al backend."
+- Elimina el registro del box Hive local
+- Muestra `SnackBar` de confirmación
+
+#### 3. **Widget _PlanUnificadoLocalCard**
+Creé un nuevo `StatefulWidget` que maneja:
+- Estado de expansión/contracción
+- Estado de edición del JSON
+- Conversión del modelo Hive a JSON y viceversa
+- Callbacks para actualización y eliminación
+
+#### 4. **Correcciones al modelo PlanTrabajoUnificadoHive**
+Durante la implementación encontré discrepancias con el modelo real:
+
+**Errores corregidos**:
+- `diasTrabajo` → `dias` (es un Map<String, DiaPlanHive>)
+- `fechaActualizacion` → `fechaModificacion`
+- `widget.plan.semana.numero` → `widget.plan.numeroSemana` (semana es String, no objeto)
+- `widget.plan.semana.estatus` → `widget.plan.estatus`
+- `widget.plan.semana.fechaInicio` → `widget.plan.fechaInicio`
+- `widget.plan.semana.fechaFin` → `widget.plan.fechaFin`
+
+**Función `_planToJson()` actualizada** para reflejar la estructura correcta:
+```dart
+{
+  'id': widget.plan.id,
+  'numeroSemana': widget.plan.numeroSemana,
+  'anio': widget.plan.anio,
+  'dias': widget.plan.dias.map((key, value) => MapEntry(key, {
+    // estructura correcta del día
+  })),
+  // ... resto de campos
+}
+```
+
+### 📋 Resumen de archivos modificados
+1. `lib/vistas/debug/pantalla_debug_hive.dart`:
+   - Importación de `flutter/services.dart`
+   - Modificación de `_mostrarRespuesta()` en `GetPlanesCard`
+   - Renombrado de pestaña existente
+   - Nueva pestaña "Planes Unificados (Local)"
+   - Métodos auxiliares `_eliminarPlanUnificado()` y `_actualizarPlanUnificado()`
+   - Nuevo widget `_PlanUnificadoLocalCard`
+
+### 🔄 Estado actual
+- La pantalla debug ahora tiene 7 pestañas en total
+- La respuesta JSON del endpoint GET es completamente copiable
+- Los planes unificados locales se pueden visualizar, editar y eliminar
+- El código está alineado con la estructura real del modelo Hive
+
+### 🚀 Próximos pasos sugeridos
+1. Implementar la actualización real del plan desde el JSON editado (actualmente solo actualiza la fecha)
+2. Agregar sincronización entre los datos del webservice y los datos locales
+3. Mejorar la validación y aplicación de cambios del JSON editado
+4. Considerar agregar búsqueda/filtrado en la lista de planes locales
