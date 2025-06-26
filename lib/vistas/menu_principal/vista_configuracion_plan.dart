@@ -36,7 +36,8 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
   ];
 
   final PlanTrabajoServicio _planServicio = PlanTrabajoServicio();
-  final PlanTrabajoOfflineService _planOfflineService = PlanTrabajoOfflineService();
+  final PlanTrabajoOfflineService _planOfflineService =
+      PlanTrabajoOfflineService();
   final PlanApi _planApi = PlanApi();
   PlanTrabajoModelo? _planActual;
   LiderComercial? _liderActual;
@@ -213,7 +214,9 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
         _modoOffline = true; // Indicar que estamos en modo offline
       });
 
-      print('Plan cargado desde almacenamiento local para ${_planActual!.semana}');
+      print(
+        'Plan cargado desde almacenamiento local para ${_planActual!.semana}',
+      );
     } catch (e) {
       print('Error al crear/cargar plan local: $e');
       setState(() => _cargando = false);
@@ -335,7 +338,6 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
 
       // Intentar sincronizar con el servidor en segundo plano
       _sincronizarEnSegundoPlano();
-
     } catch (e) {
       print('Error al cargar plan: $e');
       setState(() => _cargando = false);
@@ -465,7 +467,7 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
         _liderActual!.clave,
         _liderActual!,
       );
-      
+
       // Sincronizar con el plan unificado para que esté disponible en la rutina diaria
       await _planOfflineService.sincronizarConPlanUnificado(
         _semanaSeleccionada!,
@@ -479,19 +481,21 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
         // Obtener el plan desde Hive
         final box = HiveService().planesTrabajoSemanalesBox;
         final planHive = box.values.firstWhere(
-          (plan) => plan.semana == _semanaSeleccionada! && plan.liderClave == _liderActual!.clave,
+          (plan) =>
+              plan.semana == _semanaSeleccionada! &&
+              plan.liderClave == _liderActual!.clave,
           orElse: () => null as PlanTrabajoSemanalHive,
         );
-        
+
         if (planHive != null) {
           // Enviar al backend usando el API
           await _planApi.postPlan(planHive.toJson());
-          
+
           // Marcar como sincronizado
           planHive.sincronizado = true;
           planHive.fechaUltimaSincronizacion = DateTime.now();
           await planHive.save();
-          
+
           sincronizadoConExito = true;
           print('Plan sincronizado con éxito al backend');
         }
@@ -499,20 +503,25 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
         // Si falla la sincronización, solo loguear el error
         // El plan ya está guardado localmente
         print('Error al sincronizar con backend: $apiError');
-        
+
         // Verificar si el error es de autenticación
-        if (apiError.toString().contains('401') || apiError.toString().contains('autenticación')) {
+        if (apiError.toString().contains('401') ||
+            apiError.toString().contains('autenticación')) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Error de autenticación. Por favor, inicie sesión nuevamente.'),
+                content: Text(
+                  'Error de autenticación. Por favor, inicie sesión nuevamente.',
+                ),
                 backgroundColor: Colors.red,
                 duration: const Duration(seconds: 4),
                 action: SnackBarAction(
                   label: 'Ir a Login',
                   textColor: Colors.white,
                   onPressed: () {
-                    Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                    Navigator.of(
+                      context,
+                    ).pushNamedAndRemoveUntil('/login', (route) => false);
                   },
                 ),
               ),
@@ -523,7 +532,9 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Plan guardado localmente. Se sincronizará cuando haya conexión.'),
+                content: Text(
+                  'Plan guardado localmente. Se sincronizará cuando haya conexión.',
+                ),
                 backgroundColor: Colors.orange,
                 duration: const Duration(seconds: 4),
               ),
@@ -545,7 +556,7 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
       if (mounted) {
         // Capturar el estado de sincronización antes del diálogo
         final mostrarSincronizado = sincronizadoConExito;
-        
+
         showDialog(
           context: context,
           barrierDismissible: false,
@@ -633,7 +644,11 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.cloud_done, size: 16, color: Colors.blue.shade700),
+                              Icon(
+                                Icons.cloud_done,
+                                size: 16,
+                                color: Colors.blue.shade700,
+                              ),
                               const SizedBox(width: 4),
                               Text(
                                 'Sincronizado con el servidor',
@@ -1283,7 +1298,7 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                 ],
 
                 // INDICADOR DE SINCRONIZACIÓN
-                const SizedBox(height: 8),
+                /*   const SizedBox(height: 8),
                 Row(
                   children: [
                     Icon(
@@ -1346,7 +1361,7 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                     ),
                   ],
                 ),
-
+*/
                 if (_planActual!.estatus == 'enviado') ...[
                   const SizedBox(height: 12),
                   Container(
@@ -1401,18 +1416,23 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                 // DÍAS DE LA SEMANA
                 ...diasSemana.map((dia) {
                   final tieneDia = _planActual!.dias.containsKey(dia);
-                  final tieneObjetivo = tieneDia && _planActual!.dias[dia]!.objetivo != null && _planActual!.dias[dia]!.objetivo!.isNotEmpty;
+                  final tieneObjetivo =
+                      tieneDia &&
+                      _planActual!.dias[dia]!.objetivo != null &&
+                      _planActual!.dias[dia]!.objetivo!.isNotEmpty;
                   final diaConfigurado = tieneDia && tieneObjetivo;
-                  
+
                   // Log para todos los días para debug
-                  print('UI - Verificando $dia: tieneDia=$tieneDia, tieneObjetivo=$tieneObjetivo, configurado=$diaConfigurado');
+                  print(
+                    'UI - Verificando $dia: tieneDia=$tieneDia, tieneObjetivo=$tieneObjetivo, configurado=$diaConfigurado',
+                  );
                   if (tieneDia && _planActual!.dias[dia] != null) {
                     final diaData = _planActual!.dias[dia]!;
                     print('  - Objetivo: "${diaData.objetivo}"');
                     print('  - Tipo: ${diaData.tipo}');
                     print('  - TipoActividad: ${diaData.tipoActividad}');
                   }
-                  
+
                   final esEditable =
                       _planActual!.estatus == 'borrador' ||
                       _puedeEditarPlan(_planActual!);
@@ -1490,11 +1510,15 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                                   },
                                 );
 
-                                print('Navigator.pushNamed retornó: $resultado');
-                                
+                                print(
+                                  'Navigator.pushNamed retornó: $resultado',
+                                );
+
                                 if (resultado == true && mounted) {
-                                  print('Recargando plan después de configurar día: $dia');
-                                  
+                                  print(
+                                    'Recargando plan después de configurar día: $dia',
+                                  );
+
                                   // Si fue una edición, incrementar contador
                                   if (_planActual!.estatus == 'enviado') {
                                     print(
@@ -1505,30 +1529,43 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                                   try {
                                     // Mostrar loading mientras se recarga
                                     setState(() => _cargando = true);
-                                    
+
                                     // Esperar un frame para que el loading se muestre
-                                    await Future.delayed(Duration(milliseconds: 50));
-                                    
-                                    print('Recargando plan desde servicio offline...');
-                                    
-                                    // Recargar el plan directamente sin usar _cargarPlanDesdeServidor
-                                    final planActualizado = await _planOfflineService.obtenerOCrearPlan(
-                                      _semanaSeleccionada!,
-                                      _liderActual!.clave,
-                                      _liderActual!,
+                                    await Future.delayed(
+                                      Duration(milliseconds: 50),
                                     );
-                                    
+
+                                    print(
+                                      'Recargando plan desde servicio offline...',
+                                    );
+
+                                    // Recargar el plan directamente sin usar _cargarPlanDesdeServidor
+                                    final planActualizado =
+                                        await _planOfflineService
+                                            .obtenerOCrearPlan(
+                                              _semanaSeleccionada!,
+                                              _liderActual!.clave,
+                                              _liderActual!,
+                                            );
+
                                     print('Plan recargado. Días configurados:');
-                                    planActualizado.dias.forEach((diaKey, config) {
-                                      print('  - $diaKey: ${config.objetivo ?? "No configurado"}');
+                                    planActualizado.dias.forEach((
+                                      diaKey,
+                                      config,
+                                    ) {
+                                      print(
+                                        '  - $diaKey: ${config.objetivo ?? "No configurado"}',
+                                      );
                                     });
-                                    
+
                                     // Actualizar el estado con el plan recargado
                                     if (mounted) {
                                       setState(() {
                                         _planActual = planActualizado;
                                         _cargando = false;
-                                        print('Estado actualizado con el plan recargado');
+                                        print(
+                                          'Estado actualizado con el plan recargado',
+                                        );
                                       });
                                     }
                                   } catch (e) {

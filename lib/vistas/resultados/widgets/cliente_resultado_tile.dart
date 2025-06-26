@@ -196,9 +196,8 @@ class ClienteResultadoTile extends StatelessWidget {
         icono = Icons.access_time;
         break;
       default:
-        color = Colors.grey;
-        texto = 'Pendiente';
-        icono = Icons.pending;
+        // No mostrar badge para estados pendientes
+        return const SizedBox.shrink();
     }
 
     return Container(

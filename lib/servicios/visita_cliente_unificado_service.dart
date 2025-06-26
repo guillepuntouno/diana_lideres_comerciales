@@ -260,18 +260,36 @@ class VisitaClienteUnificadoService {
     required String clienteId,
   }) async {
     try {
+      print('🔍 Obteniendo visita desde plan unificado:');
+      print('   Plan ID: $planId');
+      print('   Día: $dia');
+      print('   Cliente ID: $clienteId');
+      
       final plan = _repository.obtenerPlan(planId);
-      if (plan == null) return null;
+      if (plan == null) {
+        print('❌ Plan no encontrado: $planId');
+        return null;
+      }
+      print('✅ Plan encontrado');
 
       final diaPlan = plan.dias[dia];
-      if (diaPlan == null) return null;
+      if (diaPlan == null) {
+        print('❌ Día no encontrado en el plan: $dia');
+        print('   Días disponibles: ${plan.dias.keys.join(", ")}');
+        return null;
+      }
+      print('✅ Día encontrado, clientes: ${diaPlan.clientes.length}');
 
       for (var visita in diaPlan.clientes) {
+        print('   Comparando clienteId: ${visita.clienteId} con $clienteId');
         if (visita.clienteId == clienteId) {
+          print('✅ Visita encontrada para cliente $clienteId');
           return visita;
         }
       }
 
+      print('❌ No se encontró visita para el cliente: $clienteId');
+      print('   Clientes en el día: ${diaPlan.clientes.map((v) => v.clienteId).join(", ")}');
       return null;
     } catch (e) {
       print('❌ Error al obtener visita: $e');

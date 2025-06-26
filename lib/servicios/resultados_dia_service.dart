@@ -120,14 +120,34 @@ class ResultadosDiaService {
     };
   }
   
-  /// Obtiene información del cliente por ID (simulado por ahora)
+  /// Obtiene información del cliente desde Hive o devuelve datos por defecto
   Map<String, String> obtenerInfoCliente(String clienteId) {
-    // TODO: Integrar con servicio de clientes real
-    // Por ahora retornamos datos simulados
+    try {
+      // Intentar obtener de la caja de clientes si existe
+      final clientesBox = _hiveService.clientesBox;
+      final cliente = clientesBox.values.firstWhere(
+        (c) => c.id == clienteId,
+        orElse: () => null as dynamic,
+      );
+      
+      if (cliente != null) {
+        return {
+          'nombre': cliente.nombre,
+          'direccion': cliente.direccion,
+          'telefono': cliente.telefono ?? 'Sin teléfono',
+          'asesor': cliente.asesorNombre ?? 'Sin asesor',
+        };
+      }
+    } catch (e) {
+      print('⚠️ Error obteniendo cliente de Hive: $e');
+    }
+    
+    // Datos por defecto si no se encuentra
     return {
       'nombre': 'Cliente $clienteId',
-      'direccion': 'Dirección del cliente',
-      'telefono': '555-0000',
+      'direccion': 'Sin dirección registrada',
+      'telefono': 'Sin teléfono',
+      'asesor': 'Sin asesor asignado',
     };
   }
   

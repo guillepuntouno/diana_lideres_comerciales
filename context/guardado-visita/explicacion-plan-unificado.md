@@ -240,6 +240,36 @@ final cumplimientoPorDia = planUnificado.dias.map((dia, diaPlan) {
 
 ---
 
+## 🆕 Modificaciones realizadas en la vista de resultados diarios
+
+### Cambios implementados:
+
+1. **Navegación a detalle de visita**: 
+   - Modificada la función `_mostrarDetalleVisita` en `pantalla_resultados_dia.dart` para navegar a `pantalla_resumen_visita.dart` en lugar de mostrar un bottom sheet.
+   - Se pasan los parámetros necesarios incluyendo `modoConsulta: true` para indicar que es una consulta desde el plan unificado.
+
+2. **Eliminación de etiqueta "Pendiente"**:
+   - Modificado el método `_buildStatusBadge()` en `cliente_resultado_tile.dart` para no mostrar badge cuando el estado es "pendiente".
+   - Solo se muestran badges para estados "terminado" (Completada) y "en_proceso" (En proceso).
+
+3. **Limpieza de imports**:
+   - Eliminado el import de `detalle_visita_bottom_sheet.dart` ya que no se utiliza más.
+
+### Flujo actual:
+1. Usuario ve la lista de visitas en `pantalla_resultados_dia.dart`
+2. Al hacer clic en una tarjeta de visita, navega a `pantalla_resumen_visita.dart`
+3. La pantalla de resumen recibe los datos en modo consulta y carga la información desde el plan unificado
+4. Se muestran todos los detalles de la visita incluyendo cuestionarios, compromisos y comentarios
+
+### Datos pasados a la vista de detalle:
+- `modoConsulta`: true (indica que es modo consulta)
+- `planId`: ID del líder comercial
+- `dia`: Día seleccionado
+- `clienteId`: ID del cliente
+- `clienteNombre`: Nombre del cliente
+
+---
+
 **Última actualización**: 26/01/2025  
 **Autor**: GUILLERMO MARTINEZ 
-**Versión**: 1.0
+**Versión**: 1.1

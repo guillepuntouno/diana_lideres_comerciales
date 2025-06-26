@@ -7,7 +7,6 @@ import '../../servicios/sesion_servicio.dart';
 import '../../servicios/hive_service.dart';
 import 'widgets/kpi_cards.dart';
 import 'widgets/cliente_resultado_tile.dart';
-import 'widgets/detalle_visita_bottom_sheet.dart';
 
 /// Colores corporativos
 class AppColors {
@@ -103,15 +102,34 @@ class _PantallaResultadosDiaState extends State<PantallaResultadosDia> {
   }
 
   void _mostrarDetalleVisita(VisitaClienteUnificadaHive visita) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => DetalleVisitaBottomSheet(
-        visita: visita,
-        service: _service,
-      ),
+    // Obtener información del cliente
+    final infoCliente = _service.obtenerInfoCliente(visita.clienteId);
+    
+    // Generar el ID del plan con el formato correcto
+    final hoy = DateTime.now();
+    final numeroSemana = _obtenerNumeroSemana(hoy);
+    final planId = '${_liderClave}_SEM${numeroSemana.toString().padLeft(2, '0')}_${hoy.year}';
+    
+    // Navegar a la pantalla de resumen con los datos necesarios
+    Navigator.pushNamed(
+      context,
+      '/resumen_visita',
+      arguments: {
+        'modoConsulta': true,
+        'planId': planId,
+        'dia': _diaSeleccionado,
+        'clienteId': visita.clienteId,
+        'clienteNombre': infoCliente['nombre'] ?? 'Cliente ${visita.clienteId}',
+      },
     );
+  }
+  
+  /// Calcula el número de semana del año
+  int _obtenerNumeroSemana(DateTime date) {
+    final firstDayOfYear = DateTime(date.year, 1, 1);
+    final daysSinceFirstDay = date.difference(firstDayOfYear).inDays;
+    final weekNumber = ((daysSinceFirstDay + firstDayOfYear.weekday - 1) / 7).ceil();
+    return weekNumber;
   }
 
   @override
