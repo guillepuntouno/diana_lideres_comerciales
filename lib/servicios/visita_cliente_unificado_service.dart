@@ -123,18 +123,14 @@ class VisitaClienteUnificadoService {
         throw Exception('Día no encontrado en el plan: $dia');
       }
 
-      // Buscar la visita del cliente
-      VisitaClienteUnificadaHive? visitaCliente;
-      for (var visita in diaPlan.clientes) {
-        if (visita.clienteId == clienteId) {
-          visitaCliente = visita;
-          break;
-        }
-      }
-
-      if (visitaCliente == null) {
+      // Buscar el índice de la visita del cliente
+      final index = diaPlan.clientes.indexWhere((v) => v.clienteId == clienteId);
+      if (index == -1) {
         throw Exception('Visita no encontrada para el cliente: $clienteId');
       }
+
+      // Obtener la visita actual para modificarla
+      final visitaCliente = diaPlan.clientes[index];
 
       // Convertir formularios a estructura del cuestionario
       if (formularios.containsKey('cuestionario')) {
@@ -175,6 +171,9 @@ class VisitaClienteUnificadoService {
       }
 
       visitaCliente.fechaModificacion = DateTime.now();
+
+      // IMPORTANTE: Asignar la visita modificada de vuelta a la lista
+      diaPlan.clientes[index] = visitaCliente;
 
       // Actualizar el plan
       plan.fechaModificacion = DateTime.now();
@@ -237,7 +236,7 @@ class VisitaClienteUnificadoService {
 
       // Actualizar con check-out
       visitaCliente.horaFin = checkOut.timestamp.toIso8601String();
-      visitaCliente.estatus = 'completada';
+      visitaCliente.estatus = 'terminado';
       visitaCliente.fechaModificacion = DateTime.now();
 
       // Actualizar el plan

@@ -440,8 +440,8 @@ class _PantallaFormularioDinamicoState
     // Guardar localmente
     await _guardarLocalmenteAsync();
 
-    // Guardar en API si la visita está creada
-    if (_visitaCreada && _claveVisita != null) {
+    // Guardar en API si la visita está creada o usando plan unificado
+    if ((_visitaCreada && _claveVisita != null) || _usandoPlanUnificado) {
       await _guardarEnAPI();
     }
   }

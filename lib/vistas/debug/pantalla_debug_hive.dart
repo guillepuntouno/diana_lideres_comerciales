@@ -1112,13 +1112,51 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
         final dia = diasSemana[i];
         dias[dia] = DiaPlanHive(
           dia: dia,
-          tipo: 'visita',
+          tipo: 'gestion_cliente',
           configurado: true,
           clienteIds: ['CLIENTE_PRUEBA_${i + 1}'],
           clientes: [
             VisitaClienteUnificadaHive(
               clienteId: 'CLIENTE_PRUEBA_${i + 1}',
-              estatus: 'pendiente',
+              horaInicio: DateTime.now().subtract(Duration(hours: 2)).toIso8601String(),
+              horaFin: DateTime.now().subtract(Duration(hours: 1)).toIso8601String(),
+              estatus: 'terminado',
+              ubicacionInicio: UbicacionUnificadaHive(
+                lat: 19.4326,
+                lon: -99.1332,
+              ),
+              comentarioInicio: 'Comentario de prueba para cliente ${i + 1}',
+              cuestionario: CuestionarioHive(
+                tipoExhibidor: TipoExhibidorHive(
+                  poseeAdecuado: true,
+                  tipo: 'Refrigerador',
+                  modelo: 'Modelo XYZ',
+                  cantidad: 2,
+                ),
+                estandaresEjecucion: EstandaresEjecucionHive(
+                  primeraPosicion: true,
+                  planograma: true,
+                  portafolioFoco: false,
+                  anclaje: true,
+                ),
+                disponibilidad: DisponibilidadHive(
+                  ristras: true,
+                  max: true,
+                  familiar: false,
+                  dulce: true,
+                  galleta: false,
+                ),
+              ),
+              compromisos: [
+                CompromisoHive(
+                  tipo: 'Colocación de exhibidor',
+                  detalle: 'Código: 10134 - Bandeja 60cm',
+                  cantidad: 1,
+                  fechaPlazo: DateTime.now().add(Duration(days: 7)).toIso8601String(),
+                ),
+              ],
+              retroalimentacion: 'Excelente disposición del cliente para nuevos productos',
+              reconocimiento: 'Se reconoce el esfuerzo del equipo en mantener el exhibidor limpio',
               fechaModificacion: DateTime.now(),
             ),
           ],
@@ -1224,74 +1262,8 @@ class _PlanUnificadoLocalCardState extends State<_PlanUnificadoLocalCard> {
 
   String _planToJson() {
     try {
-      final planMap = {
-        'id': widget.plan.id,
-        'liderClave': widget.plan.liderClave,
-        'liderNombre': widget.plan.liderNombre,
-        'semana': widget.plan.semana,
-        'numeroSemana': widget.plan.numeroSemana,
-        'anio': widget.plan.anio,
-        'centroDistribucion': widget.plan.centroDistribucion,
-        'fechaInicio': widget.plan.fechaInicio,
-        'fechaFin': widget.plan.fechaFin,
-        'estatus': widget.plan.estatus,
-        'dias': widget.plan.dias.map((key, value) => MapEntry(key, {
-          'dia': value.dia,
-          'tipo': value.tipo,
-          'objetivoId': value.objetivoId,
-          'objetivoNombre': value.objetivoNombre,
-          'tipoActividadAdministrativa': value.tipoActividadAdministrativa,
-          'rutaId': value.rutaId,
-          'rutaNombre': value.rutaNombre,
-          'clienteIds': value.clienteIds,
-          'clientes': value.clientes.map((cliente) => {
-            'clienteId': cliente.clienteId,
-            'horaInicio': cliente.horaInicio,
-            'horaFin': cliente.horaFin,
-            'estatus': cliente.estatus,
-            'ubicacionInicio': cliente.ubicacionInicio != null ? {
-              'lat': cliente.ubicacionInicio!.lat,
-              'lon': cliente.ubicacionInicio!.lon,
-            } : null,
-            'comentarioInicio': cliente.comentarioInicio,
-            'cuestionario': cliente.cuestionario != null ? {
-              'tipoExhibidor': cliente.cuestionario!.tipoExhibidor != null ? {
-                'poseeAdecuado': cliente.cuestionario!.tipoExhibidor!.poseeAdecuado,
-                'tipo': cliente.cuestionario!.tipoExhibidor!.tipo,
-                'modelo': cliente.cuestionario!.tipoExhibidor!.modelo,
-                'cantidad': cliente.cuestionario!.tipoExhibidor!.cantidad,
-              } : null,
-              'estandaresEjecucion': cliente.cuestionario!.estandaresEjecucion != null ? {
-                'primeraPosicion': cliente.cuestionario!.estandaresEjecucion!.primeraPosicion,
-                'planograma': cliente.cuestionario!.estandaresEjecucion!.planograma,
-                'portafolioFoco': cliente.cuestionario!.estandaresEjecucion!.portafolioFoco,
-                'anclaje': cliente.cuestionario!.estandaresEjecucion!.anclaje,
-              } : null,
-              'disponibilidad': cliente.cuestionario!.disponibilidad != null ? {
-                'ristras': cliente.cuestionario!.disponibilidad!.ristras,
-                'max': cliente.cuestionario!.disponibilidad!.max,
-                'familiar': cliente.cuestionario!.disponibilidad!.familiar,
-                'dulce': cliente.cuestionario!.disponibilidad!.dulce,
-                'galleta': cliente.cuestionario!.disponibilidad!.galleta,
-              } : null,
-            } : null,
-            'compromisos': cliente.compromisos.map((c) => {
-              'tipo': c.tipo,
-              'detalle': c.detalle,
-              'cantidad': c.cantidad,
-              'fechaPlazo': c.fechaPlazo,
-            }).toList(),
-            'retroalimentacion': cliente.retroalimentacion,
-            'reconocimiento': cliente.reconocimiento,
-            'fechaModificacion': cliente.fechaModificacion?.toIso8601String(),
-          }).toList(),
-          'configurado': value.configurado,
-        })),
-        'sincronizado': widget.plan.sincronizado,
-        'fechaCreacion': widget.plan.fechaCreacion.toIso8601String(),
-        'fechaModificacion': widget.plan.fechaModificacion.toIso8601String(),
-        'fechaUltimaSincronizacion': widget.plan.fechaUltimaSincronizacion?.toIso8601String(),
-      };
+      // Usar el método toJsonCompleto() del modelo que incluye todos los campos
+      final planMap = widget.plan.toJsonCompleto();
       return const JsonEncoder.withIndent('  ').convert(planMap);
     } catch (e) {
       return 'Error al convertir a JSON: $e';

@@ -69,26 +69,6 @@ class PlanTrabajoUnificadoHive extends HiveObject {
         fechaModificacion = fechaModificacion ?? DateTime.now(),
         dias = dias ?? {};
 
-  Map<String, dynamic> toJsonCompleto() {
-    return {
-      'id': id,
-      'semana': semana,
-      'numeroSemana': numeroSemana,
-      'anio': anio,
-      'liderClave': liderClave,
-      'liderNombre': liderNombre,
-      'centroDistribucion': centroDistribucion,
-      'fechaInicio': fechaInicio,
-      'fechaFin': fechaFin,
-      'estatus': estatus,
-      'fechaCreacion': fechaCreacion.toIso8601String(),
-      'fechaModificacion': fechaModificacion.toIso8601String(),
-      'sincronizado': sincronizado,
-      'fechaUltimaSincronizacion': fechaUltimaSincronizacion?.toIso8601String(),
-      'dias': dias.map((key, value) => MapEntry(key, value.toJson())),
-    };
-  }
-
   factory PlanTrabajoUnificadoHive.fromJson(Map<String, dynamic> json) {
     return PlanTrabajoUnificadoHive(
       id: json['id'],
@@ -126,6 +106,38 @@ class PlanTrabajoUnificadoHive extends HiveObject {
     if (estatus != 'enviado') return true;
     final diasTranscurridos = DateTime.now().difference(fechaModificacion).inDays;
     return diasTranscurridos <= 7;
+  }
+
+  // Método para obtener el JSON completo con todos los datos del plan
+  Map<String, dynamic> toJsonCompleto() {
+    return {
+      'id': id,
+      'liderClave': liderClave,
+      'liderNombre': liderNombre,
+      'semana': semana,
+      'numeroSemana': numeroSemana,
+      'anio': anio,
+      'centroDistribucion': centroDistribucion,
+      'fechaInicio': fechaInicio,
+      'fechaFin': fechaFin,
+      'estatus': estatus,
+      'dias': dias.map((key, dia) => MapEntry(key, {
+        'dia': dia.dia,
+        'tipo': dia.tipo,
+        'objetivoId': dia.objetivoId,
+        'objetivoNombre': dia.objetivoNombre,
+        'tipoActividadAdministrativa': dia.tipoActividadAdministrativa,
+        'rutaId': dia.rutaId,
+        'rutaNombre': dia.rutaNombre,
+        'clienteIds': dia.clienteIds,
+        'clientes': dia.clientes.map((visita) => visita.toJson()).toList(),
+        'configurado': dia.configurado,
+      })),
+      'sincronizado': sincronizado,
+      'fechaCreacion': fechaCreacion.toIso8601String(),
+      'fechaModificacion': fechaModificacion.toIso8601String(),
+      'fechaUltimaSincronizacion': fechaUltimaSincronizacion?.toIso8601String(),
+    };
   }
 
   // Export methods for micro-endpoints
@@ -411,12 +423,14 @@ class VisitaClienteUnificadaHive extends HiveObject {
       'clienteId': clienteId,
       'horaInicio': horaInicio,
       'horaFin': horaFin,
+      'estatus': estatus,
       'ubicacionInicio': ubicacionInicio?.toJson(),
       'comentarioInicio': comentarioInicio,
-      'cuestionario': cuestionario?.toJson() ?? {},
+      'cuestionario': cuestionario?.toJson(),
       'compromisos': compromisos.map((c) => c.toJson()).toList(),
       'retroalimentacion': retroalimentacion,
       'reconocimiento': reconocimiento,
+      'fechaModificacion': fechaModificacion?.toIso8601String(),
     };
   }
 
