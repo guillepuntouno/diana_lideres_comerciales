@@ -4,7 +4,7 @@ enum Ambiente { desarrollo, qa, preproduccion, produccion }
 
 class AmbienteConfig {
   static const Ambiente _ambienteActual =
-      Ambiente.desarrollo; // Cambiar aquí para alternar ambientes
+      Ambiente.qa; // Cambiar aquí para alternar ambientes
 
   static Ambiente get ambienteActual => _ambienteActual;
 
@@ -17,17 +17,19 @@ class AmbienteConfig {
     // Caso contrario, devolver según configuración del ambiente:
     switch (_ambienteActual) {
       case Ambiente.desarrollo:
+        //Si se usa API Gateway en desarrollo, descomentar la siguiente línea:
+        //Correr como administrador en powershell para evitar problemas de CORS
+        //Proxy local para desarrollo
+        //npx local-cors-proxy --proxyUrl https://ln6rw4qcj7.execute-api.us-east-1.amazonaws.com --port 8080
+
         return 'http://localhost:8080/proxy/dev';
-      //return 'https://ln6rw4qcj7.execute-api.us-east-1.amazonaws.com/dev';
+
       case Ambiente.qa:
-        return 'http://localhost:8080/proxy/dev';
-      // return 'https://ln6rw4qcj7.execute-api.us-east-1.amazonaws.com/dev';
+        return 'https://ln6rw4qcj7.execute-api.us-east-1.amazonaws.com/dev';
       case Ambiente.preproduccion:
-        return 'http://localhost:8080/proxy/dev';
-      //return 'https://ln6rw4qcj7.execute-api.us-east-1.amazonaws.com/dev';
+        return 'https://ln6rw4qcj7.execute-api.us-east-1.amazonaws.com/dev';
       case Ambiente.produccion:
-        return 'http://localhost:8080/proxy/dev';
-      //return 'https://ln6rw4qcj7.execute-api.us-east-1.amazonaws.com/dev';
+        return 'https://ln6rw4qcj7.execute-api.us-east-1.amazonaws.com/dev';
     }
   }
 
