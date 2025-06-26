@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../servicios/hive_service.dart';
@@ -14,6 +15,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../configuracion/ambiente_config.dart';
 import '../../servicios/sesion_servicio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class PantallaDebugHive extends StatefulWidget {
   const PantallaDebugHive({super.key});
@@ -98,45 +100,58 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
         children: [
           // Tabs
           Container(
-            color: Colors.white,
-            child: SingleChildScrollView(
+            height: 60,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: ListView.builder(
               scrollDirection: Axis.horizontal,
-              child: Row(
-                children: List.generate(_tabs.length, (index) {
-                  final isSelected = _selectedIndex == index;
-                  return InkWell(
-                    onTap: () => setState(() => _selectedIndex = index),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                      decoration: BoxDecoration(
-                        border: Border(
-                          bottom: BorderSide(
-                            color: isSelected 
-                                ? const Color(0xFFDE1327) 
-                                : Colors.transparent,
-                            width: 3,
+              itemCount: _tabs.length,
+              itemBuilder: (context, index) {
+                final isSelected = _selectedIndex == index;
+                return GestureDetector(
+                  onTap: () => setState(() => _selectedIndex = index),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          _tabs[index],
+                          style: GoogleFonts.poppins(
+                            color: isSelected
+                                ? const Color(0xFFDE1327)
+                                : Colors.grey[600],
+                            fontWeight:
+                                isSelected ? FontWeight.w600 : FontWeight.normal,
+                            fontSize: 14,
                           ),
                         ),
-                      ),
-                      child: Text(
-                        _tabs[index],
-                        style: GoogleFonts.poppins(
-                          color: isSelected 
-                              ? const Color(0xFFDE1327) 
-                              : Colors.grey[600],
-                          fontWeight: isSelected 
-                              ? FontWeight.bold 
-                              : FontWeight.normal,
-                          fontSize: 14,
+                        const SizedBox(height: 4),
+                        Container(
+                          height: 3,
+                          width: 60,
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? const Color(0xFFDE1327)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(1.5),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                  );
-                }),
-              ),
+                  ),
+                );
+              },
             ),
           ),
-          
           // Contenido
           Expanded(
             child: _buildTabContent(),
@@ -159,539 +174,491 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
       case 4:
         return _buildObjetivosTab();
       case 5:
-        return _buildConfiguracionTab();
+        return _buildConfigTab();
       default:
         return const Center(child: Text('Tab no implementado'));
     }
   }
 
   Widget _buildPlanesTrabajoTab() {
-    try {
-      final box = _hiveService.planesTrabajoSemanalesBox;
-      final planes = box.values.toList();
+    return ValueListenableBuilder(
+      valueListenable: Hive.box<PlanTrabajoSemanalHive>('planes_trabajo_semanal').listenable(),
+      builder: (context, Box<PlanTrabajoSemanalHive> box, widget) {
+        final planes = box.values.toList();
+        
+        if (planes.isEmpty) {
+          return _buildEmptyState('No hay planes de trabajo guardados');
+        }
 
-    if (planes.isEmpty) {
-      return _buildEmptyState('No hay planes de trabajo guardados');
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: planes.length,
-      itemBuilder: (context, index) {
-        final plan = planes[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: ExpansionTile(
-            title: Text(
-              'Plan: ${plan.semana}',
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Líder: ${plan.liderNombre} (${plan.liderClave})',
-                  style: GoogleFonts.poppins(fontSize: 14),
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: planes.length,
+          itemBuilder: (context, index) {
+            final plan = planes[index];
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: ExpansionTile(
+                title: Text(
+                  'Plan Semana ${plan.semana}',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
                 ),
-                Row(
-                  children: [
-                    _buildStatusChip(plan.estatus),
-                    const SizedBox(width: 8),
-                    if (!plan.sincronizado)
-                      _buildSyncChip(false),
-                  ],
+                subtitle: Text(
+                  'Líder: ${plan.liderNombre} - Estado: ${plan.estatus}',
+                  style: GoogleFonts.poppins(fontSize: 12),
                 ),
-              ],
-            ),
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildInfoRow('ID', plan.id),
-                    _buildInfoRow('Centro Dist.', plan.centroDistribucion),
-                    _buildInfoRow('Fecha Inicio', plan.fechaInicio),
-                    _buildInfoRow('Fecha Fin', plan.fechaFin),
-                    _buildInfoRow('Creación', plan.fechaCreacion.toString()),
-                    _buildInfoRow('Modificación', plan.fechaModificacion.toString()),
-                    _buildInfoRow('Núm. Semana', plan.numeroSemana?.toString() ?? 'N/A'),
-                    _buildInfoRow('Año', plan.anio?.toString() ?? 'N/A'),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Días Configurados:',
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    ...plan.dias.entries.map((entry) => _buildDiaInfo(entry.key, entry.value)),
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.red),
+                  onPressed: () => _eliminarPlanTrabajo(index),
+                ),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        TextButton.icon(
-                          onPressed: () => _mostrarJsonCompleto(plan.toJson()),
-                          icon: const Icon(Icons.code),
-                          label: Text('Ver JSON'),
-                        ),
-                        const SizedBox(width: 8),
-                        TextButton.icon(
-                          onPressed: () => _editarPlan(plan),
-                          icon: const Icon(Icons.edit, color: Colors.blue),
-                          label: Text(
-                            'Editar',
-                            style: TextStyle(color: Colors.blue),
+                        _buildInfoRow('Plan ID', plan.id),
+                        _buildInfoRow('Fecha Inicio', plan.fechaInicio),
+                        _buildInfoRow('Fecha Fin', plan.fechaFin),
+                        _buildInfoRow('Creado', plan.fechaCreacion.toString()),
+                        _buildInfoRow('Actualizado', plan.fechaModificacion.toString()),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Días de trabajo: ${plan.dias.length}',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        TextButton.icon(
-                          onPressed: () async {
-                            final confirmar = await _mostrarDialogoConfirmacion(
-                              'Eliminar Plan',
-                              '¿Estás seguro de que deseas eliminar este plan?',
-                            );
-                            if (confirmar == true) {
-                              await box.delete(plan.id);
-                              setState(() {});
-                              _mostrarSnackBar('Plan eliminado', Colors.green);
-                            }
-                          },
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          label: Text(
-                            'Eliminar',
-                            style: TextStyle(color: Colors.red),
+                        ...plan.dias.entries.map((entry) => Padding(
+                          padding: const EdgeInsets.only(left: 16, top: 8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${entry.value.dia}',
+                                style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              Text(
+                                'Clientes: ${entry.value.clienteIds.length}',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
+                        )),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
-    } catch (e) {
-      return _buildEmptyState('Error al cargar planes de trabajo: $e');
-    }
   }
 
   Widget _buildPlanesUnificadosTab() {
-    return ListView(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
-      children: [
-        // Tarjeta GET /planes?userId
-        GetPlanesCard(),
-        
-        const SizedBox(height: 16),
-        
-        // TODO: Aquí irán las demás tarjetas (POST, PUT, DELETE)
-      ],
-    );
-  }
-
-  Widget _buildVisitasTab() {
-    try {
-      final box = _hiveService.visitasClientes;
-      final visitas = box.values.toList()
-        ..sort((a, b) => b.fechaCreacion.compareTo(a.fechaCreacion));
-
-    if (visitas.isEmpty) {
-      return _buildEmptyState('No hay visitas guardadas');
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: visitas.length,
-      itemBuilder: (context, index) {
-        final visita = visitas[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          child: ListTile(
-            leading: CircleAvatar(
-              backgroundColor: _getVisitaStatusColor(visita.estatus),
-              child: Icon(
-                _getVisitaStatusIcon(visita.estatus),
-                color: Colors.white,
-              ),
-            ),
-            title: Text(
-              visita.clienteNombre,
-              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Día: ${visita.dia}'),
-                Text('Estatus: ${visita.estatus}'),
-                if (visita.checkIn != null)
-                  Text('Check-in: ${_formatTime(visita.checkIn.timestamp)}'),
-                if (visita.checkOut != null)
-                  Text('Check-out: ${_formatTime(visita.checkOut!.timestamp)}'),
-              ],
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (!visita.requiresSync)
-                  Icon(Icons.cloud_done, color: Colors.green, size: 20),
-                IconButton(
-                  icon: const Icon(Icons.info_outline),
-                  onPressed: () => _mostrarJsonCompleto(visita.toJson()),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-    } catch (e) {
-      return _buildEmptyState('Error al cargar visitas: $e');
-    }
-  }
-
-  Widget _buildClientesTab() {
-    try {
-      final box = _hiveService.clientesBox;
-      final clientes = box.values.toList();
-
-    if (clientes.isEmpty) {
-      return _buildEmptyState('No hay clientes guardados');
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: clientes.length,
-      itemBuilder: (context, index) {
-        final cliente = clientes[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          child: ListTile(
-            leading: CircleAvatar(
-              backgroundColor: const Color(0xFFDE1327),
-              child: Text(
-                cliente.nombre.substring(0, 1).toUpperCase(),
-                style: const TextStyle(color: Colors.white),
-              ),
-            ),
-            title: Text(
-              cliente.nombre,
-              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('ID: ${cliente.id}'),
-                Text('Ruta: ${cliente.rutaNombre}'),
-                if (cliente.tipoNegocio != null)
-                  Text('Tipo: ${cliente.tipoNegocio}'),
-              ],
-            ),
-            trailing: IconButton(
-              icon: const Icon(Icons.info_outline),
-              onPressed: () => _mostrarJsonCompleto(cliente.toJson()),
-            ),
-          ),
-        );
-      },
-    );
-    } catch (e) {
-      return _buildEmptyState('Error al cargar clientes: $e');
-    }
-  }
-
-  Widget _buildObjetivosTab() {
-    try {
-      final box = _hiveService.objetivosBox;
-      final objetivos = box.values.toList();
-
-    if (objetivos.isEmpty) {
-      return _buildEmptyState('No hay objetivos guardados');
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: objetivos.length,
-      itemBuilder: (context, index) {
-        final objetivo = objetivos[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          child: ListTile(
-            leading: CircleAvatar(
-              backgroundColor: const Color(0xFFDE1327),
-              child: Text(
-                objetivo.orden.toString(),
-                style: const TextStyle(color: Colors.white),
-              ),
-            ),
-            title: Text(
-              objetivo.nombre,
-              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-            ),
-            subtitle: Text('Tipo: ${objetivo.tipo}'),
-          ),
-        );
-      },
-    );
-    } catch (e) {
-      return _buildEmptyState('Error al cargar objetivos: $e');
-    }
-  }
-
-  Widget _buildConfiguracionTab() {
-    try {
-      final syncMetadataBox = _hiveService.syncMetadata;
-      final userBox = _hiveService.usersBox;
-      final stats = _hiveService.getBoxesStats();
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Información de Sincronización',
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _buildInfoRow(
-                  'Última sincronización',
-                  _hiveService.getLastSyncDate()?.toString() ?? 'Nunca',
-                ),
-                _buildInfoRow(
-                  'Versión de datos',
-                  syncMetadataBox.get('dataVersion', defaultValue: {'value': '1.0.0'})['value'] ?? '1.0.0',
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Estadísticas de Almacenamiento',
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ...stats.entries.map((entry) => 
-                  _buildInfoRow(entry.key, '${entry.value} registros')
-                ),
-                const SizedBox(height: 8),
-                FutureBuilder<int>(
-                  future: _hiveService.getStorageUsage(),
-                  builder: (context, snapshot) {
-                    if (snapshot.hasData) {
-                      final mb = (snapshot.data! / 1024 / 1024).toStringAsFixed(2);
-                      return _buildInfoRow('Uso estimado', '$mb MB');
-                    }
-                    return _buildInfoRow('Uso estimado', 'Calculando...');
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Acciones de Mantenimiento',
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: () async {
-                    // Limpiar datos de sincronización antiguos
-                    final metadata = syncMetadataBox.toMap();
-                    int cleaned = 0;
-                    metadata.forEach((key, value) {
-                      if (key.toString().startsWith('temp_') || 
-                          key.toString().startsWith('old_')) {
-                        syncMetadataBox.delete(key);
-                        cleaned++;
-                      }
-                    });
-                    _mostrarSnackBar('$cleaned registros temporales eliminados', Colors.green);
-                  },
-                  icon: const Icon(Icons.cleaning_services),
-                  label: const Text('Limpiar datos temporales'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                ElevatedButton.icon(
-                  onPressed: () async {
-                    // Compactar las cajas
-                    await Hive.box(HiveService.planTrabajoSemanalBox).compact();
-                    await Hive.box(HiveService.clienteBox).compact();
-                    await Hive.box(HiveService.visitaClienteBox).compact();
-                    _mostrarSnackBar('Bases de datos compactadas', Colors.green);
-                  },
-                  icon: const Icon(Icons.compress),
-                  label: const Text('Compactar bases de datos'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-    } catch (e) {
-      return _buildEmptyState('Error al cargar configuración: $e');
-    }
-  }
-
-  Widget _buildDiaInfo(String dia, DiaTrabajoHive diaInfo) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: diaInfo.configurado 
-            ? Colors.green.withOpacity(0.1)
-            : Colors.grey.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: diaInfo.configurado 
-              ? Colors.green 
-              : Colors.grey,
-        ),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                dia,
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Icon(
-                diaInfo.configurado 
-                    ? Icons.check_circle 
-                    : Icons.radio_button_unchecked,
-                color: diaInfo.configurado 
-                    ? Colors.green 
-                    : Colors.grey,
-                size: 20,
-              ),
-            ],
-          ),
-          if (diaInfo.configurado) ...[
-            const SizedBox(height: 4),
-            Text(
-              'Objetivo: ${diaInfo.objetivoNombre ?? "No definido"}',
-              style: GoogleFonts.poppins(fontSize: 12),
+          // Header informativo
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.blue[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.blue[200]!),
             ),
-            if (diaInfo.tipo != null)
-              Text(
-                'Tipo: ${diaInfo.tipo}',
-                style: GoogleFonts.poppins(fontSize: 12),
-              ),
-            if (diaInfo.rutaNombre != null)
-              Text(
-                'Ruta: ${diaInfo.rutaNombre}',
-                style: GoogleFonts.poppins(fontSize: 12),
-              ),
-            if (diaInfo.tipoActividadAdministrativa != null)
-              Text(
-                'Actividad: ${diaInfo.tipoActividadAdministrativa}',
-                style: GoogleFonts.poppins(fontSize: 12),
-              ),
-            if (diaInfo.clienteIds.isNotEmpty)
-              Text(
-                'Clientes asignados: ${diaInfo.clienteIds.length}',
-                style: GoogleFonts.poppins(fontSize: 12),
-              ),
-          ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Prueba de Endpoints - Planes Unificados',
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.blue[900],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Utiliza estas tarjetas para probar las operaciones CRUD del API de planes.',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: Colors.blue[800],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Tarjeta GET /planes?userId
+          GetPlanesCard(),
+          
+          const SizedBox(height: 16),
+          
+          // Tarjeta POST /planes
+          PostPlanesCard(),
+          
+          const SizedBox(height: 16),
+          
+          // Tarjeta PUT /planes/{id}
+          PutPlanesCard(),
+          
+          const SizedBox(height: 16),
+          
+          // Tarjeta DELETE /planes/{id}
+          DeletePlanesCard(),
+          
+          const SizedBox(height: 16),
+          
+          // TODO: Sección de sincronización Hive ↔️ API
         ],
       ),
     );
   }
 
-  Widget _buildStatusChip(String status) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 4,
-      ),
-      decoration: BoxDecoration(
-        color: _getStatusColor(status).withOpacity(0.2),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        status.toUpperCase(),
-        style: GoogleFonts.poppins(
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-          color: _getStatusColor(status),
-        ),
-      ),
+  Widget _buildVisitasTab() {
+    return ValueListenableBuilder(
+      valueListenable: Hive.box<VisitaClienteHive>('visitas_clientes').listenable(),
+      builder: (context, Box<VisitaClienteHive> box, widget) {
+        final visitas = box.values.toList();
+        
+        if (visitas.isEmpty) {
+          return _buildEmptyState('No hay visitas registradas');
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: visitas.length,
+          itemBuilder: (context, index) {
+            final visita = visitas[index];
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: ExpansionTile(
+                title: Text(
+                  'Visita ${visita.clienteNombre}',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                ),
+                subtitle: Text(
+                  'Fecha: ${visita.fechaCreacion.toString().split(' ')[0]} - Estado: ${visita.estatus}',
+                  style: GoogleFonts.poppins(fontSize: 12),
+                ),
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.red),
+                  onPressed: () => _eliminarVisita(index),
+                ),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildInfoRow('Visita ID', visita.visitaId),
+                        _buildInfoRow('Cliente ID', visita.clienteId),
+                        _buildInfoRow('Hora Check-in', visita.checkIn.timestamp.toString()),
+                        _buildInfoRow('Hora Check-out', visita.checkOut?.timestamp.toString() ?? 'N/A'),
+                        _buildInfoRow(
+                          'Ubicación Check-in',
+                          '${visita.checkIn.ubicacion.latitud}, ${visita.checkIn.ubicacion.longitud}',
+                        ),
+                        if (visita.checkOut != null)
+                          _buildInfoRow(
+                            'Ubicación Check-out',
+                            '${visita.checkOut!.ubicacion.latitud}, ${visita.checkOut!.ubicacion.longitud}',
+                          ),
+                        _buildInfoRow('Sincronizado', visita.syncStatus == 'synced' ? 'Sí' : 'No'),
+                        _buildInfoRow('Creado', visita.fechaCreacion.toString()),
+                        _buildInfoRow('Actualizado', visita.lastUpdated.toString()),
+                        if (visita.formularios.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            'Respuestas del formulario:',
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[100],
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              const JsonEncoder.withIndent('  ')
+                                  .convert(visita.formularios),
+                              style: GoogleFonts.robotoMono(fontSize: 12),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
-  Widget _buildSyncChip(bool synced) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 4,
-      ),
-      decoration: BoxDecoration(
-        color: synced ? Colors.green.withOpacity(0.2) : Colors.orange.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+  Widget _buildClientesTab() {
+    return ValueListenableBuilder(
+      valueListenable: Hive.box<ClienteHive>('clientes').listenable(),
+      builder: (context, Box<ClienteHive> box, widget) {
+        final clientes = box.values.toList();
+        
+        if (clientes.isEmpty) {
+          return _buildEmptyState('No hay clientes guardados');
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: clientes.length,
+          itemBuilder: (context, index) {
+            final cliente = clientes[index];
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: ListTile(
+                title: Text(
+                  cliente.nombre,
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ID: ${cliente.id}',
+                      style: GoogleFonts.poppins(fontSize: 12),
+                    ),
+                    Text(
+                      'Ruta: ${cliente.rutaNombre} - Activo: ${cliente.activo ? "Sí" : "No"}',
+                      style: GoogleFonts.poppins(fontSize: 12),
+                    ),
+                    if (cliente.direccion != null)
+                      Text(
+                        'Dirección: ${cliente.direccion}',
+                        style: GoogleFonts.poppins(fontSize: 12),
+                      ),
+                  ],
+                ),
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.red),
+                  onPressed: () => _eliminarCliente(index),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildObjetivosTab() {
+    return ValueListenableBuilder(
+      valueListenable: Hive.box<ObjetivoHive>('objetivos').listenable(),
+      builder: (context, Box<ObjetivoHive> box, widget) {
+        final objetivos = box.values.toList();
+        
+        if (objetivos.isEmpty) {
+          return _buildEmptyState('No hay objetivos guardados');
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: objetivos.length,
+          itemBuilder: (context, index) {
+            final objetivo = objetivos[index];
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: ListTile(
+                title: Text(
+                  objetivo.nombre,
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ID: ${objetivo.id}',
+                      style: GoogleFonts.poppins(fontSize: 12),
+                    ),
+                    Text(
+                      'Tipo: ${objetivo.tipo} - Activo: ${objetivo.activo ? "Sí" : "No"}',
+                      style: GoogleFonts.poppins(fontSize: 12),
+                    ),
+                    Text(
+                      'Orden: ${objetivo.orden} - Modificado: ${objetivo.fechaModificacion.toString().split(' ')[0]}',
+                      style: GoogleFonts.poppins(fontSize: 12),
+                    ),
+                  ],
+                ),
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.red),
+                  onPressed: () => _eliminarObjetivo(index),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildConfigTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            synced ? Icons.cloud_done : Icons.cloud_off,
-            size: 14,
-            color: synced ? Colors.green : Colors.orange,
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Información del Usuario',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ValueListenableBuilder(
+                    valueListenable: Hive.box<UserHive>('users').listenable(),
+                    builder: (context, Box<UserHive> box, widget) {
+                      if (box.isEmpty) {
+                        return Text(
+                          'No hay información de usuario guardada',
+                          style: GoogleFonts.poppins(color: Colors.grey[600]),
+                        );
+                      }
+                      
+                      final user = box.values.first;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildInfoRow('User ID', user.id),
+                          _buildInfoRow('Email', user.email),
+                          _buildInfoRow('Nombre', user.nombreCompleto),
+                          _buildInfoRow('Rol', user.rol),
+                          _buildInfoRow('Creado', user.fechaCreacion.toString()),
+                          _buildInfoRow('Actualizado', user.lastUpdated.toString()),
+                          const SizedBox(height: 16),
+                          ElevatedButton.icon(
+                            onPressed: () => _eliminarUsuario(),
+                            icon: const Icon(Icons.delete, color: Colors.white),
+                            label: Text(
+                              'Eliminar Usuario',
+                              style: GoogleFonts.poppins(color: Colors.white),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(width: 4),
-          Text(
-            synced ? 'SINCRONIZADO' : 'NO SINCRONIZADO',
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: synced ? Colors.green : Colors.orange,
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Información del Líder Comercial',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ValueListenableBuilder(
+                    valueListenable: Hive.box<LiderComercialHive>('lideres_comerciales').listenable(),
+                    builder: (context, Box<LiderComercialHive> box, widget) {
+                      if (box.isEmpty) {
+                        return Text(
+                          'No hay información del líder guardada',
+                          style: GoogleFonts.poppins(color: Colors.grey[600]),
+                        );
+                      }
+                      
+                      final lider = box.values.first;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildInfoRow('Líder ID', lider.id),
+                          _buildInfoRow('Nombre', lider.nombre),
+                          _buildInfoRow('Clave', lider.clave),
+                          _buildInfoRow('Centro Distribución', lider.centroDistribucion),
+                          _buildInfoRow('País', lider.pais),
+                          _buildInfoRow('Rutas', lider.rutas.length.toString()),
+                          _buildInfoRow('Sincronizado', lider.syncStatus),
+                          _buildInfoRow('Actualizado', lider.lastUpdated.toString()),
+                          const SizedBox(height: 16),
+                          ElevatedButton.icon(
+                            onPressed: () => _eliminarLider(),
+                            icon: const Icon(Icons.delete, color: Colors.white),
+                            label: Text(
+                              'Eliminar Líder',
+                              style: GoogleFonts.poppins(color: Colors.white),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Estadísticas de Base de Datos',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildEstadisticas(),
+                ],
+              ),
             ),
           ),
         ],
@@ -705,9 +672,9 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.inbox_outlined,
+            Icons.inbox_rounded,
             size: 80,
-            color: Colors.grey[400],
+            color: Colors.grey[300],
           ),
           const SizedBox(height: 16),
           Text(
@@ -722,26 +689,30 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
+  Widget _buildInfoRow(String label, String? value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 140,
+            width: 120,
             child: Text(
               '$label:',
               style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w600,
                 fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey[700],
               ),
             ),
           ),
           Expanded(
             child: Text(
-              value,
-              style: GoogleFonts.poppins(fontSize: 13),
+              value ?? 'N/A',
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                color: Colors.grey[800],
+              ),
             ),
           ),
         ],
@@ -749,194 +720,74 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
     );
   }
 
-  Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'enviado':
-        return Colors.green;
-      case 'borrador':
-        return Colors.blue;
-      case 'rechazado':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
+  Widget _buildEstadisticas() {
+    final stats = {
+      'Planes de trabajo': Hive.box<PlanTrabajoSemanalHive>('planes_trabajo_semanal').length,
+      'Planes unificados': Hive.box<PlanTrabajoUnificadoHive>('planes_trabajo_unificado').length,
+      'Visitas': Hive.box<VisitaClienteHive>('visitas_clientes').length,
+      'Clientes': Hive.box<ClienteHive>('clientes').length,
+      'Objetivos': Hive.box<ObjetivoHive>('objetivos').length,
+    };
 
-  Color _getVisitaStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'completada':
-        return Colors.green;
-      case 'en_proceso':
-        return Colors.blue;
-      case 'cancelada':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  IconData _getVisitaStatusIcon(String status) {
-    switch (status.toLowerCase()) {
-      case 'completada':
-        return Icons.check_circle;
-      case 'en_proceso':
-        return Icons.access_time;
-      case 'cancelada':
-        return Icons.cancel;
-      default:
-        return Icons.help_outline;
-    }
-  }
-
-  String _formatTime(DateTime dateTime) {
-    return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+    return Column(
+      children: stats.entries.map((entry) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                entry.key,
+                style: GoogleFonts.poppins(fontSize: 14),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: entry.value > 0 ? Colors.green[100] : Colors.grey[100],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  entry.value.toString(),
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: entry.value > 0 ? Colors.green[800] : Colors.grey[600],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
   }
 
   Future<bool?> _mostrarDialogoConfirmacion(String titulo, String mensaje) {
     return showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(titulo),
-        content: Text(mensaje),
+        title: Text(
+          titulo,
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        ),
+        content: Text(
+          mensaje,
+          style: GoogleFonts.poppins(),
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text(
-              'Confirmar',
-              style: TextStyle(color: Colors.red),
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(
+              'Cancelar',
+              style: GoogleFonts.poppins(color: Colors.grey[600]),
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  void _mostrarJsonCompleto(Map<String, dynamic> json) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          constraints: const BoxConstraints(maxWidth: 800, maxHeight: 600),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Datos JSON',
-                    style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.copy),
-                        onPressed: () {
-                          // Copiar al portapapeles en web
-                          final jsonStr = const JsonEncoder.withIndent('  ').convert(json);
-                          // En una app real, usarías clipboard
-                          _mostrarSnackBar('JSON copiado (simulado)', Colors.green);
-                        },
-                        tooltip: 'Copiar JSON',
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const Divider(),
-              Flexible(
-                child: SingleChildScrollView(
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: SelectableText(
-                      const JsonEncoder.withIndent('  ').convert(json),
-                      style: GoogleFonts.robotoMono(fontSize: 12),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _editarPlan(PlanTrabajoSemanalHive plan) {
-    final TextEditingController estatusController = TextEditingController(text: plan.estatus);
-    final TextEditingController liderNombreController = TextEditingController(text: plan.liderNombre);
-    bool sincronizado = plan.sincronizado;
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Editar Plan ${plan.semana}'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: estatusController,
-                decoration: const InputDecoration(
-                  labelText: 'Estatus',
-                  helperText: 'borrador, enviado, rechazado',
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: liderNombreController,
-                decoration: const InputDecoration(
-                  labelText: 'Nombre del Líder',
-                ),
-              ),
-              const SizedBox(height: 16),
-              SwitchListTile(
-                title: const Text('Sincronizado'),
-                value: sincronizado,
-                onChanged: (value) {
-                  setState(() {
-                    sincronizado = value;
-                  });
-                },
-              ),
-            ],
-          ),
-        ),
-        actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              plan.estatus = estatusController.text;
-              plan.liderNombre = liderNombreController.text;
-              plan.sincronizado = sincronizado;
-              plan.fechaModificacion = DateTime.now();
-              
-              await plan.save();
-              Navigator.pop(context);
-              setState(() {});
-              _mostrarSnackBar('Plan actualizado', Colors.green);
-            },
-            child: const Text('Guardar'),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(
+              'Confirmar',
+              style: GoogleFonts.poppins(color: Colors.red),
+            ),
           ),
         ],
       ),
@@ -946,36 +797,181 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
   Future<void> _limpiarTodosLosDatos() async {
     try {
       await _hiveService.clearAllBoxes();
-      setState(() {});
-      _mostrarSnackBar('Todos los datos han sido eliminados', Colors.green);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Todos los datos han sido eliminados',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     } catch (e) {
-      _mostrarSnackBar('Error al limpiar datos: $e', Colors.red);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Error al limpiar datos: $e',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
   void _exportarTodosLosDatos() {
-    final allData = {
-      'exportDate': DateTime.now().toIso8601String(),
-      'planes': _hiveService.planesTrabajoSemanalesBox.values.map((p) => p.toJson()).toList(),
-      'clientes': _hiveService.clientesBox.values.map((c) => c.toJson()).toList(),
-      'objetivos': _hiveService.objetivosBox.values.map((o) => o.toJson()).toList(),
-      'visitas': _hiveService.visitasClientes.values.map((v) => v.toJson()).toList(),
-    };
-
-    _mostrarJsonCompleto(allData);
-  }
-
-  void _mostrarSnackBar(String mensaje, Color color) {
+    // TODO: Implementar exportación de datos
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(mensaje),
-        backgroundColor: color,
+        content: Text(
+          'Funcionalidad de exportación en desarrollo',
+          style: GoogleFonts.poppins(),
+        ),
+        backgroundColor: Colors.orange,
       ),
     );
   }
+
+  Future<void> _eliminarPlanTrabajo(int index) async {
+    final confirmar = await _mostrarDialogoConfirmacion(
+      'Eliminar Plan de Trabajo',
+      '¿Estás seguro de que deseas eliminar este plan?',
+    );
+    
+    if (confirmar == true) {
+      await Hive.box<PlanTrabajoSemanalHive>('planes_trabajo_semanal').deleteAt(index);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Plan de trabajo eliminado',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _eliminarVisita(int index) async {
+    final confirmar = await _mostrarDialogoConfirmacion(
+      'Eliminar Visita',
+      '¿Estás seguro de que deseas eliminar esta visita?',
+    );
+    
+    if (confirmar == true) {
+      await Hive.box<VisitaClienteHive>('visitas_clientes').deleteAt(index);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Visita eliminada',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _eliminarCliente(int index) async {
+    final confirmar = await _mostrarDialogoConfirmacion(
+      'Eliminar Cliente',
+      '¿Estás seguro de que deseas eliminar este cliente?',
+    );
+    
+    if (confirmar == true) {
+      await Hive.box<ClienteHive>('clientes').deleteAt(index);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Cliente eliminado',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _eliminarObjetivo(int index) async {
+    final confirmar = await _mostrarDialogoConfirmacion(
+      'Eliminar Objetivo',
+      '¿Estás seguro de que deseas eliminar este objetivo?',
+    );
+    
+    if (confirmar == true) {
+      await Hive.box<ObjetivoHive>('objetivos').deleteAt(index);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Objetivo eliminado',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _eliminarUsuario() async {
+    final confirmar = await _mostrarDialogoConfirmacion(
+      'Eliminar Usuario',
+      '¿Estás seguro de que deseas eliminar la información del usuario?',
+    );
+    
+    if (confirmar == true) {
+      await Hive.box<UserHive>('users').clear();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Usuario eliminado',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _eliminarLider() async {
+    final confirmar = await _mostrarDialogoConfirmacion(
+      'Eliminar Líder',
+      '¿Estás seguro de que deseas eliminar la información del líder?',
+    );
+    
+    if (confirmar == true) {
+      await Hive.box<LiderComercialHive>('lideres_comerciales').clear();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Líder eliminado',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    }
+  }
 }
 
-// Tarjeta para GET /planes?userId
+// -----------------------------------------------------------------------------
+// TARJETA PARA GET /planes?userId
+// -----------------------------------------------------------------------------
 class GetPlanesCard extends StatefulWidget {
   const GetPlanesCard({super.key});
 
@@ -984,195 +980,362 @@ class GetPlanesCard extends StatefulWidget {
 }
 
 class _GetPlanesCardState extends State<GetPlanesCard> {
-  // Estado
-  bool _isLoading = false;
-  String? _userId;
-  String? _responseData;
-  String? _errorMessage;
-  bool _showToken = false;
-  
-  // Controladores
   final TextEditingController _tokenController = TextEditingController();
-  
+  final TextEditingController _userIdController = TextEditingController();
+  bool _isTokenVisible = false;
+  bool _isLoading = false;
+
   @override
   void initState() {
     super.initState();
-    _loadUserIdAndToken();
+    _cargarDatosIniciales();
   }
-  
-  Future<void> _loadUserIdAndToken() async {
-    try {
-      // Obtener el líder comercial actual
-      final lider = await SesionServicio.obtenerLiderComercial();
-      if (lider != null) {
-        setState(() {
-          _userId = lider.clave; // CoSEupervisor
-        });
-      }
-      
-      // Intentar obtener el token
-      final token = await SesionServicio.obtenerToken();
-      if (token != null) {
-        _tokenController.text = token;
-      }
-    } catch (e) {
-      print('Error cargando datos iniciales: $e');
+
+  void _cargarDatosIniciales() async {
+    // Cargar token desde sesión
+    final sesionService = SesionServicio();
+    // Obtener token desde SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('id_token');
+    if (token != null) {
+      _tokenController.text = token;
+    }
+
+    // Cargar userId desde Hive
+    final userBox = Hive.box<UserHive>('users');
+    if (userBox.isNotEmpty) {
+      final user = userBox.values.first;
+      _userIdController.text = user.clave;
     }
   }
-  
+
   @override
   void dispose() {
     _tokenController.dispose();
+    _userIdController.dispose();
     super.dispose();
+  }
+
+  String _construirUrl() {
+    final userId = _userIdController.text.trim();
+    if (userId.isEmpty) {
+      return '${AmbienteConfig.baseUrl}/planes?userId={userId}';
+    }
+    return '${AmbienteConfig.baseUrl}/planes?userId=$userId';
+  }
+
+  Future<void> _ejecutarPeticion() async {
+    final userId = _userIdController.text.trim();
+    if (userId.isEmpty) {
+      _showSnackBar('Por favor ingresa un userId', Colors.orange);
+      return;
+    }
+
+    final token = _tokenController.text.trim();
+    if (token.isEmpty) {
+      _showSnackBar('Por favor ingresa el token', Colors.orange);
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await http.get(
+        Uri.parse(_construirUrl()),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        _showSnackBar('✅ GET exitoso', Colors.green);
+        _mostrarRespuesta(response);
+      } else {
+        _showSnackBar(
+          'Error ${response.statusCode}: ${response.reasonPhrase}',
+          Colors.red,
+        );
+        _mostrarRespuesta(response);
+      }
+    } catch (e) {
+      _showSnackBar('Error: ${e.toString()}', Colors.red);
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _mostrarRespuesta(http.Response response) {
+    final bodyController = TextEditingController(text: _formatearRespuesta(response.body));
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Respuesta GET ${response.statusCode}',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Headers:',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  response.headers.entries
+                      .map((e) => '${e.key}: ${e.value}')
+                      .join('\n'),
+                  style: GoogleFonts.robotoMono(fontSize: 12),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Body:',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.copy, size: 20),
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: bodyController.text));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Respuesta copiada al portapapeles'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    tooltip: 'Copiar respuesta',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Container(
+                constraints: const BoxConstraints(maxHeight: 400),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey[300]!),
+                ),
+                child: TextField(
+                  controller: bodyController,
+                  maxLines: null,
+                  readOnly: true,
+                  decoration: InputDecoration(
+                    contentPadding: const EdgeInsets.all(12),
+                    border: InputBorder.none,
+                    fillColor: Colors.grey[50],
+                    filled: true,
+                  ),
+                  style: GoogleFonts.robotoMono(fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cerrar',
+              style: GoogleFonts.poppins(color: Colors.blue),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatearRespuesta(String body) {
+    try {
+      final json = jsonDecode(body);
+      return const JsonEncoder.withIndent('  ').convert(json);
+    } catch (_) {
+      return body;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final String url = '${AmbienteConfig.baseUrl}/planes?userId=${_userId ?? ''}';
-    
     return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      elevation: 2,
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header con título y descripción
+            // Encabezado
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.cloud_download,
                     color: Colors.blue,
-                    size: 24,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    'GET',
+                    style: GoogleFonts.poppins(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'GET /planes?userId',
-                        style: GoogleFonts.poppins(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey[800],
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Este endpoint recupera la lista de planes del líder comercial logeado.',
-                        style: GoogleFonts.poppins(
-                          fontSize: 13,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    '/planes?userId={userId}',
+                    style: GoogleFonts.robotoMono(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
+                ),
+                if (_isLoading)
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // Campo userId
+            Text(
+              'User ID:',
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w500,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _userIdController,
+              decoration: InputDecoration(
+                hintText: 'Ingresa el userId',
+                filled: true,
+                fillColor: Colors.grey[50],
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Colors.blue, width: 2),
+                ),
+              ),
+              style: GoogleFonts.robotoMono(),
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: 8),
+
+            // URL construida
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.link, color: Colors.blue[700], size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _construirUrl(),
+                      style: GoogleFonts.robotoMono(
+                        fontSize: 12,
+                        color: Colors.blue[900],
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Campo Token
+            Row(
+              children: [
+                Text(
+                  'Bearer Token:',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: Icon(
+                    _isTokenVisible ? Icons.visibility_off : Icons.visibility,
+                    size: 20,
+                  ),
+                  onPressed: () => setState(() => _isTokenVisible = !_isTokenVisible),
+                  tooltip: _isTokenVisible ? 'Ocultar token' : 'Mostrar token',
                 ),
               ],
             ),
-            
-            const SizedBox(height: 20),
-            const Divider(),
-            const SizedBox(height: 20),
-            
-            // Campo URL (solo lectura)
             TextField(
-              controller: TextEditingController(text: url),
-              readOnly: true,
-              decoration: InputDecoration(
-                labelText: 'URL del Endpoint',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                filled: true,
-                fillColor: Colors.grey[100],
-                prefixIcon: const Icon(Icons.link),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.copy),
-                  onPressed: () {
-                    // TODO: Implementar copiar al portapapeles
-                    _showSnackBar('URL copiada', Colors.green);
-                  },
-                  tooltip: 'Copiar URL',
-                ),
-              ),
-              style: GoogleFonts.robotoMono(fontSize: 12),
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // Campo Token
-            TextFormField(
               controller: _tokenController,
-              obscureText: !_showToken,
+              obscureText: !_isTokenVisible,
               decoration: InputDecoration(
-                labelText: 'Token de Autenticación',
-                hintText: 'Bearer eyJhbGc...',
+                hintText: 'Ingresa el token JWT',
+                filled: true,
+                fillColor: Colors.grey[50],
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
                 ),
-                prefixIcon: const Icon(Icons.security),
-                suffixIcon: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: Icon(
-                        _showToken ? Icons.visibility_off : Icons.visibility,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _showToken = !_showToken;
-                        });
-                      },
-                      tooltip: _showToken ? 'Ocultar token' : 'Mostrar token',
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.refresh),
-                      onPressed: _loadUserIdAndToken,
-                      tooltip: 'Recargar token de sesión',
-                    ),
-                  ],
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Colors.blue, width: 2),
                 ),
               ),
-              style: GoogleFonts.robotoMono(fontSize: 12),
+              style: GoogleFonts.robotoMono(fontSize: 14),
             ),
-            
             const SizedBox(height: 20),
-            
-            // Botón Ejecutar
+
+            // Botón ejecutar
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: _isLoading ? null : _executeGetRequest,
-                icon: _isLoading 
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.send),
+                onPressed: _isLoading ? null : _ejecutarPeticion,
+                icon: const Icon(Icons.send),
                 label: Text(
-                  _isLoading ? 'Cargando...' : 'Ejecutar GET',
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  'Ejecutar GET',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -1180,162 +1343,10 @@ class _GetPlanesCardState extends State<GetPlanesCard> {
                 ),
               ),
             ),
-            
-            const SizedBox(height: 20),
-            
-            // Resultado
-            if (_responseData != null || _errorMessage != null)
-              Container(
-                decoration: BoxDecoration(
-                  color: _errorMessage != null 
-                      ? Colors.red.withOpacity(0.05)
-                      : Colors.green.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: _errorMessage != null
-                        ? Colors.red.withOpacity(0.3)
-                        : Colors.green.withOpacity(0.3),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Header del resultado
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: _errorMessage != null
-                            ? Colors.red.withOpacity(0.1)
-                            : Colors.green.withOpacity(0.1),
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(8),
-                          topRight: Radius.circular(8),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            _errorMessage != null
-                                ? Icons.error_outline
-                                : Icons.check_circle_outline,
-                            color: _errorMessage != null
-                                ? Colors.red
-                                : Colors.green,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            _errorMessage != null
-                                ? 'Error en la petición'
-                                : 'Respuesta exitosa (200)',
-                            style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.bold,
-                              color: _errorMessage != null
-                                  ? Colors.red
-                                  : Colors.green,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    // Body del resultado
-                    if (_errorMessage != null)
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Text(
-                          _errorMessage!,
-                          style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            color: Colors.red[700],
-                          ),
-                        ),
-                      )
-                    else if (_responseData != null)
-                      Container(
-                        margin: const EdgeInsets.all(12),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        constraints: const BoxConstraints(maxHeight: 400),
-                        child: SingleChildScrollView(
-                          child: SelectableText(
-                            _responseData!,
-                            style: GoogleFonts.robotoMono(fontSize: 11),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
           ],
         ),
       ),
     );
-  }
-  
-  Future<void> _executeGetRequest() async {
-    // Validar que tenemos userId y token
-    if (_userId == null || _userId!.isEmpty) {
-      _showSnackBar('Completa userId y token para continuar', Colors.orange);
-      return;
-    }
-    
-    if (_tokenController.text.isEmpty) {
-      _showSnackBar('Completa userId y token para continuar', Colors.orange);
-      return;
-    }
-    
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-      _responseData = null;
-    });
-    
-    try {
-      final url = Uri.parse('${AmbienteConfig.baseUrl}/planes?userId=$_userId');
-      final token = _tokenController.text;
-      
-      final response = await http.get(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      );
-      
-      if (response.statusCode == 200) {
-        // Formatear JSON de respuesta
-        try {
-          final jsonData = jsonDecode(response.body);
-          setState(() {
-            _responseData = const JsonEncoder.withIndent('  ').convert(jsonData);
-            _errorMessage = null;
-          });
-        } catch (e) {
-          setState(() {
-            _responseData = response.body;
-            _errorMessage = null;
-          });
-        }
-      } else {
-        setState(() {
-          _errorMessage = 'Error ${response.statusCode}: ${response.reasonPhrase}';
-          _responseData = null;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Error de conexión: $e';
-        _responseData = null;
-      });
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
   }
   
   void _showSnackBar(String message, Color color) {
@@ -1348,4 +1359,1199 @@ class _GetPlanesCardState extends State<GetPlanesCard> {
   }
 }
 
-// ELIMINADO: Toda la implementación anterior de _PlanUnificadoDebugCard
+// -----------------------------------------------------------------------------
+// TARJETA PARA POST /planes
+// -----------------------------------------------------------------------------
+class PostPlanesCard extends StatefulWidget {
+  const PostPlanesCard({super.key});
+
+  @override
+  State<PostPlanesCard> createState() => _PostPlanesCardState();
+}
+
+class _PostPlanesCardState extends State<PostPlanesCard> {
+  final TextEditingController _tokenController = TextEditingController();
+  final TextEditingController _jsonController = TextEditingController();
+  bool _isTokenVisible = false;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarDatosIniciales();
+  }
+
+  void _cargarDatosIniciales() async {
+    // Cargar token desde sesión
+    final sesionService = SesionServicio();
+    // Obtener token desde SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('id_token');
+    if (token != null) {
+      _tokenController.text = token;
+    }
+
+    // Template de plan inicial
+    _jsonController.text = jsonEncode({
+      "liderClave": "123456",
+      "userId": "123456",
+      "semana": {
+        "numero": 1,
+        "fechaInicio": "2024-01-01",
+        "fechaFin": "2024-01-07",
+        "estatus": "borrador"
+      },
+      "diasTrabajo": []
+    });
+
+    _formatearJson();
+  }
+
+  @override
+  void dispose() {
+    _tokenController.dispose();
+    _jsonController.dispose();
+    super.dispose();
+  }
+
+  void _formatearJson() {
+    try {
+      final jsonObj = jsonDecode(_jsonController.text);
+      setState(() {
+        _jsonController.text = const JsonEncoder.withIndent('  ').convert(jsonObj);
+      });
+    } catch (e) {
+      _showSnackBar('JSON inválido: ${e.toString()}', Colors.red);
+    }
+  }
+
+  Future<void> _ejecutarPeticion() async {
+    final token = _tokenController.text.trim();
+    if (token.isEmpty) {
+      _showSnackBar('Por favor ingresa el token', Colors.orange);
+      return;
+    }
+
+    // Validar JSON
+    try {
+      jsonDecode(_jsonController.text);
+    } catch (e) {
+      _showSnackBar('JSON inválido: ${e.toString()}', Colors.red);
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await http.post(
+        Uri.parse('${AmbienteConfig.baseUrl}/planes'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: _jsonController.text,
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        _showSnackBar('✅ POST exitoso', Colors.green);
+        _mostrarRespuesta(response);
+      } else {
+        _showSnackBar(
+          'Error ${response.statusCode}: ${response.reasonPhrase}',
+          Colors.red,
+        );
+        _mostrarRespuesta(response);
+      }
+    } catch (e) {
+      _showSnackBar('Error: ${e.toString()}', Colors.red);
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _mostrarRespuesta(http.Response response) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Respuesta POST ${response.statusCode}',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Headers:',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  response.headers.entries
+                      .map((e) => '${e.key}: ${e.value}')
+                      .join('\n'),
+                  style: GoogleFonts.robotoMono(fontSize: 12),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Body:',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  response.body.isEmpty ? '(vacío)' : _formatearRespuesta(response.body),
+                  style: GoogleFonts.robotoMono(fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cerrar',
+              style: GoogleFonts.poppins(color: Colors.green),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatearRespuesta(String body) {
+    try {
+      final json = jsonDecode(body);
+      return const JsonEncoder.withIndent('  ').convert(json);
+    } catch (_) {
+      return body;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Encabezado
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.green,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    'POST',
+                    style: GoogleFonts.poppins(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    '/planes',
+                    style: GoogleFonts.robotoMono(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                if (_isLoading)
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // Campo Token
+            Row(
+              children: [
+                Text(
+                  'Bearer Token:',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: Icon(
+                    _isTokenVisible ? Icons.visibility_off : Icons.visibility,
+                    size: 20,
+                  ),
+                  onPressed: () => setState(() => _isTokenVisible = !_isTokenVisible),
+                  tooltip: _isTokenVisible ? 'Ocultar token' : 'Mostrar token',
+                ),
+              ],
+            ),
+            TextField(
+              controller: _tokenController,
+              obscureText: !_isTokenVisible,
+              decoration: InputDecoration(
+                hintText: 'Ingresa el token JWT',
+                filled: true,
+                fillColor: Colors.grey[50],
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Colors.green, width: 2),
+                ),
+              ),
+              style: GoogleFonts.robotoMono(fontSize: 14),
+            ),
+            const SizedBox(height: 20),
+
+            // JSON Body
+            Row(
+              children: [
+                Text(
+                  'JSON Body:',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                  ),
+                ),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: _formatearJson,
+                  icon: const Icon(Icons.format_align_left, size: 16),
+                  label: Text(
+                    'Formatear',
+                    style: GoogleFonts.poppins(fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Container(
+              height: 300,
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+              child: TextField(
+                controller: _jsonController,
+                maxLines: null,
+                expands: true,
+                decoration: InputDecoration(
+                  hintText: 'Ingresa el JSON del plan...',
+                  hintStyle: GoogleFonts.robotoMono(
+                    fontSize: 14,
+                    color: Colors.grey[400],
+                  ),
+                  contentPadding: const EdgeInsets.all(12),
+                  border: InputBorder.none,
+                ),
+                style: GoogleFonts.robotoMono(fontSize: 14),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Botón ejecutar
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _isLoading ? null : _ejecutarPeticion,
+                icon: const Icon(Icons.send),
+                label: Text(
+                  'Ejecutar POST',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  void _showSnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: color,
+      ),
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
+// TARJETA PARA PUT /planes/{id}
+// -----------------------------------------------------------------------------
+class PutPlanesCard extends StatefulWidget {
+  const PutPlanesCard({super.key});
+
+  @override
+  State<PutPlanesCard> createState() => _PutPlanesCardState();
+}
+
+class _PutPlanesCardState extends State<PutPlanesCard> {
+  final TextEditingController _tokenController = TextEditingController();
+  final TextEditingController _planIdController = TextEditingController();
+  final TextEditingController _jsonController = TextEditingController();
+  bool _isTokenVisible = false;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarDatosIniciales();
+  }
+
+  void _cargarDatosIniciales() async {
+    // Cargar token desde sesión
+    final sesionService = SesionServicio();
+    // Obtener token desde SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('id_token');
+    if (token != null) {
+      _tokenController.text = token;
+    }
+
+    // Template JSON inicial (vacío por defecto)
+    _jsonController.text = jsonEncode({
+      "semana": {
+        "estatus": "publicado"
+      }
+    });
+
+    _formatearJson();
+  }
+
+  @override
+  void dispose() {
+    _tokenController.dispose();
+    _planIdController.dispose();
+    _jsonController.dispose();
+    super.dispose();
+  }
+
+  String _construirUrl() {
+    final planId = _planIdController.text.trim();
+    if (planId.isEmpty) {
+      return '${AmbienteConfig.baseUrl}/planes/{id}';
+    }
+    return '${AmbienteConfig.baseUrl}/planes/$planId';
+  }
+
+  void _formatearJson() {
+    try {
+      final jsonObj = jsonDecode(_jsonController.text);
+      setState(() {
+        _jsonController.text = const JsonEncoder.withIndent('  ').convert(jsonObj);
+      });
+    } catch (e) {
+      _showSnackBar('JSON inválido: ${e.toString()}', Colors.red);
+    }
+  }
+
+  Future<void> _ejecutarPeticion() async {
+    // Validaciones
+    final planId = _planIdController.text.trim();
+    if (planId.isEmpty) {
+      _showSnackBar('Por favor ingresa el Plan ID', Colors.orange);
+      return;
+    }
+
+    final token = _tokenController.text.trim();
+    if (token.isEmpty) {
+      _showSnackBar('Por favor ingresa el token', Colors.orange);
+      return;
+    }
+
+    // Validar JSON
+    try {
+      jsonDecode(_jsonController.text);
+    } catch (e) {
+      _showSnackBar('JSON inválido: ${e.toString()}', Colors.red);
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await http.put(
+        Uri.parse(_construirUrl()),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: _jsonController.text,
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        _showSnackBar('✅ PUT exitoso', Colors.green);
+        _mostrarRespuesta(response);
+      } else {
+        _showSnackBar(
+          'Error ${response.statusCode}: ${response.reasonPhrase}',
+          Colors.red,
+        );
+        _mostrarRespuesta(response);
+      }
+    } catch (e) {
+      _showSnackBar('Error: ${e.toString()}', Colors.red);
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _mostrarRespuesta(http.Response response) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Respuesta PUT ${response.statusCode}',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Headers:',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  response.headers.entries
+                      .map((e) => '${e.key}: ${e.value}')
+                      .join('\n'),
+                  style: GoogleFonts.robotoMono(fontSize: 12),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Body:',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  response.body.isEmpty ? '(vacío)' : _formatearRespuesta(response.body),
+                  style: GoogleFonts.robotoMono(fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cerrar',
+              style: GoogleFonts.poppins(color: Colors.orange),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatearRespuesta(String body) {
+    try {
+      final json = jsonDecode(body);
+      return const JsonEncoder.withIndent('  ').convert(json);
+    } catch (_) {
+      return body;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Encabezado
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.orange,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    'PUT',
+                    style: GoogleFonts.poppins(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    '/planes/{id}',
+                    style: GoogleFonts.robotoMono(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                if (_isLoading)
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // Campo Plan ID
+            Text(
+              'Plan ID:',
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w500,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _planIdController,
+              decoration: InputDecoration(
+                hintText: 'Ej: PLAN-1234567890',
+                hintStyle: GoogleFonts.robotoMono(fontSize: 14),
+                filled: true,
+                fillColor: Colors.grey[50],
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Colors.orange, width: 2),
+                ),
+              ),
+              style: GoogleFonts.robotoMono(),
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: 8),
+
+            // URL construida
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.amber[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.amber[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.link, color: Colors.amber[700], size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _construirUrl(),
+                      style: GoogleFonts.robotoMono(
+                        fontSize: 12,
+                        color: Colors.amber[900],
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Campo Token
+            Row(
+              children: [
+                Text(
+                  'Bearer Token:',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: Icon(
+                    _isTokenVisible ? Icons.visibility_off : Icons.visibility,
+                    size: 20,
+                  ),
+                  onPressed: () => setState(() => _isTokenVisible = !_isTokenVisible),
+                  tooltip: _isTokenVisible ? 'Ocultar token' : 'Mostrar token',
+                ),
+              ],
+            ),
+            TextField(
+              controller: _tokenController,
+              obscureText: !_isTokenVisible,
+              decoration: InputDecoration(
+                hintText: 'Ingresa el token JWT',
+                filled: true,
+                fillColor: Colors.grey[50],
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Colors.orange, width: 2),
+                ),
+              ),
+              style: GoogleFonts.robotoMono(fontSize: 14),
+            ),
+            const SizedBox(height: 20),
+
+            // JSON Body
+            Row(
+              children: [
+                Text(
+                  'JSON Body:',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                  ),
+                ),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: _formatearJson,
+                  icon: const Icon(Icons.format_align_left, size: 16),
+                  label: Text(
+                    'Formatear',
+                    style: GoogleFonts.poppins(fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Container(
+              height: 200,
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+              child: TextField(
+                controller: _jsonController,
+                maxLines: null,
+                expands: true,
+                decoration: InputDecoration(
+                  hintText: 'Ingresa el JSON del plan actualizado...',
+                  hintStyle: GoogleFonts.robotoMono(
+                    fontSize: 14,
+                    color: Colors.grey[400],
+                  ),
+                  contentPadding: const EdgeInsets.all(12),
+                  border: InputBorder.none,
+                ),
+                style: GoogleFonts.robotoMono(fontSize: 14),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Botón ejecutar
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _isLoading ? null : _ejecutarPeticion,
+                icon: const Icon(Icons.send),
+                label: Text(
+                  'Ejecutar PUT',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  void _showSnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: color,
+      ),
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
+// TARJETA PARA DELETE /planes/{id}
+// -----------------------------------------------------------------------------
+class DeletePlanesCard extends StatefulWidget {
+  const DeletePlanesCard({super.key});
+
+  @override
+  State<DeletePlanesCard> createState() => _DeletePlanesCardState();
+}
+
+class _DeletePlanesCardState extends State<DeletePlanesCard> {
+  final TextEditingController _tokenController = TextEditingController();
+  final TextEditingController _planIdController = TextEditingController();
+  bool _isTokenVisible = false;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarDatosIniciales();
+  }
+
+  void _cargarDatosIniciales() async {
+    // Cargar token desde SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('id_token');
+    if (token != null) {
+      _tokenController.text = token;
+    }
+  }
+
+  @override
+  void dispose() {
+    _tokenController.dispose();
+    _planIdController.dispose();
+    super.dispose();
+  }
+
+  String _construirUrl() {
+    final planId = _planIdController.text.trim();
+    if (planId.isEmpty) {
+      return '${AmbienteConfig.baseUrl}/planes/{id}';
+    }
+    return '${AmbienteConfig.baseUrl}/planes/$planId';
+  }
+
+  Future<void> _mostrarConfirmacion() async {
+    final planId = _planIdController.text.trim();
+    if (planId.isEmpty) {
+      _showSnackBar('Por favor ingresa el Plan ID', Colors.orange);
+      return;
+    }
+
+    final token = _tokenController.text.trim();
+    if (token.isEmpty) {
+      _showSnackBar('Por favor ingresa el token', Colors.orange);
+      return;
+    }
+
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Confirmar eliminación',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        ),
+        content: Text(
+          '¿Seguro que deseas eliminar el plan $planId? Esta acción es irreversible.',
+          style: GoogleFonts.poppins(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(
+              'Cancelar',
+              style: GoogleFonts.poppins(color: Colors.grey[600]),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(
+              'Confirmar',
+              style: GoogleFonts.poppins(color: Colors.red, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar == true) {
+      _ejecutarPeticion();
+    }
+  }
+
+  Future<void> _ejecutarPeticion() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await http.delete(
+        Uri.parse(_construirUrl()),
+        headers: {
+          'Authorization': 'Bearer ${_tokenController.text}',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        _showSnackBar('✅ Plan eliminado exitosamente', Colors.green);
+        _mostrarRespuesta(response);
+      } else {
+        _showSnackBar(
+          'Error ${response.statusCode}: ${response.reasonPhrase}',
+          Colors.red,
+        );
+        _mostrarRespuesta(response);
+      }
+    } catch (e) {
+      _showSnackBar('Error: ${e.toString()}', Colors.red);
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _mostrarRespuesta(http.Response response) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Respuesta DELETE ${response.statusCode}',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Headers:',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  response.headers.entries
+                      .map((e) => '${e.key}: ${e.value}')
+                      .join('\n'),
+                  style: GoogleFonts.robotoMono(fontSize: 12),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Body:',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  response.body.isEmpty ? '(vacío)' : _formatearRespuesta(response.body),
+                  style: GoogleFonts.robotoMono(fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cerrar',
+              style: GoogleFonts.poppins(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatearRespuesta(String body) {
+    try {
+      final json = jsonDecode(body);
+      return const JsonEncoder.withIndent('  ').convert(json);
+    } catch (_) {
+      return body;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Encabezado
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    'DELETE',
+                    style: GoogleFonts.poppins(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    '/planes/{id}',
+                    style: GoogleFonts.robotoMono(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                if (_isLoading)
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            
+            // Descripción
+            Text(
+              'Este endpoint elimina un plan unificado existente. Usa el id obtenido desde el método GET.',
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                color: Colors.grey[700],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Campo Plan ID
+            Text(
+              'Plan ID:',
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w500,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _planIdController,
+              decoration: InputDecoration(
+                hintText: 'Ej: PLAN-1234567890',
+                hintStyle: GoogleFonts.robotoMono(fontSize: 14),
+                filled: true,
+                fillColor: Colors.grey[50],
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Colors.red, width: 2),
+                ),
+              ),
+              style: GoogleFonts.robotoMono(),
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: 8),
+
+            // URL construida
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.link, color: Colors.red[700], size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _construirUrl(),
+                      style: GoogleFonts.robotoMono(
+                        fontSize: 12,
+                        color: Colors.red[900],
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Campo Token
+            Row(
+              children: [
+                Text(
+                  'Bearer Token:',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: Icon(
+                    _isTokenVisible ? Icons.visibility_off : Icons.visibility,
+                    size: 20,
+                  ),
+                  onPressed: () => setState(() => _isTokenVisible = !_isTokenVisible),
+                  tooltip: _isTokenVisible ? 'Ocultar token' : 'Mostrar token',
+                ),
+              ],
+            ),
+            TextField(
+              controller: _tokenController,
+              obscureText: !_isTokenVisible,
+              decoration: InputDecoration(
+                hintText: 'Ingresa el token JWT',
+                filled: true,
+                fillColor: Colors.grey[50],
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Colors.red, width: 2),
+                ),
+              ),
+              style: GoogleFonts.robotoMono(fontSize: 14),
+            ),
+            const SizedBox(height: 20),
+
+            // Botón ejecutar
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: (_isLoading || _planIdController.text.trim().isEmpty || _tokenController.text.trim().isEmpty) 
+                    ? null 
+                    : _mostrarConfirmacion,
+                icon: const Icon(Icons.delete),
+                label: Text(
+                  'Ejecutar DELETE',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  void _showSnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: color,
+      ),
+    );
+  }
+}

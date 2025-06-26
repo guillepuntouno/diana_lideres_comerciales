@@ -12,7 +12,8 @@
       "Bash(grep:*)",
       "Bash(flutter analyze:*)",
       "Bash(dart analyze:*)",
-      "Bash(flutter:*)"
+      "Bash(flutter:*)",
+      "Bash(awk:*)"
     ],
     "deny": []
   }
