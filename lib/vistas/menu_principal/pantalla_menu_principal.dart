@@ -42,8 +42,6 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
     }
   }
 
-
-
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -62,9 +60,9 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
 
           // Estado de conexión y sincronización (temporalmente deshabilitado)
           // const ConnectionStatusWidget(),
-          
+
           // Widget temporal de estado
-          Container(
+          /*       Container(
             margin: const EdgeInsets.only(bottom: 16),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
@@ -100,7 +98,7 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
               ],
             ),
           ),
-
+*/
           // Información del usuario
           if (_liderComercial != null) ...[
             Container(
@@ -217,7 +215,7 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
               ),
               _MenuItem(
                 icon: Icons.calendar_month_outlined,
-                title: 'Ver Plan\nde trabajo',
+                title: 'Planes \nde trabajo',
                 onTap:
                     () => Navigator.pushNamed(
                       context,
@@ -238,7 +236,7 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
               ),
               _MenuItem(
                 icon: Icons.assignment_turned_in_outlined,
-                title: 'Evaluación\nde desempeño',
+                title: 'Programa\nde excelencia',
                 onTap: null,
               ),
             ],
@@ -251,7 +249,7 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
               _MenuItem(
                 icon: Icons.bar_chart_outlined,
                 title: 'Resultados\ndel día',
-                onTap: null,
+                onTap: () => Navigator.pushNamed(context, '/resultados_dia'),
               ),
               _MenuItem(
                 icon: Icons.insert_chart_outlined_rounded,
@@ -303,7 +301,8 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (!AmbienteConfig.esProduccion) // Mostrar solo en ambientes no productivos
+                if (!AmbienteConfig
+                    .esProduccion) // Mostrar solo en ambientes no productivos
                   ListTile(
                     leading: const Icon(Icons.bug_report, color: Colors.blue),
                     title: const Text('Debug - Datos Hive'),
