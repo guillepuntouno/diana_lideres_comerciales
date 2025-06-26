@@ -34,7 +34,16 @@ class _PantallaResumenVisitaState extends State<PantallaResumenVisita> {
   @override
   void initState() {
     super.initState();
-    _cargarDatos();
+    // No llamar _cargarDatos aquí porque ModalRoute no está disponible
+  }
+  
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Llamar _cargarDatos solo una vez cuando las dependencias estén listas
+    if (_isLoading) {
+      _cargarDatos();
+    }
   }
   
   Future<void> _cargarDatos() async {

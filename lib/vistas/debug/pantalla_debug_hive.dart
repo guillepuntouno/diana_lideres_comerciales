@@ -344,7 +344,27 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
         final planes = box.values.toList();
         
         if (planes.isEmpty) {
-          return _buildEmptyState('No hay planes unificados locales guardados');
+          return Column(
+            children: [
+              _buildEmptyState('No hay planes unificados locales guardados'),
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: ElevatedButton.icon(
+                  onPressed: _crearPlanDePrueba,
+                  icon: const Icon(Icons.add, color: Colors.white),
+                  label: Text(
+                    'Crear Plan de Prueba',
+                    style: GoogleFonts.poppins(color: Colors.white),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  ),
+                ),
+              ),
+            ],
+          );
         }
 
         return RefreshIndicator(
@@ -1053,6 +1073,116 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
       }
     }
   }
+  
+  Future<void> _crearPlanDePrueba() async {
+    try {
+      // Obtener información del líder desde Hive
+      final liderBox = Hive.box<LiderComercialHive>('lideres_comerciales');
+      final userBox = Hive.box<UserHive>('users');
+      
+      String liderClave = '123456'; // Default
+      String liderNombre = 'Líder de Prueba';
+      
+      if (userBox.isNotEmpty) {
+        final user = userBox.values.first;
+        liderClave = user.clave;
+        liderNombre = user.nombreCompleto;
+      }
+      
+      if (liderBox.isNotEmpty) {
+        final lider = liderBox.values.first;
+        liderClave = lider.clave;
+        liderNombre = lider.nombre;
+      }
+      
+      // Crear plan de prueba para la semana actual
+      final ahora = DateTime.now();
+      final numeroSemana = _obtenerNumeroSemana(ahora);
+      final planId = '${liderClave}_SEM${numeroSemana.toString().padLeft(2, '0')}_${ahora.year}';
+      
+      // Calcular fechas de la semana
+      final inicioSemana = ahora.subtract(Duration(days: ahora.weekday - 1));
+      final finSemana = inicioSemana.add(const Duration(days: 4));
+      
+      // Crear días con un cliente de prueba en cada día
+      final dias = <String, DiaPlanHive>{};
+      final diasSemana = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
+      
+      for (var i = 0; i < diasSemana.length; i++) {
+        final dia = diasSemana[i];
+        dias[dia] = DiaPlanHive(
+          dia: dia,
+          tipo: 'visita',
+          configurado: true,
+          clienteIds: ['CLIENTE_PRUEBA_${i + 1}'],
+          clientes: [
+            VisitaClienteUnificadaHive(
+              clienteId: 'CLIENTE_PRUEBA_${i + 1}',
+              estatus: 'pendiente',
+              fechaModificacion: DateTime.now(),
+            ),
+          ],
+          objetivoId: 'OBJ_001',
+          objetivoNombre: 'Objetivo de Prueba',
+          rutaId: 'RUTA_001',
+          rutaNombre: 'Ruta de Prueba',
+          formularios: [],
+        );
+      }
+      
+      // Crear el plan
+      final planPrueba = PlanTrabajoUnificadoHive(
+        id: planId,
+        liderClave: liderClave,
+        liderNombre: liderNombre,
+        semana: 'SEMANA ${numeroSemana.toString().padLeft(2, '0')} - ${ahora.year}',
+        numeroSemana: numeroSemana,
+        anio: ahora.year,
+        centroDistribucion: 'CD_PRUEBA',
+        fechaInicio: '${inicioSemana.day.toString().padLeft(2, '0')}/${inicioSemana.month.toString().padLeft(2, '0')}/${inicioSemana.year}',
+        fechaFin: '${finSemana.day.toString().padLeft(2, '0')}/${finSemana.month.toString().padLeft(2, '0')}/${finSemana.year}',
+        estatus: 'borrador',
+        dias: dias,
+        sincronizado: false,
+        fechaCreacion: DateTime.now(),
+        fechaModificacion: DateTime.now(),
+      );
+      
+      // Guardar en Hive
+      final box = Hive.box<PlanTrabajoUnificadoHive>('planes_trabajo_unificado');
+      await box.put(planId, planPrueba);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Plan de prueba creado exitosamente',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Error al crear plan de prueba: $e',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+  
+  int _obtenerNumeroSemana(DateTime fecha) {
+    final primerDiaDelAnio = DateTime(fecha.year, 1, 1);
+    final diasDesdeInicio = fecha.difference(primerDiaDelAnio).inDays;
+    return ((diasDesdeInicio + primerDiaDelAnio.weekday - 1) / 7).ceil();
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -1119,6 +1249,41 @@ class _PlanUnificadoLocalCardState extends State<_PlanUnificadoLocalCard> {
             'horaInicio': cliente.horaInicio,
             'horaFin': cliente.horaFin,
             'estatus': cliente.estatus,
+            'ubicacionInicio': cliente.ubicacionInicio != null ? {
+              'lat': cliente.ubicacionInicio!.lat,
+              'lon': cliente.ubicacionInicio!.lon,
+            } : null,
+            'comentarioInicio': cliente.comentarioInicio,
+            'cuestionario': cliente.cuestionario != null ? {
+              'tipoExhibidor': cliente.cuestionario!.tipoExhibidor != null ? {
+                'poseeAdecuado': cliente.cuestionario!.tipoExhibidor!.poseeAdecuado,
+                'tipo': cliente.cuestionario!.tipoExhibidor!.tipo,
+                'modelo': cliente.cuestionario!.tipoExhibidor!.modelo,
+                'cantidad': cliente.cuestionario!.tipoExhibidor!.cantidad,
+              } : null,
+              'estandaresEjecucion': cliente.cuestionario!.estandaresEjecucion != null ? {
+                'primeraPosicion': cliente.cuestionario!.estandaresEjecucion!.primeraPosicion,
+                'planograma': cliente.cuestionario!.estandaresEjecucion!.planograma,
+                'portafolioFoco': cliente.cuestionario!.estandaresEjecucion!.portafolioFoco,
+                'anclaje': cliente.cuestionario!.estandaresEjecucion!.anclaje,
+              } : null,
+              'disponibilidad': cliente.cuestionario!.disponibilidad != null ? {
+                'ristras': cliente.cuestionario!.disponibilidad!.ristras,
+                'max': cliente.cuestionario!.disponibilidad!.max,
+                'familiar': cliente.cuestionario!.disponibilidad!.familiar,
+                'dulce': cliente.cuestionario!.disponibilidad!.dulce,
+                'galleta': cliente.cuestionario!.disponibilidad!.galleta,
+              } : null,
+            } : null,
+            'compromisos': cliente.compromisos.map((c) => {
+              'tipo': c.tipo,
+              'detalle': c.detalle,
+              'cantidad': c.cantidad,
+              'fechaPlazo': c.fechaPlazo,
+            }).toList(),
+            'retroalimentacion': cliente.retroalimentacion,
+            'reconocimiento': cliente.reconocimiento,
+            'fechaModificacion': cliente.fechaModificacion?.toIso8601String(),
           }).toList(),
           'configurado': value.configurado,
         })),

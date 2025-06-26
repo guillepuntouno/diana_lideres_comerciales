@@ -194,6 +194,63 @@ class PlanTrabajoUnificadoHive extends HiveObject {
     }
     return visitasList;
   }
+
+  // Método para serializar el plan completo para sincronización con el servidor
+  Map<String, dynamic> toJsonParaSincronizacion() {
+    return {
+      'id': id,
+      'semana': {
+        'numero': numeroSemana,
+        'estatus': estatus,
+      },
+      'diasTrabajo': dias.entries.map((entry) {
+        final dia = entry.value;
+        return {
+          'dia': entry.key,
+          'tipo': dia.tipo,
+          'objetivoId': dia.objetivoId,
+          'rutaId': dia.rutaId,
+          'clientes': dia.clientes.map((visita) {
+            // Buscar formularios de este cliente en este día
+            final formulariosCliente = dia.formularios
+                .where((f) => f.clienteId == visita.clienteId)
+                .map((f) => f.toJson())
+                .toList();
+
+            return {
+              'clienteId': visita.clienteId,
+              'checkIn': visita.horaInicio != null ? {
+                'hora': visita.horaInicio,
+                'ubicacion': visita.ubicacionInicio?.toJson(),
+                'comentarios': visita.comentarioInicio,
+              } : null,
+              'checkOut': visita.horaFin != null ? {
+                'hora': visita.horaFin,
+                'duracionMinutos': _calcularDuracionMinutos(visita),
+              } : null,
+              'formularios': formulariosCliente,
+              'cuestionario': visita.cuestionario?.toJson(),
+              'compromisos': visita.compromisos.map((c) => c.toJson()).toList(),
+              'retroalimentacion': visita.retroalimentacion,
+              'reconocimiento': visita.reconocimiento,
+              'estatus': visita.estatus,
+            };
+          }).toList(),
+        };
+      }).toList(),
+    };
+  }
+
+  int? _calcularDuracionMinutos(VisitaClienteUnificadaHive visita) {
+    if (visita.horaInicio == null || visita.horaFin == null) return null;
+    try {
+      final inicio = DateTime.parse(visita.horaInicio!);
+      final fin = DateTime.parse(visita.horaFin!);
+      return fin.difference(inicio).inMinutes;
+    } catch (e) {
+      return null;
+    }
+  }
 }
 
 @HiveType(typeId: 16)
@@ -231,6 +288,9 @@ class DiaPlanHive extends HiveObject {
   @HiveField(10)
   DateTime fechaModificacion;
 
+  @HiveField(11, defaultValue: [])
+  List<FormularioDiaHive> formularios;
+
   DiaPlanHive({
     required this.dia,
     required this.tipo,
@@ -243,9 +303,11 @@ class DiaPlanHive extends HiveObject {
     List<VisitaClienteUnificadaHive>? clientes,
     this.configurado = false,
     DateTime? fechaModificacion,
+    List<FormularioDiaHive>? formularios,
   })  : clienteIds = clienteIds ?? [],
         clientes = clientes ?? [],
-        fechaModificacion = fechaModificacion ?? DateTime.now();
+        fechaModificacion = fechaModificacion ?? DateTime.now(),
+        formularios = formularios ?? [];
 
   Map<String, dynamic> toJson() {
     return {
@@ -258,6 +320,7 @@ class DiaPlanHive extends HiveObject {
       'rutaNombre': rutaNombre,
       'clienteIds': clienteIds,
       'clientes': clientes.map((c) => c.toJson()).toList(),
+      'formularios': formularios.map((f) => f.toJson()).toList(),
     };
   }
 
@@ -278,6 +341,9 @@ class DiaPlanHive extends HiveObject {
       fechaModificacion: json['fechaModificacion'] != null
           ? DateTime.parse(json['fechaModificacion'])
           : DateTime.now(),
+      formularios: (json['formularios'] as List<dynamic>?)
+          ?.map((f) => FormularioDiaHive.fromJson(f))
+          .toList() ?? [],
     );
   }
 
@@ -634,4 +700,46 @@ class UbicacionUnificadaHive extends HiveObject {
   }
 
   bool get esValida => lat != 0.0 && lon != 0.0;
+}
+
+@HiveType(typeId: 40)
+class FormularioDiaHive extends HiveObject {
+  @HiveField(0)
+  String formularioId;
+
+  @HiveField(1)
+  String clienteId;
+
+  @HiveField(2)
+  Map<String, dynamic> respuestas;
+
+  @HiveField(3)
+  DateTime fechaCaptura;
+
+  FormularioDiaHive({
+    required this.formularioId,
+    required this.clienteId,
+    required this.respuestas,
+    required this.fechaCaptura,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'formularioId': formularioId,
+      'clienteId': clienteId,
+      'respuestas': respuestas,
+      'fechaCaptura': fechaCaptura.toIso8601String(),
+    };
+  }
+
+  factory FormularioDiaHive.fromJson(Map<String, dynamic> json) {
+    return FormularioDiaHive(
+      formularioId: json['formularioId'],
+      clienteId: json['clienteId'],
+      respuestas: Map<String, dynamic>.from(json['respuestas'] ?? {}),
+      fechaCaptura: json['fechaCaptura'] != null
+          ? DateTime.parse(json['fechaCaptura'])
+          : DateTime.now(),
+    );
+  }
 }

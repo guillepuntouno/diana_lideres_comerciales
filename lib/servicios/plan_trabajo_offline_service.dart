@@ -4,9 +4,11 @@ import '../modelos/hive/plan_trabajo_semanal_hive.dart';
 import '../modelos/hive/dia_trabajo_hive.dart';
 import '../modelos/hive/cliente_hive.dart';
 import '../modelos/hive/objetivo_hive.dart';
+import '../modelos/hive/plan_trabajo_unificado_hive.dart';
 import '../repositorios/plan_trabajo_repository.dart';
 import '../repositorios/cliente_repository.dart';
 import '../repositorios/objetivo_repository.dart';
+import '../repositorios/plan_trabajo_unificado_repository.dart';
 import 'hive_service.dart';
 import 'plan_trabajo_servicio.dart';
 import 'sesion_servicio.dart';
@@ -213,6 +215,10 @@ class PlanTrabajoOfflineService {
     print('- Configurado: ${diaHive.configurado}');
     
     await _planRepository!.actualizarDia(liderClave, semana, diaHive);
+    
+    // Sincronizar con el plan unificado después de actualizar el día
+    await sincronizarConPlanUnificado(semana, liderClave);
+    print('✅ Día sincronizado con plan unificado');
   }
 
   /// Envía el plan (cambia estatus y marca para sincronización)
@@ -388,5 +394,133 @@ class PlanTrabajoOfflineService {
         .replaceAll('dd', dia)
         .replaceAll('MM', mes)
         .replaceAll('yyyy', anio);
+  }
+  
+  /// Sincroniza un PlanTrabajoSemanalHive con un PlanTrabajoUnificadoHive
+  /// Esto asegura que cuando se crea/actualiza un plan semanal, también se cree/actualice el plan unificado
+  Future<void> sincronizarConPlanUnificado(String semana, String liderClave) async {
+    try {
+      print('🔄 Iniciando sincronización de plan semanal con plan unificado...');
+      
+      // Obtener el plan semanal
+      final planSemanal = _planRepository!.obtenerPlanPorSemana(liderClave, semana);
+      if (planSemanal == null) {
+        print('❌ No se encontró plan semanal para sincronizar');
+        return;
+      }
+      
+      // Crear repositorio del plan unificado
+      final planUnificadoRepo = PlanTrabajoUnificadoRepository();
+      
+      // Buscar si ya existe un plan unificado
+      PlanTrabajoUnificadoHive? planUnificado = planUnificadoRepo.obtenerPlan(planSemanal.id);
+      
+      if (planUnificado == null) {
+        print('📝 Creando nuevo plan unificado desde plan semanal...');
+        
+        // Crear nuevo plan unificado
+        final dias = <String, DiaPlanHive>{};
+        
+        planSemanal.dias.forEach((nombreDia, diaSemanal) {
+          // Convertir clientes asignados
+          final clientesUnificados = <VisitaClienteUnificadaHive>[];
+          
+          for (var clienteId in diaSemanal.clienteIds) {
+            clientesUnificados.add(VisitaClienteUnificadaHive(
+              clienteId: clienteId,
+              estatus: 'pendiente',
+              fechaModificacion: DateTime.now(),
+            ));
+          }
+          
+          dias[nombreDia] = DiaPlanHive(
+            dia: nombreDia,
+            tipo: diaSemanal.tipo ?? 'visita',
+            objetivoId: diaSemanal.objetivoId,
+            objetivoNombre: diaSemanal.objetivoNombre,
+            tipoActividadAdministrativa: diaSemanal.tipoActividadAdministrativa,
+            rutaId: diaSemanal.rutaId,
+            rutaNombre: diaSemanal.rutaNombre,
+            clienteIds: List<String>.from(diaSemanal.clienteIds),
+            clientes: clientesUnificados,
+            configurado: diaSemanal.configurado,
+            formularios: [],
+          );
+        });
+        
+        planUnificado = PlanTrabajoUnificadoHive(
+          id: planSemanal.id,
+          liderClave: planSemanal.liderClave,
+          liderNombre: planSemanal.liderNombre,
+          semana: planSemanal.semana,
+          numeroSemana: planSemanal.numeroSemana ?? 1,
+          anio: planSemanal.anio ?? DateTime.now().year,
+          centroDistribucion: planSemanal.centroDistribucion,
+          fechaInicio: planSemanal.fechaInicio,
+          fechaFin: planSemanal.fechaFin,
+          estatus: planSemanal.estatus,
+          dias: dias,
+          sincronizado: false,
+          fechaCreacion: DateTime.now(),
+          fechaModificacion: DateTime.now(),
+        );
+        
+        await planUnificadoRepo.crearPlan(planUnificado);
+        print('✅ Plan unificado creado exitosamente');
+        
+      } else {
+        print('🔄 Actualizando plan unificado existente...');
+        
+        // Actualizar el plan unificado existente
+        // Preservar las visitas existentes pero actualizar la configuración
+        planSemanal.dias.forEach((nombreDia, diaSemanal) {
+          final diaUnificado = planUnificado!.dias[nombreDia];
+          
+          if (diaUnificado != null) {
+            // Actualizar configuración pero preservar visitas existentes
+            diaUnificado.tipo = diaSemanal.tipo ?? 'visita';
+            diaUnificado.objetivoId = diaSemanal.objetivoId;
+            diaUnificado.objetivoNombre = diaSemanal.objetivoNombre;
+            diaUnificado.tipoActividadAdministrativa = diaSemanal.tipoActividadAdministrativa;
+            diaUnificado.rutaId = diaSemanal.rutaId;
+            diaUnificado.rutaNombre = diaSemanal.rutaNombre;
+            diaUnificado.configurado = diaSemanal.configurado;
+            
+            // Actualizar lista de clienteIds
+            diaUnificado.clienteIds = List<String>.from(diaSemanal.clienteIds);
+            
+            // Agregar nuevos clientes que no existan
+            for (var clienteId in diaSemanal.clienteIds) {
+              final existeCliente = diaUnificado.clientes.any((v) => v.clienteId == clienteId);
+              if (!existeCliente) {
+                diaUnificado.clientes.add(VisitaClienteUnificadaHive(
+                  clienteId: clienteId,
+                  estatus: 'pendiente',
+                  fechaModificacion: DateTime.now(),
+                ));
+              }
+            }
+            
+            // Remover clientes que ya no están asignados
+            diaUnificado.clientes.removeWhere((visita) => 
+              !diaSemanal.clienteIds.contains(visita.clienteId) && 
+              visita.estatus == 'pendiente'
+            );
+          }
+        });
+        
+        // Actualizar metadata
+        planUnificado.estatus = planSemanal.estatus;
+        planUnificado.fechaModificacion = DateTime.now();
+        planUnificado.sincronizado = false;
+        
+        await planUnificadoRepo.actualizarPlan(planUnificado);
+        print('✅ Plan unificado actualizado exitosamente');
+      }
+      
+    } catch (e) {
+      print('❌ Error en sincronización con plan unificado: $e');
+      // No lanzar error para no interrumpir el flujo principal
+    }
   }
 }

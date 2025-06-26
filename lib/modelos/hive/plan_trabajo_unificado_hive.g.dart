@@ -6,7 +6,8 @@ part of 'plan_trabajo_unificado_hive.dart';
 // TypeAdapterGenerator
 // **************************************************************************
 
-class PlanTrabajoUnificadoHiveAdapter extends TypeAdapter<PlanTrabajoUnificadoHive> {
+class PlanTrabajoUnificadoHiveAdapter
+    extends TypeAdapter<PlanTrabajoUnificadoHive> {
   @override
   final int typeId = 15;
 
@@ -104,13 +105,16 @@ class DiaPlanHiveAdapter extends TypeAdapter<DiaPlanHive> {
       clientes: (fields[8] as List?)?.cast<VisitaClienteUnificadaHive>(),
       configurado: fields[9] as bool,
       fechaModificacion: fields[10] as DateTime?,
+      formularios: fields[11] == null
+          ? []
+          : (fields[11] as List?)?.cast<FormularioDiaHive>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, DiaPlanHive obj) {
     writer
-      ..writeByte(11)
+      ..writeByte(12)
       ..writeByte(0)
       ..write(obj.dia)
       ..writeByte(1)
@@ -132,7 +136,9 @@ class DiaPlanHiveAdapter extends TypeAdapter<DiaPlanHive> {
       ..writeByte(9)
       ..write(obj.configurado)
       ..writeByte(10)
-      ..write(obj.fechaModificacion);
+      ..write(obj.fechaModificacion)
+      ..writeByte(11)
+      ..write(obj.formularios);
   }
 
   @override
@@ -146,7 +152,8 @@ class DiaPlanHiveAdapter extends TypeAdapter<DiaPlanHive> {
           typeId == other.typeId;
 }
 
-class VisitaClienteUnificadaHiveAdapter extends TypeAdapter<VisitaClienteUnificadaHive> {
+class VisitaClienteUnificadaHiveAdapter
+    extends TypeAdapter<VisitaClienteUnificadaHive> {
   @override
   final int typeId = 17;
 
@@ -293,7 +300,8 @@ class TipoExhibidorHiveAdapter extends TypeAdapter<TipoExhibidorHive> {
           typeId == other.typeId;
 }
 
-class EstandaresEjecucionHiveAdapter extends TypeAdapter<EstandaresEjecucionHive> {
+class EstandaresEjecucionHiveAdapter
+    extends TypeAdapter<EstandaresEjecucionHive> {
   @override
   final int typeId = 20;
 
@@ -425,7 +433,8 @@ class CompromisoHiveAdapter extends TypeAdapter<CompromisoHive> {
           typeId == other.typeId;
 }
 
-class UbicacionUnificadaHiveAdapter extends TypeAdapter<UbicacionUnificadaHive> {
+class UbicacionUnificadaHiveAdapter
+    extends TypeAdapter<UbicacionUnificadaHive> {
   @override
   final int typeId = 23;
 
@@ -458,6 +467,49 @@ class UbicacionUnificadaHiveAdapter extends TypeAdapter<UbicacionUnificadaHive> 
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is UbicacionUnificadaHiveAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
+class FormularioDiaHiveAdapter extends TypeAdapter<FormularioDiaHive> {
+  @override
+  final int typeId = 40;
+
+  @override
+  FormularioDiaHive read(BinaryReader reader) {
+    final numOfFields = reader.readByte();
+    final fields = <int, dynamic>{
+      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
+    };
+    return FormularioDiaHive(
+      formularioId: fields[0] as String,
+      clienteId: fields[1] as String,
+      respuestas: (fields[2] as Map).cast<String, dynamic>(),
+      fechaCaptura: fields[3] as DateTime,
+    );
+  }
+
+  @override
+  void write(BinaryWriter writer, FormularioDiaHive obj) {
+    writer
+      ..writeByte(4)
+      ..writeByte(0)
+      ..write(obj.formularioId)
+      ..writeByte(1)
+      ..write(obj.clienteId)
+      ..writeByte(2)
+      ..write(obj.respuestas)
+      ..writeByte(3)
+      ..write(obj.fechaCaptura);
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is FormularioDiaHiveAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }

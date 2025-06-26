@@ -170,7 +170,7 @@ class PlanTrabajoUnificadoService {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
-        body: jsonEncode(plan.toJsonCompleto()),
+        body: jsonEncode(plan.toJsonParaSincronizacion()),
       ).timeout(const Duration(seconds: 30));
 
       return response.statusCode == 200;

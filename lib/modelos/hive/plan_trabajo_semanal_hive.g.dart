@@ -6,7 +6,8 @@ part of 'plan_trabajo_semanal_hive.dart';
 // TypeAdapterGenerator
 // **************************************************************************
 
-class PlanTrabajoSemanalHiveAdapter extends TypeAdapter<PlanTrabajoSemanalHive> {
+class PlanTrabajoSemanalHiveAdapter
+    extends TypeAdapter<PlanTrabajoSemanalHive> {
   @override
   final int typeId = 13;
 

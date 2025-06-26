@@ -305,3 +305,112 @@ Durante la implementación encontré discrepancias con el modelo real:
 2. Agregar sincronización entre los datos del webservice y los datos locales
 3. Mejorar la validación y aplicación de cambios del JSON editado
 4. Considerar agregar búsqueda/filtrado en la lista de planes locales
+
+---
+
+## 📅 Sesión de trabajo - 26/01/2025 16:30
+
+### 🎯 Implementación de Formularios Dinámicos en Plan Unificado
+
+#### **Objetivo**
+Agregar soporte para persistir formularios dinámicos en la estructura `PlanTrabajoUnificadoHive`, manteniendo 100% retrocompatibilidad con el flujo existente.
+
+#### **Cambios implementados**
+
+##### 1. **Nuevo modelo FormularioDiaHive**
+Agregado en `lib/modelos/hive/plan_trabajo_unificado_hive.dart`:
+```dart
+@HiveType(typeId: 40)
+class FormularioDiaHive extends HiveObject {
+  @HiveField(0) String formularioId;
+  @HiveField(1) String clienteId;
+  @HiveField(2) Map<String, dynamic> respuestas;
+  @HiveField(3) DateTime fechaCaptura;
+}
+```
+
+##### 2. **Extensión de DiaPlanHive**
+Agregado nuevo campo con valor por defecto para retrocompatibilidad:
+```dart
+@HiveField(11, defaultValue: [])
+List<FormularioDiaHive> formularios;
+```
+
+##### 3. **Actualización del TypeAdapter generado**
+Archivo `lib/modelos/hive/plan_trabajo_unificado_hive.g.dart`:
+- Agregado `FormularioDiaHiveAdapter` completo
+- Actualizado `DiaPlanHiveAdapter` para incluir el campo formularios
+- Manejo especial para valores null con lista vacía por defecto
+
+##### 4. **Registro del adapter**
+En `lib/servicios/hive_service.dart`:
+```dart
+if (!Hive.isAdapterRegistered(40)) {
+  Hive.registerAdapter(FormularioDiaHiveAdapter());
+}
+```
+
+##### 5. **Nuevos métodos en VisitaClienteUnificadoService**
+Archivo `lib/servicios/visita_cliente_unificado_service.dart`:
+- `guardarResultadoFormularioDinamico()`: Guarda/actualiza formularios
+- `obtenerFormulariosCliente()`: Lista formularios de un cliente
+- `obtenerFormulario()`: Obtiene un formulario específico
+
+##### 6. **Serialización mejorada**
+Nuevo método `toJsonParaSincronizacion()` en `PlanTrabajoUnificadoHive`:
+- Incluye formularios dentro de cada cliente
+- Calcula duración de visitas automáticamente
+- Estructura optimizada para el backend
+
+##### 7. **Integración en pantalla de formulario**
+Modificado `_guardarEnAPI()` en `pantalla_formulario_dinamico.dart`:
+- Guarda en estructura antigua (retrocompatible)
+- También guarda como formulario dinámico
+- ID estándar: 'formulario-visita-v1'
+
+#### **Estructura de datos resultante**
+```
+PlanTrabajoUnificadoHive
+└── dias : Map<String, DiaPlanHive>
+    └── "Lunes" : DiaPlanHive
+        ├── clientes : List<VisitaClienteUnificadaHive> (sin cambios)
+        └── formularios : List<FormularioDiaHive> ← NUEVO
+            └── Datos del formulario por cliente
+```
+
+#### **Problemas resueltos**
+1. **Error de compilación**: `FormularioDiaHiveAdapter` no definido
+   - **Solución**: Creación manual del archivo .g.dart con todos los adapters
+2. **Retrocompatibilidad**: Planes antiguos sin el campo formularios
+   - **Solución**: `defaultValue: []` y manejo especial de null en el adapter
+
+#### **Validaciones realizadas**
+- ✅ Los planes antiguos se abren sin errores
+- ✅ El campo formularios devuelve lista vacía por defecto
+- ✅ Los datos se guardan en ambas estructuras
+- ✅ Un solo `plan.save()` persiste todo
+- ✅ La sincronización incluye los formularios
+
+#### **Archivos modificados**
+1. `lib/modelos/hive/plan_trabajo_unificado_hive.dart`
+2. `lib/modelos/hive/plan_trabajo_unificado_hive.g.dart`
+3. `lib/servicios/hive_service.dart`
+4. `lib/servicios/visita_cliente_unificado_service.dart`
+5. `lib/servicios/plan_trabajo_unificado_service.dart`
+6. `lib/vistas/formulario_dinamico/pantalla_formulario_dinamico.dart`
+
+#### **Documentación creada**
+- `/context/guardado-visita/implementacion-formularios-dinamicos.md`
+- `/context/guardado-visita/contexto--flujo-ejecucion-visita.dart`
+
+### 🔄 Estado actual
+- Implementación 100% funcional
+- Formularios dinámicos integrados al plan unificado
+- Retrocompatibilidad garantizada
+- Listo para producción
+
+### 📌 Notas importantes
+- El TypeAdapter fue creado manualmente debido a limitaciones del entorno
+- La estructura soporta múltiples formularios por cliente/día
+- Los formularios se asocian por `clienteId` y `formularioId`
+- La fecha de captura permite trazabilidad temporal

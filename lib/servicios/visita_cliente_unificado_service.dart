@@ -140,6 +140,11 @@ class VisitaClienteUnificadoService {
       if (formularios.containsKey('cuestionario')) {
         final cuestionarioData = formularios['cuestionario'] as Map<String, dynamic>;
         
+        print('📋 Convirtiendo cuestionario:');
+        print('   └── Tipo exhibidor: ${cuestionarioData['tipoExhibidor']}');
+        print('   └── Estándares: ${cuestionarioData['estandaresEjecucion']}');
+        print('   └── Disponibilidad: ${cuestionarioData['disponibilidad']}');
+        
         visitaCliente.cuestionario = CuestionarioHive(
           tipoExhibidor: _convertirTipoExhibidor(cuestionarioData['tipoExhibidor']),
           estandaresEjecucion: _convertirEstandares(cuestionarioData['estandaresEjecucion']),
@@ -155,7 +160,7 @@ class VisitaClienteUnificadoService {
             tipo: c['tipo'] ?? '',
             detalle: c['detalle'] ?? '',
             cantidad: c['cantidad'] ?? 0,
-            fechaPlazo: c['fechaPlazo'] ?? '',
+            fechaPlazo: c['fecha'] ?? c['fechaPlazo'] ?? '',
           )
         ).toList();
       }
@@ -174,6 +179,18 @@ class VisitaClienteUnificadoService {
       // Actualizar el plan
       plan.fechaModificacion = DateTime.now();
       plan.sincronizado = false;
+      
+      // Verificar datos antes de guardar
+      print('📊 Datos de visita antes de guardar:');
+      print('   └── Cuestionario: ${visitaCliente.cuestionario != null ? "Sí" : "No"}');
+      if (visitaCliente.cuestionario != null) {
+        print('       └── Tipo exhibidor: ${visitaCliente.cuestionario!.tipoExhibidor != null ? "Sí" : "No"}');
+        print('       └── Estándares: ${visitaCliente.cuestionario!.estandaresEjecucion != null ? "Sí" : "No"}');
+        print('       └── Disponibilidad: ${visitaCliente.cuestionario!.disponibilidad != null ? "Sí" : "No"}');
+      }
+      print('   └── Compromisos: ${visitaCliente.compromisos.length}');
+      print('   └── Retroalimentación: ${visitaCliente.retroalimentacion != null ? "Sí (${visitaCliente.retroalimentacion!.length} chars)" : "No"}');
+      print('   └── Reconocimiento: ${visitaCliente.reconocimiento != null ? "Sí (${visitaCliente.reconocimiento!.length} chars)" : "No"}');
       
       await _repository.actualizarPlan(plan);
 
@@ -323,17 +340,17 @@ class VisitaClienteUnificadoService {
   TipoExhibidorHive? _convertirTipoExhibidor(dynamic data) {
     if (data == null) return null;
     return TipoExhibidorHive(
-      poseeAdecuado: data['poseeAdecuado'] ?? false,
-      tipo: data['tipo'],
-      modelo: data['modelo'],
-      cantidad: data['cantidad'],
+      poseeAdecuado: data['poseeExhibidorAdecuado'] ?? false,
+      tipo: data['tipoExhibidorSeleccionado'],
+      modelo: data['modeloExhibidorSeleccionado'],
+      cantidad: data['cantidadExhibidores'],
     );
   }
 
   EstandaresEjecucionHive? _convertirEstandares(dynamic data) {
     if (data == null) return null;
     return EstandaresEjecucionHive(
-      primeraPosicion: data['primeraPosicion'] ?? false,
+      primeraPosicion: data['primeraPosition'] ?? false,
       planograma: data['planograma'] ?? false,
       portafolioFoco: data['portafolioFoco'] ?? false,
       anclaje: data['anclaje'] ?? false,
@@ -368,6 +385,113 @@ class VisitaClienteUnificadoService {
     } catch (e) {
       print('❌ Error al verificar cliente FOCO: $e');
       return false;
+    }
+  }
+
+  /// Guardar resultado de formulario dinámico en el plan unificado
+  Future<bool> guardarResultadoFormularioDinamico({
+    required String planId,
+    required String dia,
+    required String clienteId,
+    required String formularioId,
+    required Map<String, dynamic> respuestas,
+  }) async {
+    try {
+      print('📋 Guardando resultado de formulario dinámico');
+      print('   └── Plan ID: $planId');
+      print('   └── Día: $dia');
+      print('   └── Cliente ID: $clienteId');
+      print('   └── Formulario ID: $formularioId');
+
+      final plan = _repository.obtenerPlan(planId);
+      if (plan == null) {
+        throw Exception('Plan no encontrado: $planId');
+      }
+
+      final diaPlan = plan.dias[dia];
+      if (diaPlan == null) {
+        throw Exception('Día no encontrado en el plan: $dia');
+      }
+
+      // Buscar si ya existe un formulario para este cliente y plantilla
+      final indiceExistente = diaPlan.formularios.indexWhere(
+        (f) => f.clienteId == clienteId && f.formularioId == formularioId,
+      );
+
+      final nuevoFormulario = FormularioDiaHive(
+        formularioId: formularioId,
+        clienteId: clienteId,
+        respuestas: respuestas,
+        fechaCaptura: DateTime.now(),
+      );
+
+      if (indiceExistente != -1) {
+        // Actualizar formulario existente
+        diaPlan.formularios[indiceExistente] = nuevoFormulario;
+        print('📝 Formulario actualizado');
+      } else {
+        // Agregar nuevo formulario
+        diaPlan.formularios.add(nuevoFormulario);
+        print('📝 Nuevo formulario agregado');
+      }
+
+      // Actualizar el plan
+      plan.fechaModificacion = DateTime.now();
+      plan.sincronizado = false;
+      
+      await _repository.actualizarPlan(plan);
+
+      print('✅ Resultado de formulario guardado exitosamente');
+      return true;
+    } catch (e) {
+      print('❌ Error al guardar resultado de formulario: $e');
+      return false;
+    }
+  }
+
+  /// Obtener todos los formularios de un cliente en un día específico
+  Future<List<FormularioDiaHive>> obtenerFormulariosCliente({
+    required String planId,
+    required String dia,
+    required String clienteId,
+  }) async {
+    try {
+      final plan = _repository.obtenerPlan(planId);
+      if (plan == null) return [];
+
+      final diaPlan = plan.dias[dia];
+      if (diaPlan == null) return [];
+
+      return diaPlan.formularios
+          .where((f) => f.clienteId == clienteId)
+          .toList();
+    } catch (e) {
+      print('❌ Error al obtener formularios del cliente: $e');
+      return [];
+    }
+  }
+
+  /// Obtener un formulario específico
+  Future<FormularioDiaHive?> obtenerFormulario({
+    required String planId,
+    required String dia,
+    required String clienteId,
+    required String formularioId,
+  }) async {
+    try {
+      final plan = _repository.obtenerPlan(planId);
+      if (plan == null) return null;
+
+      final diaPlan = plan.dias[dia];
+      if (diaPlan == null) return null;
+
+      return diaPlan.formularios.firstWhere(
+        (f) => f.clienteId == clienteId && f.formularioId == formularioId,
+        orElse: () => null as FormularioDiaHive,
+      );
+    } catch (e) {
+      print('❌ Error al obtener formulario: $e');
+      return null;
     }
   }
 }

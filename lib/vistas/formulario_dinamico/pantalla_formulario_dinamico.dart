@@ -529,15 +529,22 @@ class _PantallaFormularioDinamicoState
 
     try {
       // Preparar estructura de formularios
+      print('📦 Preparando datos para guardar:');
+      print('   └── Sección 1: ${datosFormulario['seccion1']}');
+      print('   └── Sección 2: ${datosFormulario['seccion2']}');
+      print('   └── Sección 3: ${datosFormulario['seccion3']}');
+      print('   └── Sección 4: ${datosFormulario['seccion4']}');
+      print('   └── Sección 5: ${datosFormulario['seccion5']}');
+      
       final formularios = {
         'cuestionario': {
           'tipoExhibidor': datosFormulario['seccion1'],
           'estandaresEjecucion': datosFormulario['seccion2'],
           'disponibilidad': datosFormulario['seccion3'],
         },
-        'compromisos': datosFormulario['seccion4']['compromisos'] ?? [],
-        'retroalimentacion': datosFormulario['seccion5']['retroalimentacion'],
-        'reconocimiento': datosFormulario['seccion5']['reconocimiento'],
+        'compromisos': datosFormulario['seccion4'] != null ? datosFormulario['seccion4']['compromisos'] ?? [] : [],
+        'retroalimentacion': datosFormulario['seccion5'] != null ? datosFormulario['seccion5']['retroalimentacion'] : null,
+        'reconocimiento': datosFormulario['seccion5'] != null ? datosFormulario['seccion5']['reconocimiento'] : null,
         'fechaActualizacion': DateTime.now().toIso8601String(),
         'version': '1.0',
       };
@@ -550,7 +557,28 @@ class _PantallaFormularioDinamicoState
           clienteId: _planUnificadoData!['clienteId'],
           formularios: formularios,
         );
-        print('☁️ Formularios sincronizados con plan unificado');
+        
+        // También guardar como formulario dinámico
+        // Crear un mapa plano con todas las respuestas del formulario
+        final respuestasDinamicas = {
+          'tipoExhibidor': datosFormulario['seccion1'],
+          'estandaresEjecucion': datosFormulario['seccion2'],
+          'disponibilidad': datosFormulario['seccion3'],
+          'compromisos': datosFormulario['seccion4']['compromisos'] ?? [],
+          'retroalimentacion': datosFormulario['seccion5']['retroalimentacion'],
+          'reconocimiento': datosFormulario['seccion5']['reconocimiento'],
+          'version': '1.0',
+        };
+        
+        await _visitaUnificadoService.guardarResultadoFormularioDinamico(
+          planId: _planUnificadoData!['planId'],
+          dia: _planUnificadoData!['dia'],
+          clienteId: _planUnificadoData!['clienteId'],
+          formularioId: 'formulario-visita-v1', // ID del formulario estándar
+          respuestas: respuestasDinamicas,
+        );
+        
+        print('☁️ Formularios sincronizados con plan unificado (estructura antigua + nueva)');
       } else {
         // Usar servicio tradicional
         await _visitaServicio.actualizarFormularios(_claveVisita!, formularios);

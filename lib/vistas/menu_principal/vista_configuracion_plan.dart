@@ -465,6 +465,13 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
         _liderActual!.clave,
         _liderActual!,
       );
+      
+      // Sincronizar con el plan unificado para que esté disponible en la rutina diaria
+      await _planOfflineService.sincronizarConPlanUnificado(
+        _semanaSeleccionada!,
+        _liderActual!.clave,
+      );
+      print('✅ Plan sincronizado con plan unificado');
 
       // Integración con API para enviar al backend
       bool sincronizadoConExito = false;

@@ -124,6 +124,9 @@ class HiveService {
     if (!Hive.isAdapterRegistered(23)) {
       Hive.registerAdapter(UbicacionUnificadaHiveAdapter());
     }
+    if (!Hive.isAdapterRegistered(40)) {
+      Hive.registerAdapter(FormularioDiaHiveAdapter());
+    }
   }
 
   /// Abre todas las cajas necesarias con tipos específicos

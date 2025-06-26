@@ -568,7 +568,11 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
                         cliente['visitado'] == true
                             ? ActivityStatus.completada
                             : ActivityStatus.pendiente,
-                    metadata: {'esFoco': true},
+                    metadata: {
+                      'esFoco': true,
+                      'planId': _planUnificado?.id,
+                      'dia': _diaSimulado ?? _diaActual,
+                    },
                   ),
                 );
 
@@ -930,7 +934,12 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
           cliente: clienteId,
           asesor: '$ruta ($clasificacion)',
           status: ActivityStatus.pendiente,
-          metadata: {'esFoco': false, 'clienteData': cliente},
+          metadata: {
+            'esFoco': false,
+            'clienteData': cliente,
+            'planId': _planUnificado?.id,
+            'dia': _diaSimulado ?? _diaActual,
+          },
         ),
       );
     }
