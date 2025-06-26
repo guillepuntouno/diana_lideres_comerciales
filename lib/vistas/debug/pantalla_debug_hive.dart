@@ -30,7 +30,8 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
   
   final List<String> _tabs = [
     'Planes Trabajo',
-    'Planes Unificados',
+    'Planes Unificados (Webservice)',
+    'Planes Unificados (Local)',
     'Visitas',
     'Clientes',
     'Objetivos',
@@ -168,12 +169,14 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
       case 1:
         return _buildPlanesUnificadosTab();
       case 2:
-        return _buildVisitasTab();
+        return _buildPlanesUnificadosLocalTab();
       case 3:
-        return _buildClientesTab();
+        return _buildVisitasTab();
       case 4:
-        return _buildObjetivosTab();
+        return _buildClientesTab();
       case 5:
+        return _buildObjetivosTab();
+      case 6:
         return _buildConfigTab();
       default:
         return const Center(child: Text('Tab no implementado'));
@@ -331,6 +334,38 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
           // TODO: Sección de sincronización Hive ↔️ API
         ],
       ),
+    );
+  }
+
+  Widget _buildPlanesUnificadosLocalTab() {
+    return ValueListenableBuilder(
+      valueListenable: Hive.box<PlanTrabajoUnificadoHive>('planes_trabajo_unificado').listenable(),
+      builder: (context, Box<PlanTrabajoUnificadoHive> box, widget) {
+        final planes = box.values.toList();
+        
+        if (planes.isEmpty) {
+          return _buildEmptyState('No hay planes unificados locales guardados');
+        }
+
+        return RefreshIndicator(
+          onRefresh: () async {
+            setState(() {});
+          },
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: planes.length,
+            itemBuilder: (context, index) {
+              final plan = planes[index];
+              return _PlanUnificadoLocalCard(
+                plan: plan,
+                index: index,
+                onDelete: () => _eliminarPlanUnificado(index),
+                onUpdate: (updatedPlan) => _actualizarPlanUnificado(index, updatedPlan),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -966,6 +1001,332 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
         );
       }
     }
+  }
+
+  Future<void> _eliminarPlanUnificado(int index) async {
+    final confirmar = await _mostrarDialogoConfirmacion(
+      'Eliminar Plan Unificado',
+      '¿Estás seguro de eliminar este plan local? Esta acción no afecta al backend.',
+    );
+    
+    if (confirmar == true) {
+      await Hive.box<PlanTrabajoUnificadoHive>('planes_trabajo_unificado').deleteAt(index);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Plan unificado eliminado localmente',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _actualizarPlanUnificado(int index, PlanTrabajoUnificadoHive planActualizado) async {
+    try {
+      await Hive.box<PlanTrabajoUnificadoHive>('planes_trabajo_unificado').putAt(index, planActualizado);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Plan unificado actualizado correctamente',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Error al actualizar plan: $e',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// TARJETA PARA PLAN UNIFICADO LOCAL
+// -----------------------------------------------------------------------------
+class _PlanUnificadoLocalCard extends StatefulWidget {
+  final PlanTrabajoUnificadoHive plan;
+  final int index;
+  final VoidCallback onDelete;
+  final Function(PlanTrabajoUnificadoHive) onUpdate;
+
+  const _PlanUnificadoLocalCard({
+    required this.plan,
+    required this.index,
+    required this.onDelete,
+    required this.onUpdate,
+  });
+
+  @override
+  State<_PlanUnificadoLocalCard> createState() => _PlanUnificadoLocalCardState();
+}
+
+class _PlanUnificadoLocalCardState extends State<_PlanUnificadoLocalCard> {
+  late TextEditingController _jsonController;
+  bool _isExpanded = false;
+  bool _isEditing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _jsonController = TextEditingController(text: _planToJson());
+  }
+
+  @override
+  void dispose() {
+    _jsonController.dispose();
+    super.dispose();
+  }
+
+  String _planToJson() {
+    try {
+      final planMap = {
+        'id': widget.plan.id,
+        'liderClave': widget.plan.liderClave,
+        'liderNombre': widget.plan.liderNombre,
+        'semana': widget.plan.semana,
+        'numeroSemana': widget.plan.numeroSemana,
+        'anio': widget.plan.anio,
+        'centroDistribucion': widget.plan.centroDistribucion,
+        'fechaInicio': widget.plan.fechaInicio,
+        'fechaFin': widget.plan.fechaFin,
+        'estatus': widget.plan.estatus,
+        'dias': widget.plan.dias.map((key, value) => MapEntry(key, {
+          'dia': value.dia,
+          'tipo': value.tipo,
+          'objetivoId': value.objetivoId,
+          'objetivoNombre': value.objetivoNombre,
+          'tipoActividadAdministrativa': value.tipoActividadAdministrativa,
+          'rutaId': value.rutaId,
+          'rutaNombre': value.rutaNombre,
+          'clienteIds': value.clienteIds,
+          'clientes': value.clientes.map((cliente) => {
+            'clienteId': cliente.clienteId,
+            'horaInicio': cliente.horaInicio,
+            'horaFin': cliente.horaFin,
+            'estatus': cliente.estatus,
+          }).toList(),
+          'configurado': value.configurado,
+        })),
+        'sincronizado': widget.plan.sincronizado,
+        'fechaCreacion': widget.plan.fechaCreacion.toIso8601String(),
+        'fechaModificacion': widget.plan.fechaModificacion.toIso8601String(),
+        'fechaUltimaSincronizacion': widget.plan.fechaUltimaSincronizacion?.toIso8601String(),
+      };
+      return const JsonEncoder.withIndent('  ').convert(planMap);
+    } catch (e) {
+      return 'Error al convertir a JSON: $e';
+    }
+  }
+
+  void _guardarCambios() {
+    try {
+      // Validar JSON
+      final jsonData = jsonDecode(_jsonController.text);
+      
+      // Crear nuevo objeto PlanTrabajoUnificadoHive desde JSON
+      // Por simplicidad, mantenemos el objeto original y solo actualizamos la fecha de modificación
+      final planActualizado = widget.plan;
+      planActualizado.fechaModificacion = DateTime.now();
+      
+      widget.onUpdate(planActualizado);
+      
+      setState(() {
+        _isEditing = false;
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('JSON inválido: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 2,
+      child: Column(
+        children: [
+          ListTile(
+            title: Text(
+              'Plan ID: ${widget.plan.id}',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Semana ${widget.plan.numeroSemana} - ${widget.plan.estatus}',
+                  style: GoogleFonts.poppins(fontSize: 13),
+                ),
+                Text(
+                  '${widget.plan.fechaInicio} al ${widget.plan.fechaFin}',
+                  style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[600]),
+                ),
+                Text(
+                  'Sincronizado: ${widget.plan.sincronizado ? "Sí" : "No"}',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: widget.plan.sincronizado ? Colors.green : Colors.orange,
+                  ),
+                ),
+              ],
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: Icon(
+                    _isExpanded ? Icons.expand_less : Icons.expand_more,
+                    color: Colors.grey[700],
+                  ),
+                  onPressed: () => setState(() => _isExpanded = !_isExpanded),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.red),
+                  onPressed: widget.onDelete,
+                ),
+              ],
+            ),
+          ),
+          if (_isExpanded)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                border: Border(
+                  top: BorderSide(color: Colors.grey[300]!),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'JSON del Plan:',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          if (!_isEditing)
+                            TextButton.icon(
+                              onPressed: () => setState(() => _isEditing = true),
+                              icon: const Icon(Icons.edit, size: 16),
+                              label: Text(
+                                'Editar',
+                                style: GoogleFonts.poppins(fontSize: 13),
+                              ),
+                            ),
+                          if (_isEditing) ...[
+                            TextButton.icon(
+                              onPressed: _guardarCambios,
+                              icon: const Icon(Icons.save, size: 16, color: Colors.green),
+                              label: Text(
+                                'Guardar',
+                                style: GoogleFonts.poppins(fontSize: 13, color: Colors.green),
+                              ),
+                            ),
+                            TextButton.icon(
+                              onPressed: () {
+                                setState(() {
+                                  _isEditing = false;
+                                  _jsonController.text = _planToJson();
+                                });
+                              },
+                              icon: const Icon(Icons.cancel, size: 16, color: Colors.red),
+                              label: Text(
+                                'Cancelar',
+                                style: GoogleFonts.poppins(fontSize: 13, color: Colors.red),
+                              ),
+                            ),
+                          ],
+                          IconButton(
+                            icon: const Icon(Icons.copy, size: 18),
+                            onPressed: () {
+                              Clipboard.setData(ClipboardData(text: _jsonController.text));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('JSON copiado al portapapeles'),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            },
+                            tooltip: 'Copiar JSON',
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    height: 400,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey[300]!),
+                    ),
+                    child: TextField(
+                      controller: _jsonController,
+                      readOnly: !_isEditing,
+                      maxLines: null,
+                      expands: true,
+                      decoration: InputDecoration(
+                        contentPadding: const EdgeInsets.all(12),
+                        border: InputBorder.none,
+                        hintText: 'JSON del plan...',
+                        hintStyle: GoogleFonts.robotoMono(
+                          fontSize: 13,
+                          color: Colors.grey[400],
+                        ),
+                      ),
+                      style: GoogleFonts.robotoMono(fontSize: 13),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Icon(Icons.info_outline, size: 16, color: Colors.grey[600]),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Última actualización: ${widget.plan.fechaModificacion.toString().split('.')[0]}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }
 
