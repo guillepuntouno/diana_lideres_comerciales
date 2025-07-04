@@ -90,146 +90,152 @@ class PantallaLogin extends StatelessWidget {
           }
           
           return Scaffold(
-            body: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32.0),
-              child: Center(
-                child: SingleChildScrollView(
-                  child: Form(
-                    key: vm.formKey,
-                    child: Column(
-                      children: [
-                        Image.asset('assets/logo_diana.png', height: 320),
-                        const SizedBox(height: 32),
-                        Text(
-                          'Bienvenido',
-                          style: GoogleFonts.poppins(
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
-                            color: const Color(0xFF1C2120),
-                          ),
-                        ),
-                        Text(
-                          'Líderes Comerciales',
-                          style: GoogleFonts.poppins(
-                            fontSize: 18,
-                            color: const Color(0xFF8F8E8E),
-                          ),
-                        ),
-                        const SizedBox(height: 48),
-
-                        // Mostrar mensaje de error si existe
-                        if (vm.errorMessage != null) ...[
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(12),
-                            margin: const EdgeInsets.only(bottom: 16),
-                            decoration: BoxDecoration(
-                              color: Colors.red.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.red.shade200),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.error_outline,
-                                  color: Colors.red.shade600,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    vm.errorMessage!,
-                                    style: TextStyle(
-                                      color: Colors.red.shade700,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
-                                GestureDetector(
-                                  onTap: vm.clearError,
-                                  child: Icon(
-                                    Icons.close,
-                                    color: Colors.red.shade600,
-                                    size: 18,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 32),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: redirectToAzureLogin,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFFFBD59),
-                              foregroundColor: const Color(0xFF1C2120),
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
+            body: Stack(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                  child: Center(
+                    child: SingleChildScrollView(
+                      child: Form(
+                        key: vm.formKey,
+                        child: Column(
+                          children: [
+                            Image.asset('assets/logo_diana.png', height: 320),
+                            const SizedBox(height: 32),
+                            Text(
+                              'Modelo de Gestión de Ventas',
+                              style: GoogleFonts.poppins(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF1C2120),
                               ),
-                              elevation: 0,
+                              textAlign: TextAlign.center,
                             ),
-                            child:
-                                vm.isLoading
-                                    ? Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        const SizedBox(
-                                          width: 16,
-                                          height: 16,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            valueColor:
-                                                AlwaysStoppedAnimation<Color>(
-                                                  Color(0xFF1C2120),
-                                                ),
-                                          ),
+                            const SizedBox(height: 48),
+
+                            // Mostrar mensaje de error si existe
+                            if (vm.errorMessage != null) ...[
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12),
+                                margin: const EdgeInsets.only(bottom: 16),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.red.shade200),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.error_outline,
+                                      color: Colors.red.shade600,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        vm.errorMessage!,
+                                        style: TextStyle(
+                                          color: Colors.red.shade700,
+                                          fontSize: 12,
                                         ),
-                                        const SizedBox(width: 12),
-                                        Text(
-                                          'INICIANDO SESIÓN...',
+                                      ),
+                                    ),
+                                    GestureDetector(
+                                      onTap: vm.clearError,
+                                      child: Icon(
+                                        Icons.close,
+                                        color: Colors.red.shade600,
+                                        size: 18,
+                                      ),
+                                    ),
+                                  ],
+                                    ),
+                              ),
+                            ],
+                            const SizedBox(height: 32),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: redirectToAzureLogin,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFFFBD59),
+                                  foregroundColor: const Color(0xFF1C2120),
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  elevation: 0,
+                                ),
+                                child:
+                                    vm.isLoading
+                                        ? Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            const SizedBox(
+                                              width: 16,
+                                              height: 16,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                valueColor:
+                                                    AlwaysStoppedAnimation<Color>(
+                                                      Color(0xFF1C2120),
+                                                    ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Text(
+                                              'INICIANDO SESIÓN...',
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 11.2,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        )
+                                        : Text(
+                                          'INICIAR SESIÓN',
                                           style: GoogleFonts.poppins(
                                             fontSize: 11.2,
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
-                                      ],
-                                    )
-                                    : Text(
-                                      'INICIAR SESIÓN',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 11.2,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.sync, size: 24),
-                            SizedBox(width: 20),
-                            Icon(Icons.add_circle_outline, size: 24),
+                              ),
+                            ),
+                            const SizedBox(height: 80), // Espacio para el footer
                           ],
                         ),
-                        const SizedBox(height: 32),
-                        ClipPath(
-                          clipper: FooterClipper(),
-                          child: Container(
-                            height: 60,
-                            width: double.infinity,
-                            color: const Color(0xFFDE1327),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
-              ),
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    height: 60,
+                    width: double.infinity,
+                    color: const Color(0xFFDE1327),
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          'Esta aplicación es propiedad exclusiva de DIANA ©. Todos los derechos reservados.',
+                          style: GoogleFonts.poppins(
+                            fontSize: 10,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w400,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           );
         },
