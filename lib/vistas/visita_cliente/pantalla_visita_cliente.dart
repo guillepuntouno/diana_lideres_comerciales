@@ -280,11 +280,11 @@ class _PantallaVisitaClienteState extends State<PantallaVisitaCliente> {
 
   /// Realizar check-in con validaciones completas y guardar en servidor
   Future<void> _realizarCheckIn() async {
-    // Validar comentarios
-    if (_comentariosController.text.trim().isEmpty) {
-      _mostrarError('Por favor, agregue un comentario antes del check-in');
-      return;
-    }
+    // No validar comentarios según requerimiento
+    // if (_comentariosController.text.trim().isEmpty) {
+    //   _mostrarError('Por favor, agregue un comentario antes del check-in');
+    //   return;
+    // }
 
     // Validar que se tenga ubicación
     if (_errorUbicacion || _posicionActual == null) {
@@ -321,9 +321,10 @@ class _PantallaVisitaClienteState extends State<PantallaVisitaCliente> {
 
     try {
       // Crear CheckIn usando el builder
+      // Comentarios automáticos según requerimiento
       final checkIn =
           CheckInBuilder()
-              .comentarios(_comentariosController.text.trim())
+              .comentarios('Check-in realizado')
               .ubicacion(
                 latitud: _posicionActual!.latitude,
                 longitud: _posicionActual!.longitude,
@@ -701,164 +702,10 @@ class _PantallaVisitaClienteState extends State<PantallaVisitaCliente> {
               ),
             ),
 
-            const SizedBox(height: 24),
-
-            // Ubicación actual mejorada
-            Text(
-              'Ubicación actual',
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppColors.darkGray,
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color:
-                      _errorUbicacion
-                          ? Colors.red.shade300
-                          : Colors.grey.shade300,
-                  width: 1,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        _errorUbicacion
-                            ? Icons.location_off
-                            : (_cargandoUbicacion
-                                ? Icons.location_searching
-                                : Icons.location_on),
-                        color:
-                            _errorUbicacion
-                                ? Colors.red
-                                : (_cargandoUbicacion
-                                    ? AppColors.mediumGray
-                                    : AppColors.dianaGreen),
-                        size: 20,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child:
-                            _cargandoUbicacion
-                                ? Row(
-                                  children: [
-                                    SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: AppColors.mediumGray,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Text(
-                                      _ubicacionActual,
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 14,
-                                        color: AppColors.mediumGray,
-                                      ),
-                                    ),
-                                  ],
-                                )
-                                : Text(
-                                  _ubicacionActual,
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 14,
-                                    color:
-                                        _errorUbicacion
-                                            ? Colors.red
-                                            : AppColors.darkGray,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                      ),
-
-                      // Botón reintentar si hay error
-                      if (_errorUbicacion)
-                        IconButton(
-                          onPressed: _reintentarUbicacion,
-                          icon: const Icon(
-                            Icons.refresh,
-                            color: AppColors.dianaRed,
-                          ),
-                          tooltip: 'Reintentar ubicación',
-                        ),
-                    ],
-                  ),
-
-                  // Mostrar precisión si hay ubicación válida
-                  if (_posicionActual != null && !_errorUbicacion) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      'Precisión: ${_posicionActual!.accuracy.round()} metros',
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        color: AppColors.mediumGray,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
+            // Ubicación y comentarios ocultos según requerimiento
+            // Solo mantener funcionalidad interna sin mostrar UI
 
             const SizedBox(height: 24),
-
-            // Comentarios
-            Text(
-              'Comentarios',
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppColors.darkGray,
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade300, width: 1),
-              ),
-              child: TextField(
-                controller: _comentariosController,
-                maxLines: 4,
-                decoration: InputDecoration(
-                  hintText: 'Escriba sus observaciones sobre la visita...',
-                  hintStyle: GoogleFonts.poppins(
-                    color: AppColors.mediumGray,
-                    fontSize: 14,
-                  ),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.all(16),
-                ),
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  color: AppColors.darkGray,
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 32),
 
             // Botón CHECK-IN mejorado
             SizedBox(

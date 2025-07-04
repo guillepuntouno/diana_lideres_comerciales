@@ -505,13 +505,68 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
           _rutaSeleccionada = diaData['rutaNombre'];
 
           String tipoActividad = diaData['tipo'] ?? '';
+          
+          print('📊 Procesando actividad:');
+          print('   └── Tipo: $tipoActividad');
+          print('   └── TipoActividad field: ${diaData['tipoActividad']}');
+          print('   └── Comentario: ${diaData['comentario']}');
 
           if (tipoActividad == 'administrativo') {
             String titulo = diaData['objetivo'] ?? 'Actividad administrativa';
-            String descripcion =
-                diaData['tipoActividad'] ??
-                diaData['comentario'] ??
-                'Sin descripción';
+            
+            // Manejar tipoActividad que puede ser string o JSON
+            String tipoActividadDetalle = '';
+            var tipoActividadRaw = diaData['tipoActividad'];
+            if (tipoActividadRaw != null) {
+              if (tipoActividadRaw is String) {
+                // Verificar si es un JSON string
+                if (tipoActividadRaw.trim().startsWith('{') || tipoActividadRaw.trim().startsWith('[')) {
+                  try {
+                    var decoded = jsonDecode(tipoActividadRaw);
+                    // Extraer información relevante del JSON
+                    if (decoded is Map) {
+                      tipoActividadDetalle = decoded['nombre'] ?? decoded['tipo'] ?? decoded.toString();
+                    } else {
+                      tipoActividadDetalle = decoded.toString();
+                    }
+                  } catch (e) {
+                    tipoActividadDetalle = tipoActividadRaw;
+                  }
+                } else {
+                  tipoActividadDetalle = tipoActividadRaw;
+                }
+              } else if (tipoActividadRaw is Map) {
+                // Si ya es un mapa, extraer el valor relevante
+                tipoActividadDetalle = tipoActividadRaw['nombre'] ?? 
+                                      tipoActividadRaw['tipo'] ?? 
+                                      tipoActividadRaw.toString();
+              }
+            }
+            
+            String comentario = diaData['comentario'] ?? '';
+            
+            // Construir descripción legible
+            String descripcion = '';
+            if (tipoActividadDetalle.isNotEmpty && 
+                !tipoActividadDetalle.contains('{') && 
+                !tipoActividadDetalle.contains('[')) {
+              descripcion = tipoActividadDetalle;
+            }
+            if (comentario.isNotEmpty) {
+              if (descripcion.isNotEmpty) {
+                descripcion += ' - ';
+              }
+              descripcion += comentario;
+            }
+            if (descripcion.isEmpty) {
+              descripcion = 'Actividad administrativa programada';
+            }
+            
+            print('📝 Actividad administrativa procesada:');
+            print('   └── Titulo: $titulo');
+            print('   └── TipoActividadRaw: $tipoActividadRaw');
+            print('   └── TipoActividadDetalle: $tipoActividadDetalle');
+            print('   └── Descripción final: $descripcion');
 
             actividadesDelDia.add(
               ActivityModel(
@@ -519,6 +574,10 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
                 type: ActivityType.admin,
                 title: titulo,
                 direccion: descripcion,
+                metadata: {
+                  'tipoActividad': tipoActividadDetalle,
+                  'comentario': comentario,
+                },
               ),
             );
 
@@ -859,16 +918,23 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
       );
 
       if (clientes != null && clientes.isNotEmpty) {
-        // Filtrar clientes que NO son FOCO (no duplicar)
+        // Filtrar clientes que NO son FOCO y NO están ya en las actividades
+        final clientesExistentes = _actividades
+            .where((a) => a.type == ActivityType.visita && a.cliente != null)
+            .map((a) => a.cliente)
+            .toSet();
+        
         final clientesNoFoco =
             clientes.where((cliente) {
               final clienteId = cliente['Cliente_ID']?.toString() ?? '';
-              return !_clientesFoco.contains(clienteId);
+              // Excluir si es FOCO o si ya existe en las actividades
+              return !_clientesFoco.contains(clienteId) && !clientesExistentes.contains(clienteId);
             }).toList();
 
         print('📊 Clientes obtenidos: ${clientes.length}');
         print('📊 Clientes FOCO a excluir: ${_clientesFoco.length}');
-        print('📊 Clientes adicionales (no FOCO): ${clientesNoFoco.length}');
+        print('📊 Clientes ya en actividades: ${clientesExistentes.length}');
+        print('📊 Clientes adicionales (no duplicados): ${clientesNoFoco.length}');
 
         _todosLosClientes = clientesNoFoco;
         _ordenarYFiltrarClientes();
@@ -1022,7 +1088,7 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          'Agenda de Hoy',
+          'Gestión de clientes - agenda diaria',
           style: GoogleFonts.poppins(
             color: AppColors.darkGray,
             fontWeight: FontWeight.bold,
@@ -1031,14 +1097,15 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
         ),
         centerTitle: true,
         actions: [
-          IconButton(
+          // Icono de nube comentado según requerimiento
+          /*IconButton(
             icon: Icon(
               _offline ? Icons.cloud_off : Icons.cloud_done,
               color: _offline ? Colors.orange : AppColors.dianaGreen,
             ),
             onPressed: _cargarPlanesDisponibles,
             tooltip: 'Actualizar',
-          ),
+          ),*/
         ],
       ),
       body: RefreshIndicator(
@@ -1231,7 +1298,7 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 1,
+        currentIndex: 0,
         selectedItemColor: AppColors.dianaRed,
         unselectedItemColor: Colors.grey,
         selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
@@ -1240,10 +1307,6 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined),
             label: 'Inicio',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.assignment_outlined),
-            label: 'Rutinas',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
@@ -1257,6 +1320,8 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
               '/home',
               (route) => false,
             );
+          } else if (index == 1) {
+            // TODO: Implementar perfil
           }
         },
       ),
@@ -1891,8 +1956,32 @@ class _ActivityTile extends StatelessWidget {
     // Crear copia local para null safety
     final visitaUnif = visitaUnificada;
     
-    // Priorizar el estado del plan unificado
-    if (visitaUnif != null && visitaUnif.estatus == 'completada') {
+    // Determinar estado basado en el tipo de actividad
+    if (actividad.type == ActivityType.admin) {
+      // Para actividades administrativas, usar el estado directo
+      switch (actividad.status) {
+        case ActivityStatus.completada:
+          statusColor = AppColors.dianaGreen;
+          statusIcon = Icons.check_circle;
+          statusText = 'Completada';
+          break;
+        case ActivityStatus.enCurso:
+          statusColor = AppColors.dianaYellow;
+          statusIcon = Icons.timelapse;
+          statusText = 'En curso';
+          break;
+        case ActivityStatus.postergada:
+          statusColor = Colors.grey;
+          statusIcon = Icons.schedule;
+          statusText = 'Postergada';
+          break;
+        default:
+          statusColor = Colors.grey.shade400;
+          statusIcon = Icons.radio_button_unchecked;
+          statusText = 'Pendiente';
+      }
+    } else if (visitaUnif != null && visitaUnif.estatus == 'completada') {
+      // Para visitas, priorizar el estado del plan unificado
       statusColor = AppColors.dianaGreen;
       statusIcon = Icons.check_circle;
       statusText = 'Completada';
@@ -2059,7 +2148,7 @@ class _ActivityTile extends StatelessWidget {
                           ),
                         ),
                       ],
-                      if (actividad.direccion != null) ...[
+                      if (actividad.direccion != null && actividad.direccion!.isNotEmpty) ...[
                         const SizedBox(height: 2),
                         Row(
                           children: [
@@ -2157,21 +2246,29 @@ class _ActivityTile extends StatelessWidget {
                 // Botón de visita SOLO para actividades de tipo visita
                 if (actividad.type == ActivityType.visita &&
                     onVisitar != null) ...[
-                  IconButton(
-                    onPressed: onVisitar,
-                    icon: Icon(
-                      esVisitaCompletada
-                          ? Icons.visibility
-                          : Icons.assignment_outlined,
-                      color:
-                          esVisitaCompletada
-                              ? AppColors.dianaGreen
-                              : AppColors.dianaRed,
+                  Container(
+                    decoration: BoxDecoration(
+                      color: esVisitaCompletada 
+                          ? AppColors.dianaGreen.withOpacity(0.1)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    tooltip:
+                    child: IconButton(
+                      onPressed: onVisitar,
+                      icon: Icon(
                         esVisitaCompletada
-                            ? 'Ver Detalle de Visita'
-                            : 'Iniciar Visita',
+                            ? Icons.visibility
+                            : Icons.assignment_outlined,
+                        color:
+                            esVisitaCompletada
+                                ? AppColors.dianaGreen
+                                : AppColors.dianaRed,
+                      ),
+                      tooltip:
+                          esVisitaCompletada
+                              ? 'Ver Detalle de Visita'
+                              : 'Iniciar Visita',
+                    ),
                   ),
                   const SizedBox(width: 8),
                 ],
