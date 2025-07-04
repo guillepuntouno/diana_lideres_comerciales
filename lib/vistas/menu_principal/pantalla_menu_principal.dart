@@ -16,6 +16,7 @@ class PantallaMenuPrincipal extends StatefulWidget {
 
 class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
   LiderComercial? _liderComercial;
+  String? _correoUsuario;
   bool _isLoading = true;
 
   @override
@@ -27,13 +28,39 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
   Future<void> _cargarDatosUsuario() async {
     final prefs = await SharedPreferences.getInstance();
     final userDataString = prefs.getString('usuario');
+    
     if (userDataString != null) {
       final Map<String, dynamic> userMap = jsonDecode(userDataString);
       final lider = LiderComercial.fromJson(userMap);
+      
+      // Obtener el correo directamente de los datos del usuario
+      _correoUsuario = userMap['correo'] ?? userMap['email'];
+      
+      // Si no está en userData, intentar obtenerlo del token JWT
+      if (_correoUsuario == null) {
+        final idToken = prefs.getString('id_token');
+        if (idToken != null) {
+          try {
+            final parts = idToken.split('.');
+            if (parts.length == 3) {
+              final payloadBase64 = parts[1];
+              final normalized = base64.normalize(payloadBase64);
+              final decoded = utf8.decode(base64Url.decode(normalized));
+              final payload = json.decode(decoded);
+              _correoUsuario = payload['email'];
+            }
+          } catch (e) {
+            print('Error al decodificar token para obtener email: $e');
+          }
+        }
+      }
+      
       setState(() {
         _liderComercial = lider;
         _isLoading = false;
       });
+      
+      print('Datos cargados - Correo: $_correoUsuario');
     } else {
       setState(() {
         _isLoading = false;
@@ -53,7 +80,7 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
         children: [
           EncabezadoInicio(nombreUsuario: nombreUsuario),
           const SizedBox(height: 24),
@@ -115,52 +142,62 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
                   Text(
                     'Información del Líder',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF1C2120),
                     ),
                   ),
-                  SizedBox(height: 12),
+                  SizedBox(height: 16),
+                  // Nombre del líder
                   Row(
                     children: [
                       Icon(
-                        Icons.business,
+                        Icons.person,
                         color: const Color(0xFFDE1327),
                         size: 20,
                       ),
                       const SizedBox(width: 8),
+                      Text(
+                        'Nombre: ',
+                        style: TextStyle(
+                          color: Colors.grey.shade700,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       Expanded(
                         child: Text(
-                          _liderComercial!.centroDistribucion,
+                          _liderComercial!.nombre,
                           style: const TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
+                            color: Color(0xFF1C2120),
                           ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
+                  // Clave del líder
                   Row(
                     children: [
                       Icon(
-                        Icons.location_on,
-                        color: Colors.grey.shade600,
-                        size: 16,
+                        Icons.badge,
+                        color: const Color(0xFFDE1327),
+                        size: 20,
                       ),
                       const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _liderComercial!.pais,
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontSize: 12,
-                          ),
+                      Text(
+                        'Clave del Líder: ',
+                        style: TextStyle(
+                          color: Colors.grey.shade700,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
+                          horizontal: 10,
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
@@ -171,9 +208,99 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
                           _liderComercial!.clave,
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 11,
+                            fontSize: 12,
                             fontWeight: FontWeight.bold,
                           ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  // Correo del líder
+                  if (_correoUsuario != null) ...[  
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.email,
+                          color: const Color(0xFFDE1327),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Correo: ',
+                          style: TextStyle(
+                            color: Colors.grey.shade700,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            _correoUsuario!,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF1C2120),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  // Centro de distribución
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.business,
+                        color: const Color(0xFFDE1327),
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Centro de Distribución: ',
+                        style: TextStyle(
+                          color: Colors.grey.shade700,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          _liderComercial!.centroDistribucion,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                            color: Color(0xFF1C2120),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  // País de origen
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.location_on,
+                        color: const Color(0xFFDE1327),
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'País de Origen: ',
+                        style: TextStyle(
+                          color: Colors.grey.shade700,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        _liderComercial!.pais,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          color: Color(0xFF1C2120),
                         ),
                       ),
                     ],
@@ -232,7 +359,7 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
               _MenuItem(
                 icon: Icons.people_alt_outlined,
                 title: 'Gestión de\nclientes',
-                onTap: null,
+                onTap: () => Navigator.pushNamed(context, '/rutina_diaria'),
               ),
               _MenuItem(
                 icon: Icons.assignment_turned_in_outlined,
@@ -272,19 +399,12 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
             label: 'Inicio',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.assignment_outlined),
-            label: 'Rutinas',
-          ),
-          BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
             label: 'Perfil',
           ),
         ],
         onTap: (index) {
           if (index == 1) {
-            // Navegar a Rutinas
-            Navigator.pushNamed(context, '/rutina_diaria');
-          } else if (index == 2) {
             // Mostrar opción de cerrar sesión
             _mostrarOpcionesPerfil(context);
           }

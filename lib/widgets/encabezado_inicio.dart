@@ -12,7 +12,7 @@ class EncabezadoInicio extends StatelessWidget {
       children: [
         Container(
           width: double.infinity,
-          height: 96,
+          height: 150,
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               colors: [
@@ -37,7 +37,7 @@ class EncabezadoInicio extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Center(
             child: SizedBox(
-              height: 100,
+              height: 200,
               child: Image.asset('assets/logo_diana.png', fit: BoxFit.contain),
             ),
           ),
