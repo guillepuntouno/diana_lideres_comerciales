@@ -115,10 +115,7 @@ class ClienteRutinaTile extends StatelessWidget {
 
   bool _tieneFormularioRutina() {
     final formularios = dia.formularios;
-    return formularios.any((f) => 
-      f.clienteId == visita.clienteId && 
-      f.formularioId == rutina.plantillaId
-    );
+    return formularios.any((f) => f.clienteId == visita.clienteId);
   }
 
   int _calcularPorcentajeFormulario() {

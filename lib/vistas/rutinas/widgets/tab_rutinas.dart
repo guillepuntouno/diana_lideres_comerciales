@@ -77,14 +77,14 @@ class TabRutinas extends StatelessWidget {
 
   IconData _getIconForRutina(TipoRutina rutina) {
     switch (rutina) {
-      case TipoRutina.planTrabajo:
-        return Icons.assignment;
-      case TipoRutina.gestionClientes:
+      case TipoRutina.todas:
+        return Icons.dashboard;
+      case TipoRutina.visitasClientes:
         return Icons.people;
-      case TipoRutina.evaluacionDesempeno:
-        return Icons.assessment;
-      case TipoRutina.programaExcelencia:
-        return Icons.star;
+      case TipoRutina.administrativas:
+        return Icons.business_center;
+      case TipoRutina.formularios:
+        return Icons.assignment_turned_in;
     }
   }
 }

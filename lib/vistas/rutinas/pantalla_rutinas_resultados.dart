@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:intl/intl.dart';
+import 'dart:convert';
 import '../../modelos/hive/plan_trabajo_unificado_hive.dart';
 import '../../servicios/resultados_dia_service.dart';
 import '../../servicios/sesion_servicio.dart';
@@ -27,10 +28,10 @@ class AppColors {
 
 /// Enum para las plantillas/rutinas disponibles
 enum TipoRutina {
-  planTrabajo('Plan Trabajo', 'plan_trabajo'),
-  gestionClientes('Clientes', 'gestion_clientes_v1'),
-  evaluacionDesempeno('Desempeño', 'evaluacion_desempeno_v1'),
-  programaExcelencia('Excelencia', 'programa_excelencia_v1');
+  todas('Todas las actividades', 'todas'),
+  visitasClientes('Visitas a Clientes', 'visitas'),
+  administrativas('Actividades Administrativas', 'administrativas'),
+  formularios('Formularios Capturados', 'formularios');
 
   final String titulo;
   final String plantillaId;
@@ -51,7 +52,7 @@ class _PantallaRutinasResultadosState extends State<PantallaRutinasResultados> {
   
   String? _liderClave;
   String _diaSeleccionado = '';
-  TipoRutina _rutinaSeleccionada = TipoRutina.planTrabajo;
+  TipoRutina _rutinaSeleccionada = TipoRutina.todas;
   String? _rutaFiltro;
   String? _clienteFiltro;
   
@@ -233,7 +234,36 @@ class _PantallaRutinasResultadosState extends State<PantallaRutinasResultados> {
   List<VisitaClienteUnificadaHive> _obtenerActividadesFiltradas() {
     if (_diaPlan == null) return [];
     
+    // Si es día administrativo y está seleccionada la pestaña de administrativas o todas
+    if (_diaPlan!.tipo == 'administrativo' && 
+        (_rutinaSeleccionada == TipoRutina.administrativas || 
+         _rutinaSeleccionada == TipoRutina.todas)) {
+      return []; // Las actividades administrativas se muestran diferente
+    }
+    
     var actividades = _diaPlan!.clientes;
+    
+    // Filtrar por tipo de rutina seleccionada
+    switch (_rutinaSeleccionada) {
+      case TipoRutina.visitasClientes:
+        // Solo mostrar visitas con check-in
+        actividades = actividades.where((a) => 
+          a.horaInicio != null || a.estatus != 'pendiente'
+        ).toList();
+        break;
+      case TipoRutina.formularios:
+        // Solo mostrar clientes con formularios capturados
+        actividades = actividades.where((a) => 
+          _diaPlan!.formularios.any((f) => f.clienteId == a.clienteId)
+        ).toList();
+        break;
+      case TipoRutina.administrativas:
+        // No mostrar clientes en vista administrativa
+        return [];
+      case TipoRutina.todas:
+        // Mostrar todos
+        break;
+    }
     
     // Filtrar por ruta si está seleccionada
     if (_rutaFiltro != null && _rutaFiltro!.isNotEmpty) {
@@ -245,23 +275,13 @@ class _PantallaRutinasResultadosState extends State<PantallaRutinasResultados> {
       actividades = actividades.where((a) => a.clienteId == _clienteFiltro).toList();
     }
     
-    // Filtrar por rutina (solo mostrar los que tienen actividad en esa rutina)
-    if (_rutinaSeleccionada != TipoRutina.planTrabajo) {
-      actividades = actividades.where((a) {
-        return _tieneFormularioRutina(a) || a.estatus == 'pendiente';
-      }).toList();
-    }
-    
     return actividades;
   }
 
   bool _tieneFormularioRutina(VisitaClienteUnificadaHive visita) {
-    // Buscar en los formularios del día si existe uno con el formularioId de la rutina
+    // Buscar en los formularios del día si existe uno para este cliente
     final formularios = _diaPlan?.formularios ?? [];
-    return formularios.any((f) => 
-      f.clienteId == visita.clienteId && 
-      f.formularioId == _rutinaSeleccionada.plantillaId
-    );
+    return formularios.any((f) => f.clienteId == visita.clienteId);
   }
 
   void _cambiarDia(String nuevoDia) {
@@ -834,9 +854,38 @@ class _PantallaRutinasResultadosState extends State<PantallaRutinasResultados> {
   Widget _buildListaActividades() {
     if (_diaPlan == null) return const SizedBox.shrink();
     
-    // Si es día administrativo, mostrar información específica
-    if (_diaPlan!.tipo == 'administrativo') {
+    // Si es día administrativo y se seleccionó ver administrativas o todas
+    if (_diaPlan!.tipo == 'administrativo' && 
+        (_rutinaSeleccionada == TipoRutina.administrativas || 
+         _rutinaSeleccionada == TipoRutina.todas)) {
       return _buildActividadAdministrativa();
+    }
+    
+    // Si se seleccionó administrativas pero no es día administrativo
+    if (_rutinaSeleccionada == TipoRutina.administrativas && 
+        _diaPlan!.tipo != 'administrativo') {
+      return Container(
+        padding: const EdgeInsets.all(32),
+        child: Center(
+          child: Column(
+            children: [
+              Icon(
+                Icons.business_center,
+                size: 48,
+                color: Colors.grey.shade300,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'No hay actividades administrativas este día',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  color: AppColors.mediumGray,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
     }
     
     final actividades = _obtenerActividadesFiltradas();
@@ -1090,107 +1139,149 @@ class _PantallaRutinasResultadosState extends State<PantallaRutinasResultados> {
       return const SizedBox.shrink();
     }
     
-    return Container(
-      margin: const EdgeInsets.only(top: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+    String tipoActividad = _diaPlan!.tipoActividadAdministrativa ?? 'Sin especificar';
+    
+    // Parsear JSON si es necesario
+    if (tipoActividad.trim().startsWith('{') || tipoActividad.trim().startsWith('[')) {
+      try {
+        var decoded = jsonDecode(tipoActividad);
+        if (decoded is Map) {
+          tipoActividad = decoded['nombre'] ?? 
+                         decoded['tipo'] ?? 
+                         decoded['descripcion'] ?? 
+                         'Actividad Administrativa';
+        } else {
+          tipoActividad = 'Actividad Administrativa';
+        }
+      } catch (e) {
+        // Si falla el parseo, usar el texto original limpio
+        tipoActividad = tipoActividad.replaceAll(RegExp(r'[{}"\[\]]'), '');
+      }
+    }
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Actividad del día',
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: AppColors.darkGray,
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(12),
+        ),
+        const SizedBox(height: 16),
+        InkWell(
+          onTap: () => _mostrarDetalleActividadAdministrativa(),
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
-                child: Icon(
-                  Icons.business_center,
-                  color: Colors.blue.shade700,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Text(
-                      'Actividad Administrativa',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.darkGray,
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.business_center,
+                        color: Colors.blue.shade700,
+                        size: 24,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _diaPlan!.tipoActividadAdministrativa ?? 'Sin especificar',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        color: AppColors.mediumGray,
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            tipoActividad,
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.darkGray,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Actividad Administrativa',
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              color: AppColors.mediumGray,
+                            ),
+                          ),
+                        ],
                       ),
+                    ),
+                    Icon(
+                      Icons.chevron_right,
+                      color: AppColors.mediumGray,
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
-          if (_diaPlan!.objetivoNombre != null) ...[
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.lightGray,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.flag,
-                    size: 16,
-                    color: AppColors.dianaRed,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                if (_diaPlan!.objetivoNombre != null) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.lightGray,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
                       children: [
-                        Text(
-                          'Objetivo',
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.darkGray,
-                          ),
+                        Icon(
+                          Icons.flag,
+                          size: 16,
+                          color: AppColors.dianaRed,
                         ),
-                        Text(
-                          _diaPlan!.objetivoNombre!,
-                          style: GoogleFonts.poppins(
-                            fontSize: 14,
-                            color: AppColors.mediumGray,
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Objetivo del día',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.darkGray,
+                                ),
+                              ),
+                              Text(
+                                _diaPlan!.objetivoNombre!,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  color: AppColors.mediumGray,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
                   ),
                 ],
-              ),
+              ],
             ),
-          ],
-        ],
-      ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1580,5 +1671,244 @@ class _PantallaRutinasResultadosState extends State<PantallaRutinasResultados> {
     } catch (_) {
       return 0;
     }
+  }
+
+  void _mostrarDetalleActividadAdministrativa() {
+    if (_diaPlan == null || _diaPlan!.tipo != 'administrativo') return;
+    
+    String tipoActividad = _diaPlan!.tipoActividadAdministrativa ?? 'Sin especificar';
+    
+    // Parsear JSON si es necesario
+    if (tipoActividad.trim().startsWith('{') || tipoActividad.trim().startsWith('[')) {
+      try {
+        var decoded = jsonDecode(tipoActividad);
+        if (decoded is Map) {
+          tipoActividad = decoded['nombre'] ?? 
+                         decoded['tipo'] ?? 
+                         decoded['descripcion'] ?? 
+                         'Actividad Administrativa';
+        } else {
+          tipoActividad = 'Actividad Administrativa';
+        }
+      } catch (e) {
+        tipoActividad = tipoActividad.replaceAll(RegExp(r'[{}"\[\]]'), '');
+      }
+    }
+    
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Container(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width * 0.9,
+            maxHeight: MediaQuery.of(context).size.height * 0.6,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade700,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.business_center, color: Colors.white, size: 28),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Actividad Administrativa',
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          Text(
+                            _diaSeleccionado,
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              color: Colors.white.withOpacity(0.9),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Body
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Tipo de actividad
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.blue.shade200),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  size: 20,
+                                  color: Colors.blue.shade700,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Tipo de Actividad',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.blue.shade700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              tipoActividad,
+                              style: GoogleFonts.poppins(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                                color: AppColors.darkGray,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      // Objetivo
+                      if (_diaPlan!.objetivoNombre != null) ...[
+                        const SizedBox(height: 20),
+                        _buildDetalleSeccion(
+                          'Objetivo del Día',
+                          Icons.flag,
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppColors.lightGray,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              _diaPlan!.objetivoNombre!,
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                color: AppColors.darkGray,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                      
+                      // Información adicional
+                      const SizedBox(height: 20),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.calendar_today,
+                                  size: 16,
+                                  color: AppColors.mediumGray,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Día planificado: $_diaSeleccionado',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 13,
+                                    color: AppColors.mediumGray,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.work_outline,
+                                  size: 16,
+                                  color: AppColors.mediumGray,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Tipo: Actividad Administrativa',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 13,
+                                    color: AppColors.mediumGray,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              
+              // Footer
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(20),
+                    bottomRight: Radius.circular(20),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: Text(
+                        'Cerrar',
+                        style: GoogleFonts.poppins(
+                          color: AppColors.darkGray,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
