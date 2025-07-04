@@ -557,6 +557,7 @@ class PlanTrabajoOfflineService {
               fechaModificacion: DateTime.now(),
               indicadorIds: indicadorCliente?.indicadorIds,
               comentarioIndicadores: indicadorCliente?.comentario,
+              resultadosIndicadores: indicadorCliente?.resultados,
             ));
           }
           
@@ -646,6 +647,7 @@ class PlanTrabajoOfflineService {
                   fechaModificacion: DateTime.now(),
                   indicadorIds: indicadorCliente?.indicadorIds,
                   comentarioIndicadores: indicadorCliente?.comentario,
+                  resultadosIndicadores: indicadorCliente?.resultados,
                 ));
               } else {
                 // Actualizar indicadores para clientes existentes
@@ -658,6 +660,7 @@ class PlanTrabajoOfflineService {
                 if (indicadorCliente != null) {
                   visitaExistente.indicadorIds = indicadorCliente.indicadorIds;
                   visitaExistente.comentarioIndicadores = indicadorCliente.comentario;
+                  visitaExistente.resultadosIndicadores = indicadorCliente.resultados;
                 }
               }
             }

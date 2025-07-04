@@ -409,6 +409,9 @@ class VisitaClienteUnificadaHive extends HiveObject {
   
   @HiveField(12)
   String? comentarioIndicadores;
+  
+  @HiveField(13)
+  Map<String, String>? resultadosIndicadores;
 
   VisitaClienteUnificadaHive({
     required this.clienteId,
@@ -424,6 +427,7 @@ class VisitaClienteUnificadaHive extends HiveObject {
     this.fechaModificacion,
     this.indicadorIds,
     this.comentarioIndicadores,
+    this.resultadosIndicadores,
   }) : compromisos = compromisos ?? [];
 
   Map<String, dynamic> toJson() {
@@ -441,6 +445,7 @@ class VisitaClienteUnificadaHive extends HiveObject {
       'fechaModificacion': fechaModificacion?.toIso8601String(),
       'indicadorIds': indicadorIds,
       'comentarioIndicadores': comentarioIndicadores,
+      'resultadosIndicadores': resultadosIndicadores,
     };
   }
 
@@ -467,6 +472,9 @@ class VisitaClienteUnificadaHive extends HiveObject {
           : null,
       indicadorIds: (json['indicadorIds'] as List<dynamic>?)?.cast<String>(),
       comentarioIndicadores: json['comentarioIndicadores'],
+      resultadosIndicadores: json['resultadosIndicadores'] != null
+          ? Map<String, String>.from(json['resultadosIndicadores'])
+          : null,
     );
   }
 
@@ -491,23 +499,26 @@ class VisitaClienteUnificadaHive extends HiveObject {
     
     // Si hay indicadores, agregar información descriptiva
     if (indicadorIds != null && indicadorIds!.isNotEmpty) {
-      // Map de IDs a nombres de indicadores
+      // Map de IDs a nombres de indicadores y tipos
       final indicadoresMap = {
-        '1': 'Venta actual',
-        '2': 'Venta AA',
-        '3': '% Crec. vs AA',
-        '4': 'Decrecimiento 2 meses sin compra',
-        '5': 'Mix de productos',
-        '6': 'Frecuencia de visita',
-        '7': 'Ticket promedio',
-        '8': 'Productos nuevos',
-        '9': 'Cumplimiento de cuota',
-        '10': 'Estatus de crédito',
+        '1': {'nombre': 'Venta actual', 'tipo': 'numero'},
+        '2': {'nombre': 'Venta AA', 'tipo': 'numero'},
+        '3': {'nombre': '% Crec. vs AA', 'tipo': 'porcentaje'},
+        '4': {'nombre': 'Decrecimiento 2 meses sin compra', 'tipo': 'numero'},
+        '5': {'nombre': 'Mix de productos', 'tipo': 'numero'},
+        '6': {'nombre': 'Frecuencia de visita', 'tipo': 'numero'},
+        '7': {'nombre': 'Ticket promedio', 'tipo': 'numero'},
+        '8': {'nombre': 'Productos nuevos', 'tipo': 'numero'},
+        '9': {'nombre': 'Cumplimiento de cuota', 'tipo': 'porcentaje'},
+        '10': {'nombre': 'Estatus de crédito', 'tipo': 'porcentaje'},
+        '11': {'nombre': 'Punto de equilibrio', 'tipo': 'porcentaje'},
       };
       
       json['indicadores'] = indicadorIds!.map((id) => {
         'id': id,
-        'nombre': indicadoresMap[id] ?? 'Indicador $id',
+        'nombre': indicadoresMap[id]?['nombre'] ?? 'Indicador $id',
+        'resultado': resultadosIndicadores?[id] ?? '',
+        'tipo': indicadoresMap[id]?['tipo'] ?? 'numero',
       }).toList();
     }
     

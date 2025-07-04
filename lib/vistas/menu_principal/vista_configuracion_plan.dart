@@ -1826,9 +1826,13 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
           // Mostrar resumen de indicadores por cliente
           ...resumen.take(3).map((clienteResumen) {
             final indicadores = clienteResumen['indicadores'] as List<String>;
+            final resultados = clienteResumen['resultados'] as Map<String, String>? ?? {};
             final comentario = clienteResumen['comentario'] as String?;
             
             if (indicadores.isEmpty) return const SizedBox.shrink();
+            
+            // Obtener catálogo de indicadores para saber el tipo de resultado
+            final catalogoIndicadores = CatalogoIndicadores.indicadoresIniciales;
             
             return Container(
               margin: const EdgeInsets.only(bottom: 8),
@@ -1855,7 +1859,21 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                   Wrap(
                     spacing: 4,
                     runSpacing: 4,
-                    children: indicadores.take(2).map((indicador) {
+                    children: indicadores.take(2).map((indicadorNombre) {
+                      // Buscar el indicador por nombre para obtener su ID y tipo
+                      final indicador = catalogoIndicadores.firstWhere(
+                        (ind) => ind.nombre == indicadorNombre,
+                        orElse: () => IndicadorGestionModelo(
+                          id: '',
+                          nombre: indicadorNombre,
+                          descripcion: '',
+                          tipoResultado: 'numero',
+                        ),
+                      );
+                      final resultado = resultados[indicador.id] ?? '';
+                      final mostrarResultado = resultado.isNotEmpty ? ' - $resultado' : '';
+                      final sufijo = indicador.tipoResultado == 'porcentaje' && resultado.isNotEmpty ? '%' : '';
+                      
                       return Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
@@ -1863,7 +1881,7 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          indicador,
+                          '$indicadorNombre$mostrarResultado$sufijo',
                           style: GoogleFonts.poppins(
                             fontSize: 11,
                             color: Colors.purple.shade700,

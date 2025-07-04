@@ -31,6 +31,7 @@ class _VistaIndicadoresGestionState extends State<VistaIndicadoresGestion> {
   // Estado de la vista
   List<IndicadorGestionModelo> _indicadoresDisponibles = [];
   Map<String, List<String>> _indicadoresSeleccionados = {};
+  Map<String, Map<String, String>> _resultadosIndicadores = {}; // clienteId -> indicadorId -> resultado
   Map<String, String> _comentarios = {};
   Map<String, bool> _clientesCompletados = {};
   int _clienteActualIndex = 0;
@@ -71,10 +72,12 @@ class _VistaIndicadoresGestionState extends State<VistaIndicadoresGestion> {
         
         if (indicadorGuardado != null) {
           _indicadoresSeleccionados[cliente.clienteId] = indicadorGuardado.indicadorIds;
+          _resultadosIndicadores[cliente.clienteId] = indicadorGuardado.resultados;
           _comentarios[cliente.clienteId] = indicadorGuardado.comentario ?? '';
           _clientesCompletados[cliente.clienteId] = indicadorGuardado.completado;
         } else {
           _indicadoresSeleccionados[cliente.clienteId] = [];
+          _resultadosIndicadores[cliente.clienteId] = {};
           _comentarios[cliente.clienteId] = '';
           _clientesCompletados[cliente.clienteId] = false;
         }
@@ -101,7 +104,18 @@ class _VistaIndicadoresGestionState extends State<VistaIndicadoresGestion> {
   
   bool get _puedeAvanzar {
     final indicadores = _indicadoresSeleccionados[_clienteActual.clienteId] ?? [];
-    return indicadores.isNotEmpty;
+    if (indicadores.isEmpty) return false;
+    
+    // Verificar que todos los indicadores seleccionados tengan resultado
+    final resultados = _resultadosIndicadores[_clienteActual.clienteId] ?? {};
+    for (final indicadorId in indicadores) {
+      final resultado = resultados[indicadorId];
+      if (resultado == null || resultado.isEmpty) {
+        return false;
+      }
+    }
+    
+    return true;
   }
   
   Future<void> _guardarIndicadorCliente() async {
@@ -117,6 +131,7 @@ class _VistaIndicadoresGestionState extends State<VistaIndicadoresGestion> {
         clienteId: _clienteActual.clienteId,
         clienteNombre: _clienteActual.clienteNombre,
         indicadorIds: _indicadoresSeleccionados[_clienteActual.clienteId]!,
+        resultados: _resultadosIndicadores[_clienteActual.clienteId] ?? {},
         comentario: _comentarios[_clienteActual.clienteId],
         userId: lider.clave,
         timestamp: DateTime.now(),
@@ -234,6 +249,7 @@ class _VistaIndicadoresGestionState extends State<VistaIndicadoresGestion> {
                   itemBuilder: (context, index) {
                     final clienteResumen = resumen[index];
                     final indicadores = clienteResumen['indicadores'] as List<String>;
+                    final resultados = clienteResumen['resultados'] as Map<String, String>? ?? {};
                     final comentario = clienteResumen['comentario'] as String?;
                     
                     return Card(
@@ -277,14 +293,28 @@ class _VistaIndicadoresGestionState extends State<VistaIndicadoresGestion> {
                               ],
                             ),
                             const SizedBox(height: 8),
-                            // Indicadores
+                            // Indicadores con resultados
                             Wrap(
                               spacing: 8,
                               runSpacing: 4,
-                              children: indicadores.map((indicador) {
+                              children: indicadores.map((indicadorNombre) {
+                                // Buscar el indicador por nombre para obtener el ID
+                                final indicador = _indicadoresDisponibles.firstWhere(
+                                  (ind) => ind.nombre == indicadorNombre,
+                                  orElse: () => IndicadorGestionModelo(
+                                    id: '',
+                                    nombre: indicadorNombre,
+                                    descripcion: '',
+                                    tipoResultado: 'numero',
+                                  ),
+                                );
+                                final resultado = resultados[indicador.id] ?? '';
+                                final mostrarResultado = resultado.isNotEmpty ? ' - $resultado' : '';
+                                final sufijo = indicador.tipoResultado == 'porcentaje' && resultado.isNotEmpty ? '%' : '';
+                                
                                 return Chip(
                                   label: Text(
-                                    indicador,
+                                    '$indicadorNombre$mostrarResultado$sufijo',
                                     style: GoogleFonts.poppins(fontSize: 12),
                                   ),
                                   backgroundColor: Colors.blue.shade50,
@@ -732,6 +762,8 @@ class _VistaIndicadoresGestionState extends State<VistaIndicadoresGestion> {
                             ..._indicadoresDisponibles.map((indicador) {
                               final seleccionados = _indicadoresSeleccionados[_clienteActual.clienteId] ?? [];
                               final estaSeleccionado = seleccionados.contains(indicador.id);
+                              final resultados = _resultadosIndicadores[_clienteActual.clienteId] ?? {};
+                              final resultado = resultados[indicador.id] ?? '';
                               
                               return Card(
                                 margin: const EdgeInsets.only(bottom: 8),
@@ -747,41 +779,119 @@ class _VistaIndicadoresGestionState extends State<VistaIndicadoresGestion> {
                                       : Colors.transparent,
                                   ),
                                 ),
-                                child: CheckboxListTile(
-                                  value: estaSeleccionado,
-                                  onChanged: (bool? value) {
-                                    setState(() {
-                                      final lista = List<String>.from(
-                                        _indicadoresSeleccionados[_clienteActual.clienteId] ?? []
-                                      );
-                                      
-                                      if (value == true) {
-                                        lista.add(indicador.id);
-                                      } else {
-                                        lista.remove(indicador.id);
-                                      }
-                                      
-                                      _indicadoresSeleccionados[_clienteActual.clienteId] = lista;
-                                    });
-                                  },
-                                  title: Text(
-                                    indicador.nombre,
-                                    style: GoogleFonts.poppins(
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  subtitle: indicador.descripcion.isNotEmpty
-                                    ? Text(
-                                        indicador.descripcion,
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 13,
-                                          color: Colors.grey.shade600,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Column(
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Checkbox(
+                                            value: estaSeleccionado,
+                                            onChanged: (bool? value) {
+                                              setState(() {
+                                                final lista = List<String>.from(
+                                                  _indicadoresSeleccionados[_clienteActual.clienteId] ?? []
+                                                );
+                                                
+                                                if (value == true) {
+                                                  lista.add(indicador.id);
+                                                  // Inicializar resultado vacío
+                                                  if (_resultadosIndicadores[_clienteActual.clienteId] == null) {
+                                                    _resultadosIndicadores[_clienteActual.clienteId] = {};
+                                                  }
+                                                } else {
+                                                  lista.remove(indicador.id);
+                                                  // Limpiar resultado al deseleccionar
+                                                  _resultadosIndicadores[_clienteActual.clienteId]?.remove(indicador.id);
+                                                }
+                                                
+                                                _indicadoresSeleccionados[_clienteActual.clienteId] = lista;
+                                              });
+                                            },
+                                            activeColor: const Color(0xFFDE1327),
+                                          ),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  indicador.nombre,
+                                                  style: GoogleFonts.poppins(
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                                if (indicador.descripcion.isNotEmpty)
+                                                  Text(
+                                                    indicador.descripcion,
+                                                    style: GoogleFonts.poppins(
+                                                      fontSize: 13,
+                                                      color: Colors.grey.shade600,
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      // Campo de resultado si está seleccionado
+                                      if (estaSeleccionado) ...[
+                                        const SizedBox(height: 12),
+                                        Row(
+                                          children: [
+                                            const SizedBox(width: 40), // Alineación con el checkbox
+                                            Expanded(
+                                              child: TextFormField(
+                                                initialValue: resultado,
+                                                onChanged: (value) {
+                                                  setState(() {
+                                                    if (_resultadosIndicadores[_clienteActual.clienteId] == null) {
+                                                      _resultadosIndicadores[_clienteActual.clienteId] = {};
+                                                    }
+                                                    _resultadosIndicadores[_clienteActual.clienteId]![indicador.id] = value;
+                                                  });
+                                                },
+                                                keyboardType: TextInputType.number,
+                                                decoration: InputDecoration(
+                                                  labelText: 'Resultado',
+                                                  hintText: indicador.tipoResultado == 'porcentaje' ? 'Ej: 80' : 'Ej: 1500',
+                                                  suffix: indicador.tipoResultado == 'porcentaje' 
+                                                    ? Text('%', style: GoogleFonts.poppins())
+                                                    : null,
+                                                  filled: true,
+                                                  fillColor: Colors.white,
+                                                  border: OutlineInputBorder(
+                                                    borderRadius: BorderRadius.circular(8),
+                                                    borderSide: BorderSide(
+                                                      color: Colors.grey.shade300,
+                                                    ),
+                                                  ),
+                                                  enabledBorder: OutlineInputBorder(
+                                                    borderRadius: BorderRadius.circular(8),
+                                                    borderSide: BorderSide(
+                                                      color: Colors.grey.shade300,
+                                                    ),
+                                                  ),
+                                                  focusedBorder: OutlineInputBorder(
+                                                    borderRadius: BorderRadius.circular(8),
+                                                    borderSide: BorderSide(
+                                                      color: const Color(0xFFDE1327),
+                                                      width: 2,
+                                                    ),
+                                                  ),
+                                                  contentPadding: const EdgeInsets.symmetric(
+                                                    horizontal: 12,
+                                                    vertical: 8,
+                                                  ),
+                                                ),
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
                                         ),
-                                      )
-                                    : null,
-                                  activeColor: const Color(0xFFDE1327),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
+                                      ],
+                                    ],
                                   ),
                                 ),
                               );

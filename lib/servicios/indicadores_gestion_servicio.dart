@@ -199,6 +199,7 @@ class IndicadoresGestionServicio {
               id: indicadorId,
               nombre: 'Indicador desconocido',
               descripcion: '',
+              tipoResultado: 'numero',
             ),
           );
           indicadoresNombres.add(indicador.nombre);
@@ -208,6 +209,7 @@ class IndicadoresGestionServicio {
           'clienteId': clienteId,
           'clienteNombre': clienteIndicador.clienteNombre,
           'indicadores': indicadoresNombres,
+          'resultados': clienteIndicador.resultados,
           'comentario': clienteIndicador.comentario,
           'completado': clienteIndicador.completado,
         });
