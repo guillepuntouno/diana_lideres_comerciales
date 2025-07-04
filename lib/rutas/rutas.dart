@@ -15,6 +15,7 @@ import '../vistas/resumen/pantalla_resumen_visita.dart';
 import '../vistas/notificaciones/pantalla_notificaciones.dart';
 import '../vistas/debug/pantalla_debug_hive.dart';
 import '../vistas/resultados/pantalla_resultados_dia.dart';
+import '../vistas/rutinas/pantalla_rutinas_resultados.dart';
 
 final Map<String, WidgetBuilder> rutas = {
   '/': (BuildContext context) => const PantallaLogin(),
@@ -31,6 +32,7 @@ final Map<String, WidgetBuilder> rutas = {
   '/resumen_visita': (context) => const PantallaResumenVisita(),
   '/notificaciones': (context) => const PantallaNotificaciones(),
   '/resultados_dia': (context) => const PantallaResultadosDia(),
+  '/rutinas_resultados': (context) => const PantallaRutinasResultados(),
 
   // Ruta de debug
   '/debug_hive': (context) => const PantallaDebugHive(),

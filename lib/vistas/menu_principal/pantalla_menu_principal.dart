@@ -375,8 +375,8 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
             items: [
               _MenuItem(
                 icon: Icons.bar_chart_outlined,
-                title: 'Resultados\ndel día',
-                onTap: () => Navigator.pushNamed(context, '/resultados_dia'),
+                title: 'Rutinas /\nResultados',
+                onTap: () => Navigator.pushNamed(context, '/rutinas_resultados'),
               ),
               _MenuItem(
                 icon: Icons.insert_chart_outlined_rounded,
