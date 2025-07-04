@@ -6,6 +6,7 @@ import '../vistas/menu_principal/pantalla_menu_principal.dart';
 import '../vistas/menu_principal/vista_programar_dia.dart';
 import '../vistas/menu_principal/vista_asignacion_clientes.dart';
 import '../vistas/menu_principal/vista_configuracion_plan.dart';
+import '../vistas/menu_principal/vista_indicadores_gestion.dart';
 import '../vistas/planes_trabajo/vista_planes_trabajo.dart';
 import '../vistas/planes_trabajo/rutina_diaria.dart';
 import '../vistas/visita_cliente/pantalla_visita_cliente.dart';
@@ -22,6 +23,7 @@ final Map<String, WidgetBuilder> rutas = {
   '/plan_configuracion': (context) => const VistaProgramacionSemana(),
   '/programar_dia': (context) => const VistaProgramarDia(),
   '/asignacion_clientes': (context) => const VistaAsignacionClientes(),
+  '/indicadores_gestion': (context) => const VistaIndicadoresGestion(),
   '/planes_trabajo': (context) => const VistaPlanesTrabajo(),
   '/rutina_diaria': (context) => const PantallaRutinaDiaria(),
   '/visita_cliente': (context) => const PantallaVisitaCliente(),

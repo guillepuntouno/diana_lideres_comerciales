@@ -28,10 +28,13 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
   late String semana;
   late String liderId;
   bool esEdicion = false; // Nuevo: detectar si es edición
+  String? _tipoObjetivoExistente; // Para rastrear el tipo de objetivo ya guardado
 
   String? _objetivoSeleccionado;
   String? _rutaSeleccionada;
-  String? _objetivoAbordajeSeleccionado; // Reemplaza comentario
+  List<String> _objetivosAbordajeSeleccionados = []; // Lista para múltiples objetivos
+  String? _comentarioAdicional; // Campo de comentario opcional
+  String? _objetivoAbordajeSeleccionado; // Mantener para compatibilidad
   String? _tipoActividadAdministrativa;
 
   // Datos del líder (precargados)
@@ -57,9 +60,12 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
     'Ruta abajo de PE',
     'Ticket de compra',
     'Censo de clientes',
+    'Visitas efectivas',
+    'Efectividad de la visita',
+    'Cumplimiento al plan',
+    'Promedio de visitas planeadas',
   ];
 
-  int _currentIndex = 1; // Rutinas seleccionado
 
   @override
   void didChangeDependencies() {
@@ -128,6 +134,9 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
       if (plan != null && plan.dias.containsKey(diaSeleccionado)) {
         final diaData = plan.dias[diaSeleccionado]!;
         setState(() {
+          // Rastrear el tipo de objetivo existente
+          _tipoObjetivoExistente = diaData.objetivo;
+          
           // Validar que el objetivo existe en la lista antes de asignarlo
           if (_objetivos.contains(diaData.objetivo)) {
             _objetivoSeleccionado = diaData.objetivo;
@@ -143,14 +152,34 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
             _tipoActividadAdministrativa = diaData.tipoActividad;
           }
 
-          // Validar que el objetivo de abordaje existe en la lista
-          if (_objetivosAbordaje.contains(diaData.comentario)) {
-            _objetivoAbordajeSeleccionado = diaData.comentario;
+          // Cargar datos del comentario que puede contener JSON con múltiples objetivos
+          if (diaData.comentario != null) {
+            try {
+              // Intentar parsear como JSON
+              final comentarioData = jsonDecode(diaData.comentario!);
+              if (comentarioData is Map && comentarioData.containsKey('objetivos')) {
+                _objetivosAbordajeSeleccionados = List<String>.from(comentarioData['objetivos']);
+                _comentarioAdicional = comentarioData['comentario'];
+              } else {
+                // Si no es JSON, es un objetivo único (retrocompatibilidad)
+                if (_objetivosAbordaje.contains(diaData.comentario)) {
+                  _objetivosAbordajeSeleccionados = [diaData.comentario!];
+                  _objetivoAbordajeSeleccionado = diaData.comentario;
+                }
+              }
+            } catch (e) {
+              // Si falla el parseo, es un objetivo único
+              if (_objetivosAbordaje.contains(diaData.comentario)) {
+                _objetivosAbordajeSeleccionados = [diaData.comentario!];
+                _objetivoAbordajeSeleccionado = diaData.comentario;
+              }
+            }
           }
         });
 
         print('Datos existentes cargados para $diaSeleccionado');
         print('Objetivo: $_objetivoSeleccionado');
+        print('Tipo objetivo existente: $_tipoObjetivoExistente');
         print('Ruta: $_rutaSeleccionada');
         print('Tipo actividad: $_tipoActividadAdministrativa');
         print('Objetivo abordaje: $_objetivoAbordajeSeleccionado');
@@ -224,7 +253,12 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                     .nombre
                 : null,
         tipoActividad: _tipoActividadAdministrativa,
-        comentario: _objetivoAbordajeSeleccionado,
+        comentario: _objetivosAbordajeSeleccionados.isNotEmpty
+            ? jsonEncode({
+                'objetivos': _objetivosAbordajeSeleccionados,
+                'comentario': _comentarioAdicional ?? '',
+              })
+            : _comentarioAdicional,
       );
 
       // Guardar usando el servicio offline
@@ -280,18 +314,36 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
   }
 
   void _onNavBarTap(int index) {
-    setState(() {
-      _currentIndex = index;
-    });
-
-    switch (index) {
-      case 0:
-        Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
-        break;
-      case 2:
-        // TODO: Implementar navegación a perfil
-        break;
+    if (index == 0) {
+      Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+    } else if (index == 1) {
+      // Mostrar opción de cerrar sesión
+      _mostrarOpcionesPerfil();
     }
+  }
+  
+  void _mostrarOpcionesPerfil() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.red),
+              title: const Text('Cerrar Sesión'),
+              onTap: () async {
+                Navigator.pop(context);
+                await SesionServicio.cerrarSesion(context);
+                if (context.mounted) {
+                  Navigator.pushReplacementNamed(context, '/login');
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -426,7 +478,7 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                               (objetivo) => DropdownMenuItem(
                                 value: objetivo,
                                 child: Text(
-                                  objetivo,
+                                  objetivo == 'Gestión de cliente' ? 'Abordaje de ruta' : objetivo,
                                   style: GoogleFonts.poppins(fontSize: 14),
                                 ),
                               ),
@@ -435,16 +487,10 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                     onChanged: (value) {
                       setState(() {
                         _objetivoSeleccionado = value;
-                        // Limpiar campos dependientes al cambiar objetivo
-                        if (value == 'Actividad administrativa') {
-                          // Para actividad administrativa, limpiar campos de gestión de cliente
-                          _rutaSeleccionada = null;
-                          _objetivoAbordajeSeleccionado = null;
-                        } else if (value == 'Gestión de cliente') {
-                          // Para gestión de cliente, limpiar campos administrativos y auto-seleccionar ruta si aplica
-                          _tipoActividadAdministrativa = null;
-                          // Auto-seleccionar ruta si solo hay una disponible
-                          if (_rutasDisponibles.length == 1) {
+                        // NO limpiar campos al cambiar objetivo para permitir múltiples tipos
+                        if (value == 'Gestión de cliente') {
+                          // Auto-seleccionar ruta si solo hay una disponible y no hay ruta seleccionada
+                          if (_rutasDisponibles.length == 1 && _rutaSeleccionada == null) {
                             _rutaSeleccionada = _rutasDisponibles.first.nombre;
                           }
                         }
@@ -651,7 +697,7 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      'Objetivo de abordaje:',
+                      'Indicador de ruta:',
                       style: GoogleFonts.poppins(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -659,9 +705,113 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
+                    // Widget simplificado para selección múltiple
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _objetivosAbordajeSeleccionados.isEmpty
+                                ? 'Seleccione uno o más indicadores:'
+                                : '${_objetivosAbordajeSeleccionados.length} indicador(es) seleccionado(s):',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              color: const Color(0xFF1C2120),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          ..._objetivosAbordaje.map((objetivo) {
+                            final isSelected = _objetivosAbordajeSeleccionados.contains(objetivo);
+                            return InkWell(
+                              onTap: () {
+                                setState(() {
+                                  if (isSelected) {
+                                    _objetivosAbordajeSeleccionados.remove(objetivo);
+                                  } else {
+                                    _objetivosAbordajeSeleccionados.add(objetivo);
+                                  }
+                                });
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 20,
+                                      height: 20,
+                                      decoration: BoxDecoration(
+                                        border: Border.all(
+                                          color: isSelected 
+                                              ? const Color(0xFFDE1327) 
+                                              : Colors.grey.shade400,
+                                          width: 2,
+                                        ),
+                                        borderRadius: BorderRadius.circular(4),
+                                        color: isSelected 
+                                            ? const Color(0xFFDE1327) 
+                                            : Colors.transparent,
+                                      ),
+                                      child: isSelected
+                                          ? const Icon(
+                                              Icons.check,
+                                              size: 14,
+                                              color: Colors.white,
+                                            )
+                                          : null,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        objetivo,
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 14,
+                                          color: const Color(0xFF1C2120),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ],
+                      ),
+                    ),
+                    if (_objetivosAbordajeSeleccionados.isEmpty && _objetivoSeleccionado == 'Gestión de cliente')
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          'Por favor seleccione al menos un indicador de ruta',
+                          style: TextStyle(
+                            color: Colors.red.shade700,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 20),
+                    // Campo de comentario opcional
+                    Text(
+                      'Comentario (opcional):',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF1C2120),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      onChanged: (value) {
+                        _comentarioAdicional = value;
+                      },
+                      maxLines: 3,
                       decoration: InputDecoration(
-                        hintText: 'SELECCIONE OBJETIVO DE ABORDAJE',
+                        hintText: 'Agregue comentarios adicionales si es necesario',
                         hintStyle: GoogleFonts.poppins(
                           fontSize: 14,
                           color: Colors.grey,
@@ -677,36 +827,8 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                             width: 2,
                           ),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
+                        contentPadding: const EdgeInsets.all(16),
                       ),
-                      value: _objetivoAbordajeSeleccionado,
-                      items:
-                          _objetivosAbordaje
-                              .map(
-                                (objetivo) => DropdownMenuItem(
-                                  value: objetivo,
-                                  child: Text(
-                                    objetivo,
-                                    style: GoogleFonts.poppins(fontSize: 14),
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          _objetivoAbordajeSeleccionado = value;
-                        });
-                      },
-                      validator: (value) {
-                        if (_objetivoSeleccionado == 'Gestión de cliente' &&
-                            (value == null || value.isEmpty)) {
-                          return 'Por favor seleccione un objetivo de abordaje';
-                        }
-                        return null;
-                      },
                     ),
                   ],
 
@@ -812,6 +934,16 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                   child: ElevatedButton(
                     onPressed: () async {
                       if (_formKey.currentState!.validate()) {
+                        // Validación adicional para objetivos de abordaje
+                        if (_objetivoSeleccionado == 'Gestión de cliente' && _objetivosAbordajeSeleccionados.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Por favor seleccione al menos un indicador de ruta'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
                         try {
                           // Mostrar loading
                           showDialog(
@@ -852,9 +984,8 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                             }
                           } else if (_objetivoSeleccionado ==
                               'Actividad administrativa') {
-                            // Mostrar confirmación y regresar
+                            // Mostrar confirmación
                             print('Actividad administrativa guardada para $diaSeleccionado');
-                            print('Retornando true a la pantalla anterior...');
                             
                             // Esperar un poco más para asegurar que Hive complete el guardado
                             await Future.delayed(Duration(milliseconds: 300));
@@ -879,11 +1010,120 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                                 ),
                               );
                               
-                              // Esperar a que el SnackBar se muestre
-                              await Future.delayed(Duration(milliseconds: 200));
+                              // Preguntar si desea agregar otro objetivo
+                              final bool? agregarOtro = await showDialog<bool>(
+                                context: context,
+                                barrierDismissible: false,
+                                builder: (context) => AlertDialog(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  title: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.green.shade100,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          Icons.check_circle,
+                                          color: Colors.green.shade700,
+                                          size: 24,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      const Text('Actividad guardada'),
+                                    ],
+                                  ),
+                                  titleTextStyle: GoogleFonts.poppins(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF1C2120),
+                                  ),
+                                  content: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '¿Desea agregar otro objetivo para el día $diaSeleccionado?',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 16,
+                                          color: Colors.grey.shade700,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Container(
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue.shade50,
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(color: Colors.blue.shade200),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.info_outline,
+                                              color: Colors.blue.shade700,
+                                              size: 20,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                'Puede agregar más actividades administrativas o cambiar a gestión de clientes',
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 13,
+                                                  color: Colors.blue.shade700,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context, false),
+                                      child: Text(
+                                        'No, finalizar',
+                                        style: GoogleFonts.poppins(
+                                          color: Colors.grey.shade600,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                    ElevatedButton(
+                                      onPressed: () => Navigator.pop(context, true),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFFDE1327),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        'Sí, agregar otro objetivo',
+                                        style: GoogleFonts.poppins(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
                               
-                              print('Ejecutando Navigator.pop(context, true)');
-                              if (mounted) {
+                              if (agregarOtro == true && mounted) {
+                                // Limpiar campos para nuevo objetivo
+                                setState(() {
+                                  _objetivoSeleccionado = null;
+                                  _tipoActividadAdministrativa = null;
+                                  _rutaSeleccionada = null;
+                                  _objetivosAbordajeSeleccionados.clear();
+                                  _objetivoAbordajeSeleccionado = null;
+                                  _comentarioAdicional = null;
+                                });
+                              } else if (mounted) {
                                 Navigator.of(context).pop(true);
                               }
                             }
@@ -930,7 +1170,7 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
+        currentIndex: 0,
         onTap: _onNavBarTap,
         selectedItemColor: const Color(0xFFDE1327),
         unselectedItemColor: Colors.grey,
@@ -940,10 +1180,6 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined),
             label: 'Inicio',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.assignment_outlined),
-            label: 'Rutinas',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),

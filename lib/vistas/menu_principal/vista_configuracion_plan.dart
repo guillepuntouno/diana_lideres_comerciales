@@ -5,9 +5,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import '../../modelos/plan_trabajo_modelo.dart';
+import '../../modelos/indicador_gestion_modelo.dart';
 import '../../servicios/plan_trabajo_servicio.dart';
 import '../../servicios/sesion_servicio.dart';
+import '../../servicios/indicadores_gestion_servicio.dart';
 import '../../modelos/lider_comercial_modelo.dart';
 import '../../servicios/plan_trabajo_offline_service.dart';
 import '../../widgets/connection_status_widget.dart';
@@ -53,7 +56,9 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _inicializarVista();
+    initializeDateFormatting('es', null).then((_) {
+      _inicializarVista();
+    });
   }
 
   @override
@@ -132,7 +137,7 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
               .ceil();
 
       String codigoSemana = 'SEMANA $numeroSemana - ${inicioSemana.year}';
-      DateTime finSemana = inicioSemana.add(const Duration(days: 4));
+      DateTime finSemana = inicioSemana.add(const Duration(days: 5));
 
       String fechaInicio = DateFormat('dd/MM/yyyy').format(inicioSemana);
       String fechaFin = DateFormat('dd/MM/yyyy').format(finSemana);
@@ -1134,7 +1139,768 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
 
     if (index == 0) {
       Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+    } else if (index == 1) {
+      // Mostrar opción de cerrar sesión
+      _mostrarOpcionesPerfil();
     }
+  }
+  
+  void _mostrarOpcionesPerfil() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.red),
+              title: const Text('Cerrar Sesión'),
+              onTap: () async {
+                Navigator.pop(context);
+                await SesionServicio.cerrarSesion(context);
+                if (context.mounted) {
+                  Navigator.pushReplacementNamed(context, '/login');
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _mostrarResumenDia(String dia, DiaTrabajoModelo diaData) {
+    // Calcular la fecha completa del día
+    final indice = diasSemana.indexOf(dia);
+    final semanaSeleccionadaObj = _semanasDisponibles.firstWhere(
+      (s) => s.codigo == _semanaSeleccionada,
+    );
+    final fechaDia = semanaSeleccionadaObj.inicioSemana.add(Duration(days: indice));
+    final fechaFormateada = DateFormat('EEEE, d \'de\' MMMM \'de\' yyyy', 'es').format(fechaDia);
+    
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Container(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width * 0.9,
+            maxHeight: MediaQuery.of(context).size.height * 0.8,
+          ),
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white,
+                const Color(0xFFDE1327).withOpacity(0.02),
+              ],
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Encabezado
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFDE1327).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.calendar_today,
+                      color: const Color(0xFFDE1327),
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Resumen del $dia',
+                          style: GoogleFonts.poppins(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF1C2120),
+                          ),
+                        ),
+                        Text(
+                          fechaFormateada,
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                    color: Colors.grey,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              const Divider(),
+              const SizedBox(height: 20),
+              
+              // Contenido scrollable
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Tipo de objetivo principal
+                      _buildSeccionResumen(
+                        'Objetivo Principal',
+                        diaData.objetivo == 'Múltiples objetivos' 
+                          ? 'Día con múltiples objetivos' 
+                          : diaData.objetivo ?? 'No especificado',
+                        diaData.objetivo == 'Múltiples objetivos' 
+                          ? Icons.dashboard 
+                          : diaData.objetivo == 'Gestión de cliente' 
+                            ? Icons.people 
+                            : Icons.assignment,
+                        diaData.objetivo == 'Múltiples objetivos'
+                          ? Colors.purple
+                          : diaData.objetivo == 'Gestión de cliente' 
+                            ? Colors.blue 
+                            : Colors.orange,
+                      ),
+                      
+                      // Actividades administrativas
+                      if (diaData.tipoActividad != null && diaData.tipoActividad!.isNotEmpty) ...[
+                        const SizedBox(height: 20),
+                        _buildSeccionActividades(
+                          'Actividades Administrativas',
+                          diaData.tipoActividad!,
+                          Icons.folder_special,
+                          Colors.orange,
+                        ),
+                      ],
+                      
+                      // Gestión de clientes
+                      if ((diaData.objetivo == 'Gestión de cliente' || 
+                           diaData.objetivo == 'Múltiples objetivos') && 
+                          diaData.clientesAsignados.isNotEmpty) ...[
+                        const SizedBox(height: 20),
+                        _buildSeccionClientes(
+                          'Clientes Asignados',
+                          diaData,
+                          Icons.store,
+                          Colors.blue,
+                        ),
+                      ],
+                      
+                      // Objetivos de abordaje
+                      if (diaData.comentario != null && diaData.comentario!.isNotEmpty) ...[
+                        const SizedBox(height: 20),
+                        _buildSeccionObjetivosAbordaje(
+                          'Objetivos de Abordaje',
+                          diaData.comentario!,
+                          Icons.track_changes,
+                          Colors.green,
+                        ),
+                      ],
+                      
+                      // Indicadores de gestión
+                      if (diaData.clientesAsignados.isNotEmpty) ...[
+                        const SizedBox(height: 20),
+                        FutureBuilder<Widget>(
+                          future: _buildSeccionIndicadores(diaData),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return Center(
+                                child: CircularProgressIndicator(
+                                  color: const Color(0xFFDE1327).withOpacity(0.5),
+                                ),
+                              );
+                            }
+                            return snapshot.data ?? const SizedBox.shrink();
+                          },
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              
+              // Botones de acción
+              const SizedBox(height: 20),
+              const Divider(),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(
+                      'Cerrar',
+                      style: GoogleFonts.poppins(
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  if (_planActual!.estatus == 'borrador' || _puedeEditarPlan(_planActual!)) ...[
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        Navigator.pop(context); // Cerrar el diálogo
+                        
+                        // Navegar a editar día
+                        final resultado = await Navigator.pushNamed(
+                          context,
+                          '/programar_dia',
+                          arguments: {
+                            'dia': dia,
+                            'semana': _planActual!.semana,
+                            'liderId': _planActual!.liderId,
+                            'esEdicion': _planActual!.estatus == 'enviado',
+                          },
+                        );
+                        
+                        if (resultado == true && mounted) {
+                          setState(() => _cargando = true);
+                          await _cargarPlanDesdeServidor();
+                        }
+                      },
+                      icon: const Icon(Icons.edit, size: 18),
+                      label: Text(
+                        'Editar',
+                        style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFDE1327),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildSeccionResumen(String titulo, String contenido, IconData icono, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icono, color: color, size: 20),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  titulo,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  contenido,
+                  style: GoogleFonts.poppins(
+                    fontSize: 15,
+                    color: const Color(0xFF1C2120),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildSeccionActividades(String titulo, String tipoActividad, IconData icono, Color color) {
+    List<Widget> actividades = [];
+    
+    try {
+      // Intentar parsear como JSON array
+      if (tipoActividad.startsWith('[')) {
+        final actividadesJson = jsonDecode(tipoActividad);
+        for (var actividad in actividadesJson) {
+          actividades.add(_buildItemActividad(
+            actividad['tipo'] ?? 'Sin especificar',
+            actividad['estatus'] ?? 'pendiente',
+          ));
+        }
+      } else {
+        // Si no es JSON, mostrar como actividad simple
+        actividades.add(_buildItemActividad(tipoActividad, 'pendiente'));
+      }
+    } catch (e) {
+      // Si falla el parseo, mostrar como texto simple
+      actividades.add(_buildItemActividad(tipoActividad, 'pendiente'));
+    }
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icono, color: color, size: 20),
+              ),
+              const SizedBox(width: 16),
+              Text(
+                titulo,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: const Color(0xFF1C2120),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...actividades,
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildItemActividad(String tipo, String estatus) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(
+            estatus == 'completado' ? Icons.check_circle : Icons.radio_button_unchecked,
+            size: 16,
+            color: estatus == 'completado' ? Colors.green : Colors.grey,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              tipo,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: const Color(0xFF1C2120),
+                decoration: estatus == 'completado' ? TextDecoration.lineThrough : null,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildSeccionClientes(String titulo, DiaTrabajoModelo diaData, IconData icono, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icono, color: color, size: 20),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      titulo,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: const Color(0xFF1C2120),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (diaData.rutaNombre != null)
+                      Text(
+                        'Ruta: ${diaData.rutaNombre}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${diaData.clientesAsignados.length}',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: color,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            constraints: const BoxConstraints(maxHeight: 200),
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: diaData.clientesAsignados.length,
+              itemBuilder: (context, index) {
+                final cliente = diaData.clientesAsignados[index];
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      Icon(
+                        cliente.visitado ? Icons.check_circle : Icons.store_outlined,
+                        size: 16,
+                        color: cliente.visitado ? Colors.green : Colors.grey,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              cliente.clienteNombre,
+                              style: GoogleFonts.poppins(
+                                fontSize: 13,
+                                color: const Color(0xFF1C2120),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              'ID: ${cliente.clienteId} • ${cliente.clienteTipo}',
+                              style: GoogleFonts.poppins(
+                                fontSize: 11,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildSeccionObjetivosAbordaje(String titulo, String comentario, IconData icono, Color color) {
+    List<String> objetivos = [];
+    String comentarioAdicional = '';
+    
+    try {
+      // Intentar parsear como JSON
+      final comentarioData = jsonDecode(comentario);
+      if (comentarioData is Map && comentarioData.containsKey('objetivos')) {
+        objetivos = List<String>.from(comentarioData['objetivos']);
+        comentarioAdicional = comentarioData['comentario'] ?? '';
+      } else {
+        throw Exception('No es formato de múltiples objetivos');
+      }
+    } catch (e) {
+      // Si no es JSON, tratar como objetivo único
+      if (comentario.isNotEmpty) {
+        objetivos = [comentario];
+      }
+    }
+    
+    if (objetivos.isEmpty) return const SizedBox.shrink();
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icono, color: color, size: 20),
+              ),
+              const SizedBox(width: 16),
+              Text(
+                titulo,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: const Color(0xFF1C2120),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...objetivos.map((objetivo) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    objetivo,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: const Color(0xFF1C2120),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          )).toList(),
+          if (comentarioAdicional.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.comment_outlined, size: 16, color: Colors.grey.shade600),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      comentarioAdicional,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        color: Colors.grey.shade700,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+  
+  Future<Widget> _buildSeccionIndicadores(DiaTrabajoModelo diaData) async {
+    final indicadoresServicio = IndicadoresGestionServicio();
+    
+    // Generar ID del plan para buscar indicadores
+    final planVisitaId = '${_planActual!.semana}_${diaData.dia}_${diaData.rutaId ?? ''}';
+    final clienteIds = diaData.clientesAsignados.map((c) => c.clienteId).toList();
+    
+    // Obtener resumen de indicadores
+    final resumen = await indicadoresServicio.obtenerResumenIndicadores(planVisitaId, clienteIds);
+    
+    if (resumen.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    
+    // Contar clientes con indicadores
+    final clientesConIndicadores = resumen.where((r) => (r['indicadores'] as List).isNotEmpty).length;
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.purple.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.purple.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.purple.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.analytics, color: Colors.purple, size: 20),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  'Indicadores de Gestión',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: const Color(0xFF1C2120),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.purple.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '$clientesConIndicadores/${clienteIds.length}',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: Colors.purple,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          
+          // Mostrar resumen de indicadores por cliente
+          ...resumen.take(3).map((clienteResumen) {
+            final indicadores = clienteResumen['indicadores'] as List<String>;
+            final comentario = clienteResumen['comentario'] as String?;
+            
+            if (indicadores.isEmpty) return const SizedBox.shrink();
+            
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.purple.withOpacity(0.2)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    clienteResumen['clienteNombre'],
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF1C2120),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    children: indicadores.take(2).map((indicador) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.purple.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          indicador,
+                          style: GoogleFonts.poppins(
+                            fontSize: 11,
+                            color: Colors.purple.shade700,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  if (indicadores.length > 2)
+                    Text(
+                      '+${indicadores.length - 2} más',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        color: Colors.purple.shade600,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                ],
+              ),
+            );
+          }).toList(),
+          
+          if (resumen.length > 3)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                'Y ${resumen.length - 3} clientes más...',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: Colors.purple.shade600,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -1258,7 +2024,7 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                   ],
                 ),
                 const SizedBox(height: 8),
-                _buildDato('Estatus:', _planActual!.estatus.toUpperCase()),
+                _buildDato('Estatus:', _planActual!.estatus == 'borrador' ? 'EN PROCESO' : _planActual!.estatus.toUpperCase()),
                 _buildDato('Líder:', _planActual!.liderNombre),
                 _buildDato('Centro:', _planActual!.centroDistribucion),
 
@@ -1414,7 +2180,17 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                 const SizedBox(height: 16),
 
                 // DÍAS DE LA SEMANA
-                ...diasSemana.map((dia) {
+                ...diasSemana.asMap().entries.map((entry) {
+                  final indice = entry.key;
+                  final dia = entry.value;
+                  
+                  // Calcular la fecha real del día
+                  final semanaSeleccionadaObj = _semanasDisponibles.firstWhere(
+                    (s) => s.codigo == _semanaSeleccionada,
+                  );
+                  final fechaDia = semanaSeleccionadaObj.inicioSemana.add(Duration(days: indice));
+                  final fechaFormateada = DateFormat('dd/MM/yyyy').format(fechaDia);
+                  
                   final tieneDia = _planActual!.dias.containsKey(dia);
                   final tieneObjetivo =
                       tieneDia &&
@@ -1452,7 +2228,7 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                         children: [
                           Expanded(
                             child: Text(
-                              dia,
+                              '$dia - $fechaFormateada',
                               style: TextStyle(
                                 fontSize: 16,
                                 color:
@@ -1484,14 +2260,29 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                                 ),
                               )
                               : null,
-                      trailing: Icon(
-                        diaConfigurado
-                            ? Icons.check_circle
-                            : Icons.hourglass_bottom,
-                        color:
-                            !esEditable
-                                ? Colors.grey.shade400
-                                : (diaConfigurado ? Colors.green : Colors.grey),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (diaConfigurado)
+                            IconButton(
+                              icon: Icon(
+                                Icons.visibility_outlined,
+                                color: const Color(0xFFDE1327),
+                                size: 22,
+                              ),
+                              onPressed: () => _mostrarResumenDia(dia, _planActual!.dias[dia]!),
+                              tooltip: 'Ver resumen del día',
+                            ),
+                          Icon(
+                            diaConfigurado
+                                ? Icons.check_circle
+                                : Icons.hourglass_bottom,
+                            color:
+                                !esEditable
+                                    ? Colors.grey.shade400
+                                    : (diaConfigurado ? Colors.green : Colors.grey),
+                          ),
+                        ],
                       ),
                       onTap:
                           (_planActual!.estatus == 'borrador' ||
@@ -1671,7 +2462,7 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
+        currentIndex: 0,
         onTap: _onNavBarTap,
         selectedItemColor: const Color(0xFFDE1327),
         unselectedItemColor: Colors.grey,
@@ -1681,10 +2472,6 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined),
             label: 'Inicio',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.assignment_outlined),
-            label: 'Rutinas',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
@@ -1735,13 +2522,13 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                               fontWeight: FontWeight.w500,
                             ),
                           ),
-                          Text(
-                            '${semana.fechaInicio} - ${semana.fechaFin}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
+                          // Text(
+                          //   '${semana.fechaInicio} - ${semana.fechaFin}',
+                          //   style: TextStyle(
+                          //     fontSize: 12,
+                          //     color: Colors.grey.shade600,
+                          //   ),
+                          // ),
                         ],
                       ),
                     );

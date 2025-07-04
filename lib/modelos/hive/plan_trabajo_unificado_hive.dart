@@ -130,7 +130,7 @@ class PlanTrabajoUnificadoHive extends HiveObject {
         'rutaId': dia.rutaId,
         'rutaNombre': dia.rutaNombre,
         'clienteIds': dia.clienteIds,
-        'clientes': dia.clientes.map((visita) => visita.toJson()).toList(),
+        'clientes': dia.clientes.map((visita) => visita.toJsonConIndicadores()).toList(),
         'configurado': dia.configurado,
       })),
       'sincronizado': sincronizado,
@@ -403,6 +403,12 @@ class VisitaClienteUnificadaHive extends HiveObject {
 
   @HiveField(10)
   DateTime? fechaModificacion;
+  
+  @HiveField(11)
+  List<String>? indicadorIds;
+  
+  @HiveField(12)
+  String? comentarioIndicadores;
 
   VisitaClienteUnificadaHive({
     required this.clienteId,
@@ -416,6 +422,8 @@ class VisitaClienteUnificadaHive extends HiveObject {
     this.reconocimiento,
     this.estatus = 'pendiente',
     this.fechaModificacion,
+    this.indicadorIds,
+    this.comentarioIndicadores,
   }) : compromisos = compromisos ?? [];
 
   Map<String, dynamic> toJson() {
@@ -431,6 +439,8 @@ class VisitaClienteUnificadaHive extends HiveObject {
       'retroalimentacion': retroalimentacion,
       'reconocimiento': reconocimiento,
       'fechaModificacion': fechaModificacion?.toIso8601String(),
+      'indicadorIds': indicadorIds,
+      'comentarioIndicadores': comentarioIndicadores,
     };
   }
 
@@ -455,6 +465,8 @@ class VisitaClienteUnificadaHive extends HiveObject {
       fechaModificacion: json['fechaModificacion'] != null
           ? DateTime.parse(json['fechaModificacion'])
           : null,
+      indicadorIds: (json['indicadorIds'] as List<dynamic>?)?.cast<String>(),
+      comentarioIndicadores: json['comentarioIndicadores'],
     );
   }
 
@@ -473,6 +485,34 @@ class VisitaClienteUnificadaHive extends HiveObject {
 
   bool get visitaIniciada => horaInicio != null;
   bool get visitaCompletada => horaFin != null;
+  
+  Map<String, dynamic> toJsonConIndicadores() {
+    final json = toJson();
+    
+    // Si hay indicadores, agregar información descriptiva
+    if (indicadorIds != null && indicadorIds!.isNotEmpty) {
+      // Map de IDs a nombres de indicadores
+      final indicadoresMap = {
+        '1': 'Venta actual',
+        '2': 'Venta AA',
+        '3': '% Crec. vs AA',
+        '4': 'Decrecimiento 2 meses sin compra',
+        '5': 'Mix de productos',
+        '6': 'Frecuencia de visita',
+        '7': 'Ticket promedio',
+        '8': 'Productos nuevos',
+        '9': 'Cumplimiento de cuota',
+        '10': 'Estatus de crédito',
+      };
+      
+      json['indicadores'] = indicadorIds!.map((id) => {
+        'id': id,
+        'nombre': indicadoresMap[id] ?? 'Indicador $id',
+      }).toList();
+    }
+    
+    return json;
+  }
 }
 
 @HiveType(typeId: 18)

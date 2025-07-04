@@ -1,3 +1,4 @@
+import 'dart:convert';
 import '../modelos/plan_trabajo_modelo.dart';
 import '../modelos/lider_comercial_modelo.dart';
 import '../modelos/hive/plan_trabajo_semanal_hive.dart';
@@ -12,6 +13,7 @@ import '../repositorios/plan_trabajo_unificado_repository.dart';
 import 'hive_service.dart';
 import 'plan_trabajo_servicio.dart';
 import 'sesion_servicio.dart';
+import 'indicadores_gestion_servicio.dart';
 
 class PlanTrabajoOfflineService {
   static final PlanTrabajoOfflineService _instance = PlanTrabajoOfflineService._internal();
@@ -190,31 +192,139 @@ class PlanTrabajoOfflineService {
   ) async {
     await initialize();
 
-    // Extraer IDs de clientes asignados
-    final clienteIds = dia.clientesAsignados.map((c) => c.clienteId).toList();
+    // Obtener el plan existente para verificar si ya hay datos del día
+    final planExistente = _planRepository!.obtenerPlanPorSemana(liderClave, semana);
+    DiaTrabajoHive? diaExistente;
+    if (planExistente != null && planExistente.dias.containsKey(dia.dia)) {
+      diaExistente = planExistente.dias[dia.dia];
+    }
 
-    // Convertir a Hive
-    final diaHive = DiaTrabajoHive(
-      dia: dia.dia,
-      objetivoId: dia.objetivo,
-      objetivoNombre: dia.objetivo,
-      tipo: dia.objetivo == 'Gestión de cliente' ? 'gestion_cliente' : 'administrativo',
-      clienteIds: clienteIds,
-      rutaId: dia.rutaId,
-      rutaNombre: dia.rutaNombre,
-      tipoActividadAdministrativa: dia.tipoActividad,
-      objetivoAbordaje: dia.comentario,
-      configurado: true,
-    );
-
-    print('Guardando configuración del día:');
-    print('- Día: ${diaHive.dia}');
-    print('- ObjetivoId: ${diaHive.objetivoId}');
-    print('- ObjetivoNombre: ${diaHive.objetivoNombre}');
-    print('- Tipo: ${diaHive.tipo}');
-    print('- Configurado: ${diaHive.configurado}');
-    
-    await _planRepository!.actualizarDia(liderClave, semana, diaHive);
+    // Si es una actividad administrativa
+    if (dia.objetivo == 'Actividad administrativa') {
+      if (diaExistente != null && diaExistente.configurado) {
+        // Parsear actividades administrativas existentes
+        List<Map<String, dynamic>> actividadesExistentes = [];
+        
+        if (diaExistente.tipoActividadAdministrativa != null && diaExistente.tipoActividadAdministrativa!.isNotEmpty) {
+          try {
+            if (diaExistente.tipoActividadAdministrativa!.startsWith('[')) {
+              actividadesExistentes = List<Map<String, dynamic>>.from(
+                jsonDecode(diaExistente.tipoActividadAdministrativa!)
+              );
+            } else {
+              actividadesExistentes = [{
+                'tipo': diaExistente.tipoActividadAdministrativa!,
+                'objetivo': 'Actividad administrativa',
+                'estatus': 'pendiente',
+                'fechaCompletado': null
+              }];
+            }
+          } catch (e) {
+            actividadesExistentes = [{
+              'tipo': diaExistente.tipoActividadAdministrativa!,
+              'objetivo': 'Actividad administrativa',
+              'estatus': 'pendiente',
+              'fechaCompletado': null
+            }];
+          }
+        }
+        
+        // Agregar nueva actividad
+        actividadesExistentes.add({
+          'tipo': dia.tipoActividad ?? '',
+          'objetivo': 'Actividad administrativa',
+          'estatus': 'pendiente',
+          'fechaCompletado': null
+        });
+        
+        // Actualizar el día existente
+        diaExistente.tipoActividadAdministrativa = jsonEncode(actividadesExistentes);
+        diaExistente.fechaModificacion = DateTime.now();
+        
+        // Si ya tiene gestión de cliente, cambiar tipo a mixto
+        if (diaExistente.tipo == 'gestion_cliente' && diaExistente.clienteIds.isNotEmpty) {
+          diaExistente.tipo = 'mixto';
+          diaExistente.objetivoId = 'Múltiples objetivos';
+          diaExistente.objetivoNombre = 'Múltiples objetivos';
+        }
+        
+        await _planRepository!.actualizarDia(liderClave, semana, diaExistente);
+      } else {
+        // Crear nuevo día administrativo
+        final diaHive = DiaTrabajoHive(
+          dia: dia.dia,
+          objetivoId: dia.objetivo,
+          objetivoNombre: dia.objetivo,
+          tipo: 'administrativo',
+          clienteIds: [],
+          rutaId: null,
+          rutaNombre: null,
+          tipoActividadAdministrativa: jsonEncode([{
+            'tipo': dia.tipoActividad,
+            'objetivo': 'Actividad administrativa',
+            'estatus': 'pendiente',
+            'fechaCompletado': null
+          }]),
+          objetivoAbordaje: null,
+          configurado: true,
+        );
+        
+        await _planRepository!.actualizarDia(liderClave, semana, diaHive);
+      }
+      
+    } else if (dia.objetivo == 'Gestión de cliente') {
+      if (diaExistente != null && diaExistente.configurado) {
+        // Combinar IDs de clientes
+        final clienteIdsExistentes = Set<String>.from(diaExistente.clienteIds);
+        final clienteIdsNuevos = dia.clientesAsignados.map((c) => c.clienteId).toSet();
+        clienteIdsExistentes.addAll(clienteIdsNuevos);
+        
+        // Actualizar el día existente
+        diaExistente.clienteIds = clienteIdsExistentes.toList();
+        if (dia.rutaId != null) diaExistente.rutaId = dia.rutaId;
+        if (dia.rutaNombre != null) diaExistente.rutaNombre = dia.rutaNombre;
+        diaExistente.fechaModificacion = DateTime.now();
+        
+        // El campo comentario ya contiene los objetivos de abordaje en formato JSON
+        if (dia.comentario != null) {
+          diaExistente.objetivoAbordaje = dia.comentario;
+        }
+        
+        // Si ya tiene actividades administrativas, cambiar tipo a mixto
+        if (diaExistente.tipo == 'administrativo' && 
+            diaExistente.tipoActividadAdministrativa != null && 
+            diaExistente.tipoActividadAdministrativa!.isNotEmpty) {
+          diaExistente.tipo = 'mixto';
+          diaExistente.objetivoId = 'Múltiples objetivos';
+          diaExistente.objetivoNombre = 'Múltiples objetivos';
+        } else if (diaExistente.tipo != 'mixto') {
+          // Si no es mixto, actualizar como gestión de cliente normal
+          diaExistente.tipo = 'gestion_cliente';
+          diaExistente.objetivoId = dia.objetivo;
+          diaExistente.objetivoNombre = dia.objetivo;
+        }
+        
+        await _planRepository!.actualizarDia(liderClave, semana, diaExistente);
+      } else {
+        // Crear nuevo día de gestión cliente
+        final clienteIds = dia.clientesAsignados.map((c) => c.clienteId).toList();
+        
+        final diaHive = DiaTrabajoHive(
+          dia: dia.dia,
+          objetivoId: dia.objetivo,
+          objetivoNombre: dia.objetivo,
+          tipo: 'gestion_cliente',
+          clienteIds: clienteIds,
+          rutaId: dia.rutaId,
+          rutaNombre: dia.rutaNombre,
+          tipoActividadAdministrativa: null,
+          objetivoAbordaje: dia.comentario,
+          configurado: true,
+        );
+        
+        await _planRepository!.actualizarDia(liderClave, semana, diaHive);
+      }
+    }
     
     // Sincronizar con el plan unificado después de actualizar el día
     await sincronizarConPlanUnificado(semana, liderClave);
@@ -376,7 +486,7 @@ class PlanTrabajoOfflineService {
     );
     
     final inicioSemana = primerLunes.add(Duration(days: (numeroSemana - 1) * 7));
-    final finSemana = inicioSemana.add(Duration(days: 4));
+    final finSemana = inicioSemana.add(Duration(days: 5));
     
     final formato = 'dd/MM/yyyy';
     return (
@@ -412,6 +522,9 @@ class PlanTrabajoOfflineService {
       // Crear repositorio del plan unificado
       final planUnificadoRepo = PlanTrabajoUnificadoRepository();
       
+      // Inicializar servicio de indicadores
+      final indicadoresServicio = IndicadoresGestionServicio();
+      
       // Buscar si ya existe un plan unificado
       PlanTrabajoUnificadoHive? planUnificado = planUnificadoRepo.obtenerPlan(planSemanal.id);
       
@@ -421,21 +534,44 @@ class PlanTrabajoOfflineService {
         // Crear nuevo plan unificado
         final dias = <String, DiaPlanHive>{};
         
-        planSemanal.dias.forEach((nombreDia, diaSemanal) {
+        for (var entry in planSemanal.dias.entries) {
+          final nombreDia = entry.key;
+          final diaSemanal = entry.value;
+          
           // Convertir clientes asignados
           final clientesUnificados = <VisitaClienteUnificadaHive>[];
           
+          // Generar ID del plan para buscar indicadores
+          final planVisitaId = '${semana}_${nombreDia}_${diaSemanal.rutaId ?? ''}';
+          
           for (var clienteId in diaSemanal.clienteIds) {
+            // Buscar indicadores guardados para este cliente
+            final indicadorCliente = await indicadoresServicio.obtenerIndicadoresCliente(
+              clienteId,
+              planVisitaId,
+            );
+            
             clientesUnificados.add(VisitaClienteUnificadaHive(
               clienteId: clienteId,
               estatus: 'pendiente',
               fechaModificacion: DateTime.now(),
+              indicadorIds: indicadorCliente?.indicadorIds,
+              comentarioIndicadores: indicadorCliente?.comentario,
             ));
+          }
+          
+          // Determinar el tipo correcto basado en el contenido
+          String tipoFinal = diaSemanal.tipo ?? 'visita';
+          if (diaSemanal.tipo == 'mixto' || 
+              (diaSemanal.tipoActividadAdministrativa != null && 
+               diaSemanal.tipoActividadAdministrativa!.isNotEmpty && 
+               diaSemanal.clienteIds.isNotEmpty)) {
+            tipoFinal = 'mixto';
           }
           
           dias[nombreDia] = DiaPlanHive(
             dia: nombreDia,
-            tipo: diaSemanal.tipo ?? 'visita',
+            tipo: tipoFinal,
             objetivoId: diaSemanal.objetivoId,
             objetivoNombre: diaSemanal.objetivoNombre,
             tipoActividadAdministrativa: diaSemanal.tipoActividadAdministrativa,
@@ -446,7 +582,7 @@ class PlanTrabajoOfflineService {
             configurado: diaSemanal.configurado,
             formularios: [],
           );
-        });
+        }
         
         planUnificado = PlanTrabajoUnificadoHive(
           id: planSemanal.id,
@@ -473,7 +609,9 @@ class PlanTrabajoOfflineService {
         
         // Actualizar el plan unificado existente
         // Preservar las visitas existentes pero actualizar la configuración
-        planSemanal.dias.forEach((nombreDia, diaSemanal) {
+        for (var entry in planSemanal.dias.entries) {
+          final nombreDia = entry.key;
+          final diaSemanal = entry.value;
           final diaUnificado = planUnificado!.dias[nombreDia];
           
           if (diaUnificado != null) {
@@ -489,15 +627,38 @@ class PlanTrabajoOfflineService {
             // Actualizar lista de clienteIds
             diaUnificado.clienteIds = List<String>.from(diaSemanal.clienteIds);
             
+            // Generar ID del plan para buscar indicadores
+            final planVisitaId = '${semana}_${nombreDia}_${diaSemanal.rutaId ?? ''}';
+            
             // Agregar nuevos clientes que no existan
             for (var clienteId in diaSemanal.clienteIds) {
               final existeCliente = diaUnificado.clientes.any((v) => v.clienteId == clienteId);
               if (!existeCliente) {
+                // Buscar indicadores guardados para este cliente
+                final indicadorCliente = await indicadoresServicio.obtenerIndicadoresCliente(
+                  clienteId,
+                  planVisitaId,
+                );
+                
                 diaUnificado.clientes.add(VisitaClienteUnificadaHive(
                   clienteId: clienteId,
                   estatus: 'pendiente',
                   fechaModificacion: DateTime.now(),
+                  indicadorIds: indicadorCliente?.indicadorIds,
+                  comentarioIndicadores: indicadorCliente?.comentario,
                 ));
+              } else {
+                // Actualizar indicadores para clientes existentes
+                final visitaExistente = diaUnificado.clientes.firstWhere((v) => v.clienteId == clienteId);
+                final indicadorCliente = await indicadoresServicio.obtenerIndicadoresCliente(
+                  clienteId,
+                  planVisitaId,
+                );
+                
+                if (indicadorCliente != null) {
+                  visitaExistente.indicadorIds = indicadorCliente.indicadorIds;
+                  visitaExistente.comentarioIndicadores = indicadorCliente.comentario;
+                }
               }
             }
             
@@ -507,7 +668,7 @@ class PlanTrabajoOfflineService {
               visita.estatus == 'pendiente'
             );
           }
-        });
+        }
         
         // Actualizar metadata
         planUnificado.estatus = planSemanal.estatus;

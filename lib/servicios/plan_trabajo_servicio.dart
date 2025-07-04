@@ -366,7 +366,7 @@ class PlanTrabajoServicio {
             .ceil();
 
     final String semana = 'SEMANA $numeroSemana - ${fechaInicioSemana.year}';
-    final DateTime finSemana = fechaInicioSemana.add(const Duration(days: 4));
+    final DateTime finSemana = fechaInicioSemana.add(const Duration(days: 5));
 
     // Intentar obtener plan existente
     PlanTrabajoModelo? planExistente = await obtenerPlanTrabajo(
@@ -508,11 +508,11 @@ class PlanTrabajoServicio {
         inicioSemana = inicioAno.add(
           Duration(days: (semana - 1) * 7 - inicioAno.weekday + 1),
         );
-        finSemana = inicioSemana.add(const Duration(days: 4));
+        finSemana = inicioSemana.add(const Duration(days: 5));
       } catch (e) {
         print('Error calculando fechas de semana: $e'); // Debug
         inicioSemana = DateTime.now();
-        finSemana = inicioSemana.add(const Duration(days: 4));
+        finSemana = inicioSemana.add(const Duration(days: 5));
       }
     }
 

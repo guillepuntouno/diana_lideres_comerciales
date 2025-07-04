@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'dart:convert';
 import '../../modelos/plan_trabajo_modelo.dart';
 import '../../servicios/plan_trabajo_offline_service.dart';
 import '../../servicios/sesion_servicio.dart';
@@ -34,6 +35,7 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
   List<Negocio> _clientesDisponibles = [];
   Map<String, bool> _clientesSeleccionados = {};
   bool _todosSeleccionados = false;
+  List<DiaTrabajoModelo> _actividadesExistentes = [];
 
   int _currentIndex = 1;
   bool _cargando = true;
@@ -87,11 +89,15 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
 
         // Cargar asignaciones existentes si es edición
         await _cargarAsignacionesExistentes();
+        
+        // Cargar todas las actividades del día
+        await _cargarActividadesDelDia();
 
         print('Datos cargados:');
         print('Ruta: $rutaSeleccionada');
         print('Asesor: $_asesorAsignado');
         print('Clientes disponibles: ${_clientesDisponibles.length}');
+        print('Actividades existentes: ${_actividadesExistentes.length}');
       }
     } catch (e) {
       print('Error al cargar datos: $e');
@@ -210,6 +216,102 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
     }
   }
 
+  Future<void> _cargarActividadesDelDia() async {
+    try {
+      // Inicializar el servicio offline si no lo está
+      await _planServicio.initialize();
+
+      // Obtener el plan usando el servicio offline
+      final plan = await _planServicio.obtenerOCrearPlan(
+        semana,
+        liderId,
+        _liderComercial!,
+      );
+
+      // Limpiar lista de actividades
+      _actividadesExistentes.clear();
+
+      // Obtener todos los objetivos configurados para el día
+      if (plan.dias.containsKey(diaAsignado)) {
+        final diaData = plan.dias[diaAsignado]!;
+        
+        // Procesar actividades administrativas múltiples
+        if ((diaData.objetivo == 'Actividad administrativa' || 
+             diaData.objetivo == 'Múltiples objetivos' || 
+             diaData.tipo == 'mixto') && 
+            diaData.tipoActividad != null) {
+          try {
+            // Intentar parsear como JSON array
+            if (diaData.tipoActividad!.startsWith('[')) {
+              final actividades = jsonDecode(diaData.tipoActividad!);
+              for (var actividad in actividades) {
+                _actividadesExistentes.add(
+                  DiaTrabajoModelo(
+                    dia: diaAsignado,
+                    objetivo: 'Actividad administrativa',
+                    tipo: 'administrativo',
+                    tipoActividad: actividad['tipo'],
+                  ),
+                );
+              }
+            } else {
+              // Si es string simple, agregarlo como única actividad
+              _actividadesExistentes.add(diaData);
+            }
+          } catch (e) {
+            // Si falla el parseo, agregar como actividad simple
+            _actividadesExistentes.add(diaData);
+          }
+        } 
+        // Procesar objetivos de abordaje múltiples
+        if (diaData.objetivo == 'Gestión de cliente' || 
+            diaData.objetivo == 'Múltiples objetivos' || 
+            diaData.tipo == 'mixto' || 
+            diaData.tipo == 'gestion_cliente') {
+          String? comentarioFinal;
+          
+          // Si hay objetivos de abordaje múltiples en el comentario
+          if (diaData.comentario != null && diaData.comentario!.isNotEmpty) {
+            try {
+              // Intentar parsear como JSON para múltiples objetivos
+              final comentarioData = jsonDecode(diaData.comentario!);
+              if (comentarioData is Map && comentarioData.containsKey('objetivos')) {
+                final objetivos = List<String>.from(comentarioData['objetivos']);
+                comentarioFinal = objetivos.join(', ');
+              } else {
+                throw Exception('No es un formato de múltiples objetivos');
+              }
+            } catch (e) {
+              // Si no es JSON o falla el parseo, usar el comentario tal cual
+              comentarioFinal = diaData.comentario;
+            }
+          }
+          
+          // Crear la actividad con el comentario procesado
+          _actividadesExistentes.add(
+            DiaTrabajoModelo(
+              dia: diaAsignado,
+              objetivo: diaData.objetivo,
+              tipo: diaData.tipo,
+              rutaId: diaData.rutaId,
+              rutaNombre: diaData.rutaNombre,
+              clientesAsignados: diaData.clientesAsignados,
+              comentario: comentarioFinal,
+            ),
+          );
+        }
+        // Si hay otro tipo de objetivo configurado
+        else if (diaData.objetivo != null) {
+          _actividadesExistentes.add(diaData);
+        }
+      }
+
+      print('Actividades del día cargadas: ${_actividadesExistentes.length}');
+    } catch (e) {
+      print('Error al cargar actividades del día: $e');
+    }
+  }
+
   void _seleccionarTodos(bool? value) {
     setState(() {
       _todosSeleccionados = value ?? false;
@@ -308,7 +410,7 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
       // Cerrar loading
       if (mounted) Navigator.of(context).pop();
 
-      // Mostrar éxito y regresar
+      // Mostrar éxito brevemente
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -322,9 +424,118 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
               ],
             ),
             backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
           ),
         );
-        Navigator.pop(context, true);
+        
+        // Navegar a la vista de indicadores de gestión
+        await Future.delayed(const Duration(milliseconds: 500));
+        
+        if (mounted) {
+          final resultado = await Navigator.pushNamed(
+            context,
+            '/indicadores_gestion',
+            arguments: {
+              'dia': diaAsignado,
+              'semana': semana,
+              'rutaId': rutaSeleccionada,
+              'rutaNombre': rutaSeleccionada,
+              'asesor': _asesorAsignado,
+              'centroDistribucion': centroDistribucion,
+              'clientesAsignados': diaData.clientesAsignados,
+            },
+          );
+          
+          if (resultado == true && mounted) {
+            // Si viene de indicadores con éxito, preguntar si desea agregar otro objetivo
+            final bool? agregarOtro = await showDialog<bool>(
+              context: context,
+              barrierDismissible: false,
+              builder: (context) => AlertDialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                title: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade100,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.check_circle,
+                        color: Colors.green.shade700,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text('Asignación completada'),
+                  ],
+                ),
+                titleTextStyle: GoogleFonts.poppins(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF1C2120),
+                ),
+                content: Text(
+                  '¿Desea agregar otro objetivo para el día $diaAsignado?',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: Text(
+                      'No, finalizar',
+                      style: GoogleFonts.poppins(
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFDE1327),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: Text(
+                      'Sí, agregar otro',
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+            
+            if (agregarOtro == true && mounted) {
+              // Navegar de vuelta a programar día
+              Navigator.pushReplacementNamed(
+                context,
+                '/programar_dia',
+                arguments: {
+                  'dia': diaAsignado,
+                  'semana': semana,
+                  'liderId': liderId,
+                  'esEdicion': esEdicion,
+                },
+              );
+            } else if (mounted) {
+              Navigator.pop(context, true);
+            }
+          } else if (mounted) {
+            // Si canceló en indicadores, volver atrás
+            Navigator.pop(context);
+          }
+        }
       }
     } catch (e) {
       // Cerrar loading
@@ -700,6 +911,84 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
               ],
             ),
           ),
+          
+          // Mostrar actividades ya programadas si existen
+          if (_actividadesExistentes.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.blue.shade200,
+                  width: 1,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.assignment_turned_in,
+                        color: Colors.blue.shade700,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Actividades ya programadas para $diaAsignado:',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF1C2120),
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  ..._actividadesExistentes.map((actividad) {
+                    String descripcion = '';
+                    if (actividad.objetivo == 'Actividad administrativa') {
+                      descripcion = '${actividad.objetivo}: ${actividad.tipoActividad ?? 'N/A'}';
+                    } else if (actividad.objetivo == 'Gestión de cliente') {
+                      descripcion = 'Abordaje de ruta: ${actividad.comentario ?? 'Sin especificar'}';
+                      if (actividad.clientesAsignados.isNotEmpty) {
+                        descripcion += ' (${actividad.clientesAsignados.length} clientes)';
+                      }
+                    }
+                    
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade400,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              descripcion,
+                              style: GoogleFonts.poppins(
+                                fontSize: 13,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ],
+              ),
+            ),
+          ],
+          
           const SizedBox(height: 20),
 
           // Sección de asignación simplificada
@@ -930,7 +1219,7 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
                     elevation: 2,
                   ),
                   child: Text(
-                    'ENVIAR',
+                    'GUARDAR',
                     style: GoogleFonts.poppins(
                       color: Colors.white,
                       fontWeight: FontWeight.w600,

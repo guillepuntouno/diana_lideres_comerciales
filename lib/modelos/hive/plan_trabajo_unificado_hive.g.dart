@@ -175,13 +175,15 @@ class VisitaClienteUnificadaHiveAdapter
       reconocimiento: fields[8] as String?,
       estatus: fields[9] as String,
       fechaModificacion: fields[10] as DateTime?,
+      indicadorIds: (fields[11] as List?)?.cast<String>(),
+      comentarioIndicadores: fields[12] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, VisitaClienteUnificadaHive obj) {
     writer
-      ..writeByte(11)
+      ..writeByte(13)
       ..writeByte(0)
       ..write(obj.clienteId)
       ..writeByte(1)
@@ -203,7 +205,11 @@ class VisitaClienteUnificadaHiveAdapter
       ..writeByte(9)
       ..write(obj.estatus)
       ..writeByte(10)
-      ..write(obj.fechaModificacion);
+      ..write(obj.fechaModificacion)
+      ..writeByte(11)
+      ..write(obj.indicadorIds)
+      ..writeByte(12)
+      ..write(obj.comentarioIndicadores);
   }
 
   @override
