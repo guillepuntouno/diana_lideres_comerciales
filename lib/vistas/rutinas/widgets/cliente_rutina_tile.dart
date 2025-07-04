@@ -62,7 +62,7 @@ class ClienteRutinaTile extends StatelessWidget {
                 runSpacing: 8,
                 children: [
                   // Badge de formulario
-                  if (rutina != TipoRutina.planTrabajo)
+                  if (rutina == TipoRutina.formularios || rutina == TipoRutina.todas)
                     _buildFormularioBadge(tieneFormulario, porcentajeFormulario),
                   
                   // Badge de compromisos

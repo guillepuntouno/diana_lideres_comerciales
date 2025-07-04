@@ -193,7 +193,7 @@ class _PantallaRutinasResultadosState extends State<PantallaRutinasResultados> {
     final clientesPlanificados = actividadesFiltradas.length;
     final visitados = actividadesFiltradas.where((v) {
       // Verificar si tiene el formulario correspondiente
-      if (_rutinaSeleccionada == TipoRutina.planTrabajo) {
+      if (_rutinaSeleccionada == TipoRutina.todas) {
         return v.estatus == 'completada';
       }
       
