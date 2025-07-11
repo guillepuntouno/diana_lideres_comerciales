@@ -3,19 +3,92 @@ import 'rutas/rutas.dart';
 import 'temas/tema_diana.dart';
 import 'servicios/hive_service.dart';
 import 'servicios/auth_guard.dart';
+import 'dart:io' show Platform;
+import 'package:app_links/app_links.dart';
+import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class DianaApp extends StatelessWidget {
+class DianaApp extends StatefulWidget {
   final bool hasNewToken;
   
   const DianaApp({super.key, this.hasNewToken = false});
 
   @override
+  State<DianaApp> createState() => _DianaAppState();
+}
+
+class _DianaAppState extends State<DianaApp> {
+  StreamSubscription<Uri>? _linkSubscription;
+  final _navigatorKey = GlobalKey<NavigatorState>();
+  late AppLinks _appLinks;
+
+  @override
+  void initState() {
+    super.initState();
+    _appLinks = AppLinks();
+    _initDeepLinkListener();
+  }
+
+  void _initDeepLinkListener() {
+    try {
+      if (Platform.isAndroid || Platform.isIOS) {
+        // Escuchar deep links mientras la app está corriendo
+        _linkSubscription = _appLinks.uriLinkStream.listen((Uri uri) async {
+          print('🔗 Deep link recibido: $uri');
+          final token = _extractTokenFromDeepLink(uri.toString());
+          if (token != null) {
+            await _handleTokenFromDeepLink(token);
+          }
+        }, onError: (err) {
+          print('Error en deep link listener: $err');
+        });
+      }
+    } catch (e) {
+      // Platform no disponible en web
+      print('Deep link listener no disponible en esta plataforma');
+    }
+  }
+
+  String? _extractTokenFromDeepLink(String deepLink) {
+    try {
+      final uri = Uri.parse(deepLink);
+      if (uri.fragment.isNotEmpty) {
+        final params = Uri.splitQueryString(uri.fragment);
+        return params['id_token'];
+      }
+      return uri.queryParameters['id_token'];
+    } catch (e) {
+      print('Error extrayendo token del deep link: $e');
+      return null;
+    }
+  }
+
+  Future<void> _handleTokenFromDeepLink(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('id_token', token);
+    
+    print('🔐 Token recibido del deep link y guardado');
+    
+    // Navegar al home si el token es válido
+    if (_navigatorKey.currentState != null) {
+      _navigatorKey.currentState!.pushReplacementNamed('/token-redirect');
+    }
+  }
+
+  @override
+  void dispose() {
+    _linkSubscription?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: _navigatorKey,
       title: 'Diana - Líderes Comerciales',
       debugShowCheckedModeBanner: false,
       theme: temaDiana,
-      initialRoute: hasNewToken ? '/token-redirect' : '/splash',
+      initialRoute: widget.hasNewToken ? '/token-redirect' : '/splash',
       routes: {
         '/splash': (context) => const _InitializationScreen(),
         '/token-redirect': (context) => const _TokenRedirectScreen(),

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Redirigiendo a DIANA...</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5;
+        }
+        .container {
+            text-align: center;
+            padding: 20px;
+        }
+        .logo {
+            width: 120px;
+            height: 120px;
+            margin-bottom: 20px;
+        }
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #DE1327;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .error {
+            color: #DE1327;
+            margin-top: 20px;
+            display: none;
+        }
+        .manual-link {
+            margin-top: 20px;
+            display: none;
+        }
+        .manual-link a {
+            color: #DE1327;
+            text-decoration: none;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Redirigiendo a DIANA...</h2>
+        <div class="spinner"></div>
+        <p>Por favor espera mientras te redirigimos a la aplicación.</p>
+        
+        <div class="error" id="error">
+            <p>Si no se abre automáticamente la aplicación:</p>
+            <ol style="text-align: left; display: inline-block;">
+                <li>Copia el token de abajo</li>
+                <li>Abre la app DIANA manualmente</li>
+                <li>El login se completará automáticamente</li>
+            </ol>
+        </div>
+        
+        <div class="manual-link" id="manual-link">
+            <p><a href="#" id="deep-link">Abrir DIANA manualmente</a></p>
+        </div>
+    </div>
+
+    <script>
+        // Extraer el token de la URL
+        function getTokenFromUrl() {
+            const hash = window.location.hash.substring(1);
+            const params = new URLSearchParams(hash);
+            return params.get('id_token');
+        }
+
+        // Intentar abrir la app con el deep link
+        function redirectToApp() {
+            const token = getTokenFromUrl();
+            if (token) {
+                const deepLink = 'dianacallback://login#id_token=' + encodeURIComponent(token);
+                
+                // Guardar el token en localStorage por si acaso
+                localStorage.setItem('diana_temp_token', token);
+                
+                // Intentar abrir el deep link
+                window.location.href = deepLink;
+                
+                // Mostrar opciones manuales después de 3 segundos
+                setTimeout(function() {
+                    document.getElementById('error').style.display = 'block';
+                    document.getElementById('manual-link').style.display = 'block';
+                    document.getElementById('deep-link').href = deepLink;
+                    
+                    // Mostrar el token para debug
+                    console.log('Token:', token);
+                }, 3000);
+            } else {
+                document.getElementById('error').innerHTML = '<p>Error: No se encontró el token de autenticación.</p>';
+                document.getElementById('error').style.display = 'block';
+            }
+        }
+
+        // Ejecutar cuando la página cargue
+        window.onload = function() {
+            setTimeout(redirectToApp, 500);
+        };
+    </script>
+</body>
+</html>

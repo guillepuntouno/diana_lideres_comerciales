@@ -13,7 +13,13 @@
       "Bash(flutter analyze:*)",
       "Bash(dart analyze:*)",
       "Bash(flutter:*)",
-      "Bash(awk:*)"
+      "Bash(awk:*)",
+      "Bash(/mnt/c/flutter/bin/flutter.bat clean:*)",
+      "Bash(cmd.exe /c \"flutter clean\")",
+      "Bash(cmd.exe /c \"flutter pub get\")",
+      "Bash(cmd.exe /c \"flutter build apk --release\" 2 >& 1)",
+      "Bash(cmd.exe /c:*)",
+      "Bash(dart pub:*)"
     ],
     "deny": []
   }

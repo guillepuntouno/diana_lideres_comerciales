@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/login_viewmodel.dart';
 import '../../widgets/footer_clipper.dart';
-import 'dart:html' as html;
+import 'package:diana_lc_front/platform/platform_bridge.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class PantallaLogin extends StatelessWidget {
@@ -23,14 +23,28 @@ class PantallaLogin extends StatelessWidget {
         'identity_provider': 'AzureAD',
       },
     );
-    html.window.location.href = loginUri.toString();
+    p.redirectTo(loginUri.toString());
   } */
 
   // Para desarrollo local - usar este método cuando ejecutes localmente
   void redirectToAzureLogin() {
+    print('🔐 redirectToAzureLogin called');
+    
     // Obtener el origen actual de la ventana para manejar diferentes puertos
-    final currentOrigin = html.window.location.origin;
-    final redirectUri = '$currentOrigin/login';
+    final currentOrigin = p.getCurrentOrigin();
+    print('📍 Current origin: $currentOrigin');
+    
+    String redirectUri;
+    
+    // Para móvil usar deep link, para web usar URL completa
+    if (currentOrigin == 'app://internal') {
+      // Usar deep link para que regrese a la app
+      redirectUri = 'dianacallback://login';
+      print('📱 Using mobile redirect URI (deep link)');
+    } else {
+      redirectUri = '$currentOrigin/login';
+      print('🌐 Using web redirect URI');
+    }
     
     print('🔗 Redirect URI: $redirectUri');
     
@@ -45,7 +59,13 @@ class PantallaLogin extends StatelessWidget {
         'identity_provider': 'AzureAD',
       },
     );
-    html.window.location.href = loginUri.toString();
+    
+    print('🌍 Full login URL: ${loginUri.toString()}');
+    print('🚀 Calling p.redirectTo...');
+    
+    p.redirectTo(loginUri.toString());
+    
+    print('✅ p.redirectTo called');
   }
   
   // Para producción - descomentar este método cuando hagas deploy
@@ -62,7 +82,7 @@ class PantallaLogin extends StatelessWidget {
         'identity_provider': 'AzureAD',
       },
     );
-    html.window.location.href = loginUri.toString();
+    p.redirectTo(loginUri.toString());
   }
   */
 
