@@ -1366,6 +1366,7 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                             'dia': dia,
                             'semana': _planActual!.semana,
                             'liderId': _planActual!.liderId,
+                            'fecha': fechaDia,
                             'esEdicion': _planActual!.estatus == 'enviado',
                           },
                         );
@@ -2313,6 +2314,7 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                                     'dia': dia,
                                     'semana': _planActual!.semana,
                                     'liderId': _planActual!.liderId,
+                                    'fecha': fechaDia,
                                     'esEdicion':
                                         _planActual!.estatus ==
                                         'enviado', // Indicar si es edición

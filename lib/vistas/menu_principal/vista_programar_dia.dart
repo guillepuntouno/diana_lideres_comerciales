@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:intl/intl.dart';
+import 'package:diacritic/diacritic.dart';
 import '../../modelos/plan_trabajo_modelo.dart';
 import '../../servicios/plan_trabajo_servicio.dart';
 import '../../servicios/sesion_servicio.dart';
@@ -10,6 +11,8 @@ import '../../modelos/lider_comercial_modelo.dart';
 import '../../servicios/plan_trabajo_offline_service.dart';
 import '../../modelos/hive/cliente_hive.dart';
 import '../../modelos/hive/objetivo_hive.dart';
+import '../../servicios/catalogo_dias_service.dart';
+import '../../servicios/rutas_servicio.dart';
 
 class VistaProgramarDia extends StatefulWidget {
   const VistaProgramarDia({super.key});
@@ -22,13 +25,18 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
   final _formKey = GlobalKey<FormState>();
   final PlanTrabajoServicio _planServicio = PlanTrabajoServicio();
   final PlanTrabajoOfflineService _planOfflineService = PlanTrabajoOfflineService();
+  final RutasServicio _rutasServicio = RutasServicio();
 
   // Variables de estado
   late String diaSeleccionado;
   late String semana;
   late String liderId;
+  late DateTime _fechaReal;
+  Map<String, String>? _catDia; // mapa resuelto
+  String? _codigoDiaVisita; // clave que va al backend
   bool esEdicion = false; // Nuevo: detectar si es edición
   String? _tipoObjetivoExistente; // Para rastrear el tipo de objetivo ya guardado
+  bool _cargandoRutas = false; // Estado de carga de rutas
 
   String? _objetivoSeleccionado;
   String? _rutaSeleccionada;
@@ -68,16 +76,37 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
 
 
   @override
+  void initState() {
+    super.initState();
+  }
+
+  bool _datosInicializados = false;
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final args =
-        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    diaSeleccionado = args['dia'] as String;
-    semana = args['semana'] as String;
-    liderId = args['liderId'] as String;
-    esEdicion = args['esEdicion'] ?? false; // Detectar si es edición
+    
+    // Solo cargar datos la primera vez
+    if (!_datosInicializados) {
+      final args =
+          ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+      diaSeleccionado = args['dia'] as String;
+      semana = args['semana'] as String;
+      liderId = args['liderId'] as String;
+      _fechaReal = args['fecha'] as DateTime;
+      esEdicion = args['esEdicion'] ?? false; // Detectar si es edición
 
-    _inicializarDatos();
+      print('🚀 Inicializando VistaProgramarDia');
+      print('  - Día: $diaSeleccionado');
+      print('  - Fecha: $_fechaReal');
+      print('  - Semana: $semana');
+
+      _datosInicializados = true;
+      
+      // Cargar catálogo del día después de tener la fecha
+      _cargarCatalogoDelDia();
+      _inicializarDatos();
+    }
   }
 
   Future<void> _inicializarDatos() async {
@@ -88,6 +117,129 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
     await _cargarDatosExistentes();
   }
 
+  Future<void> _cargarCatalogoDelDia() async {
+    try {
+      print('🔍 Cargando catálogo para fecha: $_fechaReal');
+      print('📅 Día seleccionado: $diaSeleccionado');
+      
+      final box = await CatalogoDiasService.openBox();
+      print('📦 Caja abierta con ${box.values.length} registros');
+      
+      // Buscar por el día que ya tenemos en español
+      final Map? registro = box.values.firstWhere(
+        (e) => _normaliza(e['dia']) == _normaliza(diaSeleccionado),
+        orElse: () => null,
+      );
+      
+      if (registro == null) {
+        print('⚠️ No se encontró registro para el día: $diaSeleccionado');
+        print('📋 Días disponibles en la caja:');
+        for (var item in box.values) {
+          print('  - ${item['dia']} (normalizado: ${_normaliza(item['dia'])})');
+        }
+        throw Exception('Día no encontrado en el catálogo');
+      }
+      
+      print('✅ Registro encontrado: $registro');
+
+      // Calcular número de semana ISO usando DateTime
+      final int numeroSemana = _calcularNumeroSemanaISO(_fechaReal);
+      print('🗓️ Número de semana ISO: $numeroSemana (${numeroSemana.isEven ? "par" : "impar"})');
+      
+      final String sufijo = numeroSemana.isEven ? '03' : '02';
+      print('🔢 Sufijo seleccionado: $sufijo');
+
+      setState(() {
+        _catDia = {
+          'clave01': registro['codes']['01'],
+          'texto01': registro['desc']['01'],
+          'clave02': registro['codes']['02'],
+          'texto02': registro['desc']['02'],
+          'clave03': registro['codes']['03'],
+          'texto03': registro['desc']['03'],
+          'inicial': registro['codes'][sufijo],
+        };
+        _codigoDiaVisita = _catDia!['inicial'];
+        print('✅ Catálogo cargado. Código inicial: $_codigoDiaVisita');
+      });
+    } catch (e) {
+      print('❌ Error al cargar catálogo del día: $e');
+      print('Stack trace: ${StackTrace.current}');
+      // En caso de error, usar valores por defecto basados en el día actual
+      final String diaActual = diaSeleccionado;
+      String inicial;
+      
+      // Manejar las iniciales especiales
+      switch (diaActual.toLowerCase()) {
+        case 'lunes':
+          inicial = 'L';
+          break;
+        case 'martes':
+          inicial = 'M';
+          break;
+        case 'miércoles':
+        case 'miercoles':
+          inicial = 'W';  // Miércoles usa W
+          break;
+        case 'jueves':
+          inicial = 'J';
+          break;
+        case 'viernes':
+          inicial = 'V';
+          break;
+        case 'sábado':
+        case 'sabado':
+          inicial = 'S';
+          break;
+        case 'domingo':
+          inicial = 'D';
+          break;
+        default:
+          inicial = diaActual.substring(0, 1).toUpperCase();
+      }
+      
+      // Calcular si la semana es par o impar para el sufijo por defecto
+      final int numeroSemana = _calcularNumeroSemanaISO(_fechaReal);
+      final String sufijo = numeroSemana.isEven ? '03' : '02';
+      
+      setState(() {
+        _catDia = {
+          'clave01': '${inicial}01',
+          'texto01': '$diaActual (Semanal)',
+          'clave02': '${inicial}02',
+          'texto02': '$diaActual (Quincenal 1)',
+          'clave03': '${inicial}03',
+          'texto03': '$diaActual (Quincenal 2)',
+          'inicial': '${inicial}$sufijo',
+        };
+        _codigoDiaVisita = _catDia!['inicial'];
+      });
+    }
+  }
+
+  int _calcularNumeroSemanaISO(DateTime fecha) {
+    // Calcular el número de semana ISO 8601
+    // Ajustar al jueves de la semana
+    int diasHastaJueves = DateTime.thursday - fecha.weekday;
+    DateTime jueves = fecha.add(Duration(days: diasHastaJueves));
+    
+    // Primer jueves del año
+    DateTime primerEnero = DateTime(jueves.year, 1, 1);
+    int diasHastaPrimerJueves = DateTime.thursday - primerEnero.weekday;
+    DateTime primerJueves = primerEnero.add(Duration(days: diasHastaPrimerJueves));
+    
+    // Si el primer jueves es después del 4 de enero, pertenece a la semana anterior
+    if (primerJueves.day > 4) {
+      primerJueves = primerJueves.subtract(Duration(days: 7));
+    }
+    
+    // Calcular diferencia en días y convertir a semanas
+    int diferenciaDias = jueves.difference(primerJueves).inDays;
+    return (diferenciaDias / 7).floor() + 1;
+  }
+
+  String _normaliza(String s) => removeDiacritics(s.toLowerCase());
+
   Future<void> _cargarDatosLider() async {
     try {
       _liderComercial = await SesionServicio.obtenerLiderComercial();
@@ -95,23 +247,12 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
       if (_liderComercial != null) {
         setState(() {
           _centroDistribucionInterno = _liderComercial!.centroDistribucion;
-          _rutasDisponibles = _liderComercial!.rutas;
-
-          // AUTO-SELECCIONAR RUTA SI SOLO HAY UNA DISPONIBLE
-          if (_rutasDisponibles.length == 1 && _rutaSeleccionada == null) {
-            _rutaSeleccionada = _rutasDisponibles.first.nombre;
-            print(
-              'Auto-seleccionando única ruta disponible: $_rutaSeleccionada',
-            );
-          }
+          // Ya no cargamos las rutas aquí, se cargarán dinámicamente según el día
         });
 
         print('Datos del líder cargados:');
         print('Centro: $_centroDistribucionInterno');
-        print('Rutas disponibles: ${_rutasDisponibles.length}');
-        _rutasDisponibles.forEach((ruta) {
-          print('- ${ruta.nombre} (Asesor: ${ruta.asesor})');
-        });
+        print('Código líder: ${_liderComercial!.clave}');
       }
     } catch (e) {
       print('Error al cargar datos del líder: $e');
@@ -121,6 +262,59 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error al cargar datos del líder: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _cargarRutasDelDia() async {
+    if (_liderComercial == null || _codigoDiaVisita == null) {
+      print('⚠️ No se puede cargar rutas sin líder o código de día');
+      return;
+    }
+
+    setState(() {
+      _cargandoRutas = true;
+      _rutasDisponibles = [];
+      _rutaSeleccionada = null;
+    });
+
+    try {
+      print('🔄 Cargando rutas para código líder: ${_liderComercial!.clave}, día: $_codigoDiaVisita');
+      
+      final rutas = await _rutasServicio.obtenerRutasPorDia(
+        _liderComercial!.clave,
+        _codigoDiaVisita!,
+      );
+
+      setState(() {
+        _rutasDisponibles = rutas;
+        _cargandoRutas = false;
+        
+        // AUTO-SELECCIONAR RUTA SI SOLO HAY UNA DISPONIBLE
+        if (_rutasDisponibles.length == 1 && _rutaSeleccionada == null) {
+          _rutaSeleccionada = _rutasDisponibles.first.nombre;
+          print('Auto-seleccionando única ruta disponible: $_rutaSeleccionada');
+        }
+      });
+
+      print('✅ Rutas cargadas: ${_rutasDisponibles.length}');
+      _rutasDisponibles.forEach((ruta) {
+        print('  - ${ruta.nombre} (Asesor: ${ruta.asesor})');
+      });
+    } catch (e) {
+      print('❌ Error al cargar rutas: $e');
+      
+      setState(() {
+        _cargandoRutas = false;
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al cargar rutas del día: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -150,6 +344,12 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
           // Validar que el tipo de actividad existe en la lista
           if (_tiposActividad.contains(diaData.tipoActividad)) {
             _tipoActividadAdministrativa = diaData.tipoActividad;
+          }
+
+          // Cargar código del día si existe (sobrescribir el calculado automáticamente)
+          if (diaData.codigoDiaVisita != null && diaData.codigoDiaVisita!.isNotEmpty) {
+            _codigoDiaVisita = diaData.codigoDiaVisita;
+            print('📌 Código día existente cargado: $_codigoDiaVisita');
           }
 
           // Cargar datos del comentario que puede contener JSON con múltiples objetivos
@@ -183,6 +383,11 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
         print('Ruta: $_rutaSeleccionada');
         print('Tipo actividad: $_tipoActividadAdministrativa');
         print('Objetivo abordaje: $_objetivoAbordajeSeleccionado');
+        
+        // Si hay objetivo de gestión de cliente, cargar las rutas del día
+        if (_objetivoSeleccionado == 'Gestión de cliente' && _codigoDiaVisita != null) {
+          await _cargarRutasDelDia();
+        }
       }
     } catch (e) {
       print('Error al cargar datos existentes: $e');
@@ -259,6 +464,7 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                 'comentario': _comentarioAdicional ?? '',
               })
             : _comentarioAdicional,
+        codigoDiaVisita: _codigoDiaVisita,
       );
 
       // Guardar usando el servicio offline
@@ -484,17 +690,20 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                               ),
                             )
                             .toList(),
-                    onChanged: (value) {
+                    onChanged: (value) async {
                       setState(() {
                         _objetivoSeleccionado = value;
-                        // NO limpiar campos al cambiar objetivo para permitir múltiples tipos
-                        if (value == 'Gestión de cliente') {
-                          // Auto-seleccionar ruta si solo hay una disponible y no hay ruta seleccionada
-                          if (_rutasDisponibles.length == 1 && _rutaSeleccionada == null) {
-                            _rutaSeleccionada = _rutasDisponibles.first.nombre;
-                          }
+                        // Limpiar rutas al cambiar de objetivo
+                        if (value != 'Gestión de cliente') {
+                          _rutasDisponibles = [];
+                          _rutaSeleccionada = null;
                         }
                       });
+                      
+                      // Si se selecciona Gestión de cliente, cargar las rutas del día
+                      if (value == 'Gestión de cliente' && _codigoDiaVisita != null) {
+                        await _cargarRutasDelDia();
+                      }
                     },
                     validator: (value) {
                       if (value == null || value.isEmpty) {
@@ -515,26 +724,48 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  TextFormField(
-                    readOnly: true,
-                    initialValue: diaSeleccionado,
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      color: const Color(0xFF1C2120),
-                    ),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.grey.shade100,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide.none,
+                  if (_catDia == null) 
+                    const Center(child: CircularProgressIndicator())
+                  else
+                    DropdownButtonFormField<String>(
+                      decoration: InputDecoration(
+                        hintText: 'SELECCIONE DÍA',
+                        hintStyle: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: Colors.grey,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Colors.grey),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFDE1327),
+                            width: 2,
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
+                      value: _codigoDiaVisita,
+                      items: [
+                        DropdownMenuItem(value: _catDia!['clave01'], child: Text(_catDia!['texto01']!)),
+                        DropdownMenuItem(value: _catDia!['clave02'], child: Text(_catDia!['texto02']!)),
+                        DropdownMenuItem(value: _catDia!['clave03'], child: Text(_catDia!['texto03']!)),
+                      ],
+                      onChanged: (v) async {
+                        setState(() => _codigoDiaVisita = v);
+                        
+                        // Si hay objetivo de gestión de cliente seleccionado, recargar rutas
+                        if (_objetivoSeleccionado == 'Gestión de cliente' && v != null) {
+                          await _cargarRutasDelDia();
+                        }
+                      },
+                      validator: (v) => v == null ? 'Requerido' : null,
                     ),
-                  ),
 
                   // Campos para Actividad administrativa
                   if (_objetivoSeleccionado == 'Actividad administrativa') ...[
@@ -638,14 +869,28 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      decoration: InputDecoration(
-                        hintText:
-                            _rutasDisponibles.isEmpty
-                                ? 'CARGANDO RUTAS...'
-                                : _rutasDisponibles.length == 1
-                                ? 'RUTA SELECCIONADA AUTOMÁTICAMENTE'
-                                : 'SELECCIONE UNA RUTA',
+                    if (_cargandoRutas)
+                      Container(
+                        height: 56,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                            color: Color(0xFFDE1327),
+                          ),
+                        ),
+                      )
+                    else
+                      DropdownButtonFormField<String>(
+                        decoration: InputDecoration(
+                          hintText:
+                              _rutasDisponibles.isEmpty
+                                  ? 'NO HAY RUTAS PARA ESTE DÍA'
+                                  : _rutasDisponibles.length == 1
+                                  ? 'RUTA SELECCIONADA AUTOMÁTICAMENTE'
+                                  : 'SELECCIONE UNA RUTA',
                         hintStyle: GoogleFonts.poppins(
                           fontSize: 14,
                           color: Colors.grey,
@@ -976,6 +1221,7 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                                 'liderId': liderId,
                                 'liderNombre': _liderComercial?.nombre ?? '', // Agregar nombre del líder
                                 'esEdicion': esEdicion,
+                                'codigoDiaVisita': _codigoDiaVisita, // Pasar código del día
                               },
                             );
 

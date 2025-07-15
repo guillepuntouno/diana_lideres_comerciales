@@ -94,6 +94,8 @@ class Negocio {
   final String clave;
   final String exhibidor;
   final String nombre;
+  final String direccion;
+  final String subcanal;
 
   Negocio({
     required this.canal,
@@ -101,15 +103,19 @@ class Negocio {
     required this.clave,
     required this.exhibidor,
     required this.nombre,
+    this.direccion = '',
+    this.subcanal = '',
   });
 
   factory Negocio.fromJson(Map<String, dynamic> json) {
     return Negocio(
-      canal: json['Canal'] ?? json['canal'] ?? '',
-      clasificacion: json['Clasificacion'] ?? json['clasificacion'] ?? '',
-      clave: json['Clave'] ?? json['clave'] ?? '',
+      canal: json['Canal'] ?? json['canal'] ?? json['CANAL_VENTA'] ?? '',
+      clasificacion: json['Clasificacion'] ?? json['clasificacion'] ?? json['CLASIFICACION_CLIENTE'] ?? '',
+      clave: json['Clave'] ?? json['clave'] ?? json['CODIGO_CLIENTE'] ?? '',
       exhibidor: json['Exhibidor'] ?? json['exhibidor'] ?? '',
-      nombre: json['Nombre'] ?? json['nombre'] ?? '',
+      nombre: json['Nombre'] ?? json['nombre'] ?? json['NOMBRE_CLIENTE'] ?? '',
+      direccion: json['direccion'] ?? json['DIRECCION CLIENTE'] ?? '',
+      subcanal: json['subcanal'] ?? json['SUBCANAL_VENTA'] ?? '',
     );
   }
 
@@ -120,6 +126,8 @@ class Negocio {
       'clave': clave,
       'exhibidor': exhibidor,
       'nombre': nombre,
+      'direccion': direccion,
+      'subcanal': subcanal,
     };
   }
 }
