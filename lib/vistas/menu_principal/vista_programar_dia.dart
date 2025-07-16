@@ -700,7 +700,11 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                         }
                       });
                       
-                      // Si se selecciona Gestión de cliente, cargar las rutas del día
+                      // AJUSTE TEMPORAL - 2025-07-16 - Guillermo Martinez
+                      // Revisión con Ricardo Medrano / Remi Aguilar
+                      // AUTO-CARGA DE RUTAS: Cuando se selecciona 'Gestión de cliente', 
+                      // automáticamente se cargan las rutas con el código día 01 (ya forzado)
+                      // Para 'Actividad administrativa' no se ejecuta este flujo
                       if (value == 'Gestión de cliente' && _codigoDiaVisita != null) {
                         await _cargarRutasDelDia();
                       }
@@ -714,57 +718,58 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Día asignado (solo lectura)
-                  Text(
-                    'Día asignado:',
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF1C2120),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  if (_catDia == null) 
-                    const Center(child: CircularProgressIndicator())
-                  else
-                    DropdownButtonFormField<String>(
-                      decoration: InputDecoration(
-                        hintText: 'SELECCIONE DÍA',
-                        hintStyle: GoogleFonts.poppins(
-                          fontSize: 14,
-                          color: Colors.grey,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: Colors.grey),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFDE1327),
-                            width: 2,
+                  // AJUSTE TEMPORAL - 2025-07-16 - Guillermo Martinez
+                  // Revisión con Ricardo Medrano / Remi Aguilar
+                  // CAMPO DÍA ASIGNADO OCULTO: El campo existe pero no se muestra al usuario
+                  // Se mantiene la lógica interna para no romper funcionalidad
+                  // El valor se establece automáticamente con terminación 01
+                  
+                  // Widget oculto que mantiene la funcionalidad del campo día asignado
+                  if (_catDia != null)
+                    Visibility(
+                      visible: false, // AJUSTE: Campo oculto
+                      maintainState: true, // Mantener el estado interno
+                      maintainAnimation: true,
+                      maintainSize: false,
+                      child: DropdownButtonFormField<String>(
+                        decoration: InputDecoration(
+                          hintText: 'SELECCIONE DÍA',
+                          hintStyle: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color: Colors.grey,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(color: Colors.grey),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFDE1327),
+                              width: 2,
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
                           ),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
+                        value: _codigoDiaVisita,
+                        items: [
+                          DropdownMenuItem(value: _catDia!['clave01'], child: Text(_catDia!['texto01']!)),
+                          DropdownMenuItem(value: _catDia!['clave02'], child: Text(_catDia!['texto02']!)),
+                          DropdownMenuItem(value: _catDia!['clave03'], child: Text(_catDia!['texto03']!)),
+                        ],
+                        onChanged: (v) async {
+                          setState(() => _codigoDiaVisita = v);
+                          
+                          // Si hay objetivo de gestión de cliente seleccionado, recargar rutas
+                          if (_objetivoSeleccionado == 'Gestión de cliente' && v != null) {
+                            await _cargarRutasDelDia();
+                          }
+                        },
+                        validator: (v) => v == null ? 'Requerido' : null,
                       ),
-                      value: _codigoDiaVisita,
-                      items: [
-                        DropdownMenuItem(value: _catDia!['clave01'], child: Text(_catDia!['texto01']!)),
-                        DropdownMenuItem(value: _catDia!['clave02'], child: Text(_catDia!['texto02']!)),
-                        DropdownMenuItem(value: _catDia!['clave03'], child: Text(_catDia!['texto03']!)),
-                      ],
-                      onChanged: (v) async {
-                        setState(() => _codigoDiaVisita = v);
-                        
-                        // Si hay objetivo de gestión de cliente seleccionado, recargar rutas
-                        if (_objetivoSeleccionado == 'Gestión de cliente' && v != null) {
-                          await _cargarRutasDelDia();
-                        }
-                      },
-                      validator: (v) => v == null ? 'Requerido' : null,
                     ),
 
                   // Campos para Actividad administrativa
