@@ -29,6 +29,7 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
   late String liderId;
   late String liderNombre;
   late String codigoDiaVisita;
+  late DateTime fechaReal;
   bool esEdicion = false;
 
   // Datos precargados
@@ -56,6 +57,7 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
     liderId = args['liderId'] ?? '';
     liderNombre = args['liderNombre'] ?? '';
     codigoDiaVisita = args['codigoDiaVisita'] ?? '';
+    fechaReal = args['fecha'] ?? DateTime.now();
     esEdicion = args['esEdicion'] ?? false;
 
     _cargarDatos();
@@ -512,6 +514,7 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
                   'semana': semana,
                   'liderId': liderId,
                   'esEdicion': esEdicion,
+                  'fecha': fechaReal,
                 },
               );
             } else if (mounted) {

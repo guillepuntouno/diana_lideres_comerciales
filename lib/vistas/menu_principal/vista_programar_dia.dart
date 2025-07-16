@@ -93,7 +93,7 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
       diaSeleccionado = args['dia'] as String;
       semana = args['semana'] as String;
       liderId = args['liderId'] as String;
-      _fechaReal = args['fecha'] as DateTime;
+      _fechaReal = args['fecha'] ?? _calcularFechaParaDia(diaSeleccionado, semana);
       esEdicion = args['esEdicion'] ?? false; // Detectar si es edición
 
       print('🚀 Inicializando VistaProgramarDia');
@@ -1227,6 +1227,7 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                                 'liderNombre': _liderComercial?.nombre ?? '', // Agregar nombre del líder
                                 'esEdicion': esEdicion,
                                 'codigoDiaVisita': _codigoDiaVisita, // Pasar código del día
+                                'fecha': _fechaReal, // Pasar la fecha también
                               },
                             );
 
@@ -1439,5 +1440,47 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
         ],
       ),
     );
+  }
+
+  DateTime _calcularFechaParaDia(String dia, String semana) {
+    try {
+      // Extraer el año y número de semana del formato "SEMANA XX - YYYY"
+      final partes = semana.split(' ');
+      if (partes.length >= 4) {
+        final numeroSemana = int.tryParse(partes[1]) ?? 1;
+        final anio = int.tryParse(partes[3]) ?? DateTime.now().year;
+        
+        // Calcular el primer día del año
+        final primerDiaDelAnio = DateTime(anio, 1, 1);
+        
+        // Encontrar el primer lunes del año
+        var primerLunes = primerDiaDelAnio;
+        while (primerLunes.weekday != DateTime.monday) {
+          primerLunes = primerLunes.add(const Duration(days: 1));
+        }
+        
+        // Calcular el lunes de la semana deseada
+        final lunesDeSemana = primerLunes.add(Duration(days: (numeroSemana - 1) * 7));
+        
+        // Mapear el día a un número
+        final diasSemana = {
+          'Lunes': 0,
+          'Martes': 1,
+          'Miércoles': 2,
+          'Jueves': 3,
+          'Viernes': 4,
+          'Sábado': 5,
+          'Domingo': 6,
+        };
+        
+        final offsetDia = diasSemana[dia] ?? 0;
+        return lunesDeSemana.add(Duration(days: offsetDia));
+      }
+    } catch (e) {
+      print('Error calculando fecha para día: $e');
+    }
+    
+    // Si hay algún error, devolver la fecha actual
+    return DateTime.now();
   }
 }
