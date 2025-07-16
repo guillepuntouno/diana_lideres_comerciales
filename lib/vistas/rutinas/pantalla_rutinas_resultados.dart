@@ -138,7 +138,7 @@ class _PantallaRutinasResultadosState extends State<PantallaRutinasResultados> {
       
       if (_planesDisponibles.isEmpty) {
         setState(() {
-          _error = 'No hay planes de trabajo disponibles';
+          _error = 'No Existen Datos Disponibles';
           _cargando = false;
         });
         return;
@@ -474,18 +474,20 @@ class _PantallaRutinasResultadosState extends State<PantallaRutinasResultados> {
   }
 
   Widget _buildError() {
+    final bool noHayDatos = _error == 'No Existen Datos Disponibles';
+    
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.error_outline,
+            noHayDatos ? Icons.inbox : Icons.error_outline,
             size: 64,
-            color: Colors.red.shade300,
+            color: noHayDatos ? Colors.grey.shade300 : Colors.red.shade300,
           ),
           const SizedBox(height: 16),
           Text(
-            'Error',
+            noHayDatos ? 'Sin Datos' : 'Error',
             style: GoogleFonts.poppins(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -505,22 +507,44 @@ class _PantallaRutinasResultadosState extends State<PantallaRutinasResultados> {
             ),
           ),
           const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: _cargarDatos,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.dianaRed,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+          if (noHayDatos) ...[
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pushNamed(context, '/plan_configuracion');
+              },
+              icon: const Icon(Icons.add, color: Colors.white),
+              label: Text(
+                'Crear Plan de Trabajo',
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.dianaRed,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
             ),
-            child: Text(
-              'Reintentar',
-              style: GoogleFonts.poppins(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
+          ] else ...[
+            ElevatedButton(
+              onPressed: _cargarDatos,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.dianaRed,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text(
+                'Reintentar',
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );

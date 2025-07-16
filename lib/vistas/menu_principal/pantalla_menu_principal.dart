@@ -6,6 +6,7 @@ import '../../modelos/lider_comercial_modelo.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../configuracion/ambiente_config.dart';
+import '../../servicios/hive_service.dart';
 
 class PantallaMenuPrincipal extends StatefulWidget {
   const PantallaMenuPrincipal({super.key});
@@ -22,7 +23,23 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
   @override
   void initState() {
     super.initState();
-    _cargarDatosUsuario();
+    _inicializarApp();
+  }
+
+  Future<void> _inicializarApp() async {
+    try {
+      // Inicializar Hive primero
+      await HiveService().initialize();
+      print('✅ Hive inicializado desde el menú principal');
+      
+      // Cargar datos del usuario
+      await _cargarDatosUsuario();
+    } catch (e) {
+      print('❌ Error al inicializar la app: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _cargarDatosUsuario() async {
@@ -178,7 +195,8 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
                     ],
                   ),
                   const SizedBox(height: 10),
-                  // Clave del líder
+                  // Clave del líder (comentada por no ser relevante)
+                  /*
                   Row(
                     children: [
                       Icon(
@@ -216,6 +234,7 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
                     ],
                   ),
                   const SizedBox(height: 10),
+                  */
                   // Correo del líder
                   if (_correoUsuario != null) ...[  
                     Row(

@@ -80,6 +80,16 @@ class _PantallaResultadosDiaState extends State<PantallaResultadosDia> {
     
     try {
       _diaPlan = _service.obtenerDia(_liderClave!, _diaSeleccionado);
+      
+      // Si no hay plan o no hay datos para el día
+      if (_diaPlan == null) {
+        setState(() {
+          _error = 'No Existen Datos Disponibles';
+          _cargando = false;
+        });
+        return;
+      }
+      
       _kpis = _service.calcularKPIs(_diaPlan);
       
       setState(() {
@@ -169,6 +179,8 @@ class _PantallaResultadosDiaState extends State<PantallaResultadosDia> {
     }
 
     if (_error != null) {
+      final bool noHayDatos = _error == 'No Existen Datos Disponibles';
+      
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -176,13 +188,13 @@ class _PantallaResultadosDiaState extends State<PantallaResultadosDia> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                Icons.error_outline,
+                noHayDatos ? Icons.inbox : Icons.error_outline,
                 size: 64,
-                color: Colors.red[300],
+                color: noHayDatos ? Colors.grey[300] : Colors.red[300],
               ),
               const SizedBox(height: 16),
               Text(
-                'Error al cargar datos',
+                noHayDatos ? 'Sin Datos' : 'Error al cargar datos',
                 style: GoogleFonts.poppins(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -199,18 +211,35 @@ class _PantallaResultadosDiaState extends State<PantallaResultadosDia> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: _cargarDatos,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Reintentar'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.dianaRed,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+              if (noHayDatos) ...[  
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/plan_configuracion');
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text('Crear Plan de Trabajo'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.dianaRed,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
-              ),
+              ] else ...[
+                ElevatedButton.icon(
+                  onPressed: _cargarDatos,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Reintentar'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.dianaRed,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
