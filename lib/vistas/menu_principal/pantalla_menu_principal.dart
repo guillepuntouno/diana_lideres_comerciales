@@ -355,13 +355,13 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
             items: [
               _MenuItem(
                 icon: Icons.edit_calendar_outlined,
-                title: 'Crear Plan\nde trabajo',
+                title: 'Crear plan de trabajo',
                 onTap:
                     () => Navigator.pushNamed(context, '/plan_configuracion'),
               ),
               _MenuItem(
                 icon: Icons.calendar_month_outlined,
-                title: 'Planes \nde trabajo',
+                title: 'Planes de trabajo',
                 onTap:
                     () => Navigator.pushNamed(
                       context,
@@ -377,12 +377,12 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
             items: [
               _MenuItem(
                 icon: Icons.people_alt_outlined,
-                title: 'Gestión de\nclientes',
+                title: 'Gestión de clientes',
                 onTap: () => Navigator.pushNamed(context, '/rutina_diaria'),
               ),
               _MenuItem(
                 icon: Icons.assignment_turned_in_outlined,
-                title: 'Programa\nde excelencia',
+                title: 'Programa de excelencia',
                 onTap: null,
               ),
             ],
@@ -394,12 +394,12 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
             items: [
               _MenuItem(
                 icon: Icons.bar_chart_outlined,
-                title: 'Rutinas /\nResultados',
+                title: 'Rutinas / Resultados',
                 onTap: () => Navigator.pushNamed(context, '/rutinas_resultados'),
               ),
               _MenuItem(
                 icon: Icons.insert_chart_outlined_rounded,
-                title: 'Reporte de\nacuerdos',
+                title: 'Reporte de acuerdos',
                 onTap: null,
               ),
             ],
@@ -491,11 +491,11 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: items.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 200,
             mainAxisSpacing: 16,
             crossAxisSpacing: 16,
-            childAspectRatio: 1.3,
+            childAspectRatio: 1.2,
           ),
           itemBuilder: (context, index) {
             return _MenuItemWidget(item: items[index]);
@@ -538,63 +538,69 @@ class _MenuItemWidgetState extends State<_MenuItemWidget> {
   Widget build(BuildContext context) {
     final isDisabled = widget.item.onTap == null;
 
-    return GestureDetector(
-      onTap: widget.item.onTap,
-      onTapDown: _onTapDown,
-      onTapUp: _onTapUp,
-      onTapCancel: _onTapCancel,
-      child: AnimatedScale(
-        scale: _scale,
-        duration: const Duration(milliseconds: 100),
-        child: Stack(
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: isDisabled ? Colors.grey.shade300 : Colors.transparent,
-                  width: 1.2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
+    return AnimatedScale(
+      scale: _scale,
+      duration: const Duration(milliseconds: 100),
+      child: Stack(
+        children: [
+          Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            elevation: isDisabled ? 0 : 4,
+            shadowColor: Colors.black12,
+            child: InkWell(
+              onTap: widget.item.onTap,
+              onTapDown: _onTapDown,
+              onTapUp: _onTapUp,
+              onTapCancel: _onTapCancel,
+              borderRadius: BorderRadius.circular(16),
+              splashColor: const Color(0xFFDE1327).withOpacity(0.1),
+              highlightColor: const Color(0xFFDE1327).withOpacity(0.05),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isDisabled ? Colors.grey.shade300 : Colors.transparent,
+                    width: 1.2,
                   ),
-                ],
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      widget.item.icon,
-                      size: 52,
-                      color:
-                          isDisabled
-                              ? Colors.grey.shade400
-                              : const Color(0xFFDE1327),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      widget.item.title,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 15,
-                        height: 1.3,
-                        fontWeight: FontWeight.w600,
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        widget.item.icon,
+                        size: 48,
                         color:
                             isDisabled
                                 ? Colors.grey.shade400
-                                : const Color(0xFF1C2120),
+                                : const Color(0xFFDE1327),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 12),
+                      Flexible(
+                        child: Text(
+                          widget.item.title,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.2,
+                            fontWeight: FontWeight.w600,
+                            color:
+                                isDisabled
+                                    ? Colors.grey.shade400
+                                    : const Color(0xFF1C2120),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
+          ),
             if (isDisabled)
               Positioned(
                 top: 8,
@@ -620,8 +626,7 @@ class _MenuItemWidgetState extends State<_MenuItemWidget> {
               ),
           ],
         ),
-      ),
-    );
+      );
   }
 }
 
