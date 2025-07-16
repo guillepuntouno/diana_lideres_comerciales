@@ -3,16 +3,23 @@ import 'package:google_fonts/google_fonts.dart';
 
 class EncabezadoInicio extends StatelessWidget {
   final String nombreUsuario;
+  final double? logoHeight;
 
-  const EncabezadoInicio({super.key, required this.nombreUsuario});
+  const EncabezadoInicio({
+    super.key, 
+    required this.nombreUsuario,
+    this.logoHeight,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final double height = logoHeight ?? 150;
+    
     return Column(
       children: [
         Container(
           width: double.infinity,
-          height: 150,
+          height: height,
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               colors: [
@@ -37,7 +44,7 @@ class EncabezadoInicio extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Center(
             child: SizedBox(
-              height: 200,
+              height: height * 1.3,
               child: Image.asset('assets/logo_diana.png', fit: BoxFit.contain),
             ),
           ),

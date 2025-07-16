@@ -96,11 +96,52 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: ListView(
-        padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
-        children: [
-          EncabezadoInicio(nombreUsuario: nombreUsuario),
-          const SizedBox(height: 24),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          
+          // 1) Limitar el ancho máximo del contenido
+          final contentWidth = width > 900 ? 900.0 : width;
+          
+          // 2) Breakpoints para el logo
+          double logoHeight;
+          if (width >= 1024) {
+            logoHeight = 180;    // escritorio
+          } else if (width >= 600) {
+            logoHeight = 150;    // tablet  
+          } else {
+            logoHeight = 120;    // móvil
+          }
+          
+          // 3) Breakpoints para número de columnas
+          int crossAxisCount;
+          double childAspectRatio;
+          if (width >= 1200) {
+            crossAxisCount = 4;
+            childAspectRatio = 1.1;
+          } else if (width >= 800) {
+            crossAxisCount = 3;
+            childAspectRatio = 1.15;
+          } else if (width >= 600) {
+            crossAxisCount = 2;
+            childAspectRatio = 1.3;
+          } else {
+            crossAxisCount = 2;
+            childAspectRatio = 1.2;
+          }
+          
+          return Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: contentWidth),
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                children: [
+                  // Encabezado con logo
+                  EncabezadoInicio(
+                    nombreUsuario: nombreUsuario,
+                    logoHeight: logoHeight,
+                  ),
+                  const SizedBox(height: 24),
 
           // Estado de conexión y sincronización (temporalmente deshabilitado)
           // const ConnectionStatusWidget(),
@@ -143,17 +184,17 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
             ),
           ),
 */
-          // Información del usuario
-          if (_liderComercial != null) ...[
-            Container(
-              padding: const EdgeInsets.all(16),
-              margin: const EdgeInsets.only(bottom: 24),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade200),
-              ),
-              child: Column(
+                  // Información del usuario
+                  if (_liderComercial != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      margin: const EdgeInsets.only(bottom: 24),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
@@ -324,87 +365,114 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
                       ),
                     ],
                   ),
-                ],
-              ),
-            ),
-          ] else ...[
-            // Mostrar un mensaje si no hay datos
-            Container(
-              padding: const EdgeInsets.all(16),
-              margin: const EdgeInsets.only(bottom: 24),
-              decoration: BoxDecoration(
-                color: Colors.orange.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.orange.shade200),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.warning, color: Colors.orange.shade600),
-                  SizedBox(width: 8),
-                  Text(
-                    'No se pudieron cargar los datos del usuario',
-                    style: TextStyle(color: Colors.orange.shade700),
+                        ],
+                      ),
+                    ),
+                  ] else ...[
+                    // Mostrar un mensaje si no hay datos
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      margin: const EdgeInsets.only(bottom: 24),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.orange.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.warning, color: Colors.orange.shade600),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'No se pudieron cargar los datos del usuario',
+                              style: TextStyle(color: Colors.orange.shade700),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  // Secciones del menú
+                  _buildSection(
+                    title: 'Planificación',
+                    items: [
+                      _MenuItem(
+                        icon: Icons.edit_calendar_outlined,
+                        title: 'Crear plan de trabajo',
+                        onTap:
+                            () => Navigator.pushNamed(context, '/plan_configuracion'),
+                      ),
+                      _MenuItem(
+                        icon: Icons.calendar_month_outlined,
+                        title: 'Planes de trabajo',
+                        onTap:
+                            () => Navigator.pushNamed(
+                              context,
+                              '/planes_trabajo',
+                            ),
+                      ),
+                    ],
+                    crossAxisCount: crossAxisCount,
+                    childAspectRatio: childAspectRatio,
+                  ),
+                  const SizedBox(height: 32),
+
+                  _buildSection(
+                    title: 'Ejecución',
+                    items: [
+                      _MenuItem(
+                        icon: Icons.people_alt_outlined,
+                        title: 'Gestión de clientes',
+                        onTap: () => Navigator.pushNamed(context, '/rutina_diaria'),
+                      ),
+                      _MenuItem(
+                        icon: Icons.assignment_turned_in_outlined,
+                        title: 'Programa de excelencia',
+                        onTap: null,
+                      ),
+                    ],
+                    crossAxisCount: crossAxisCount,
+                    childAspectRatio: childAspectRatio,
+                  ),
+                  const SizedBox(height: 32),
+
+                  _buildSection(
+                    title: 'Seguimiento',
+                    items: [
+                      _MenuItem(
+                        icon: Icons.bar_chart_outlined,
+                        title: 'Rutinas / Resultados',
+                        onTap: () => Navigator.pushNamed(context, '/rutinas_resultados'),
+                      ),
+                      _MenuItem(
+                        icon: Icons.insert_chart_outlined_rounded,
+                        title: 'Reporte de acuerdos',
+                        onTap: null,
+                      ),
+                    ],
+                    crossAxisCount: crossAxisCount,
+                    childAspectRatio: childAspectRatio,
+                  ),
+                  const SizedBox(height: 32),
+                  
+                  _buildSection(
+                    title: 'Administración',
+                    items: [
+                      _MenuItem(
+                        icon: Icons.admin_panel_settings_outlined,
+                        title: 'Administración',
+                        onTap: null,
+                      ),
+                    ],
+                    crossAxisCount: crossAxisCount,
+                    childAspectRatio: childAspectRatio,
                   ),
                 ],
               ),
             ),
-          ],
-
-          _buildSection(
-            title: 'Planificación',
-            items: [
-              _MenuItem(
-                icon: Icons.edit_calendar_outlined,
-                title: 'Crear plan de trabajo',
-                onTap:
-                    () => Navigator.pushNamed(context, '/plan_configuracion'),
-              ),
-              _MenuItem(
-                icon: Icons.calendar_month_outlined,
-                title: 'Planes de trabajo',
-                onTap:
-                    () => Navigator.pushNamed(
-                      context,
-                      '/planes_trabajo',
-                    ), // CORREGIDO: cambié de '/vista_planes_trabajo' a '/planes_trabajo'
-              ),
-            ],
-          ),
-          const SizedBox(height: 32),
-
-          _buildSection(
-            title: 'Ejecución',
-            items: [
-              _MenuItem(
-                icon: Icons.people_alt_outlined,
-                title: 'Gestión de clientes',
-                onTap: () => Navigator.pushNamed(context, '/rutina_diaria'),
-              ),
-              _MenuItem(
-                icon: Icons.assignment_turned_in_outlined,
-                title: 'Programa de excelencia',
-                onTap: null,
-              ),
-            ],
-          ),
-          const SizedBox(height: 32),
-
-          _buildSection(
-            title: 'Seguimiento',
-            items: [
-              _MenuItem(
-                icon: Icons.bar_chart_outlined,
-                title: 'Rutinas / Resultados',
-                onTap: () => Navigator.pushNamed(context, '/rutinas_resultados'),
-              ),
-              _MenuItem(
-                icon: Icons.insert_chart_outlined_rounded,
-                title: 'Reporte de acuerdos',
-                onTap: null,
-              ),
-            ],
-          ),
-        ],
+          );
+        },
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: 0,
@@ -474,12 +542,15 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
   Widget _buildSection({
     required String title,
     required List<_MenuItem> items,
+    required int crossAxisCount,
+    required double childAspectRatio,
   }) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(
           title,
+          textAlign: TextAlign.center,
           style: const TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
@@ -491,11 +562,11 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: items.length,
-          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 200,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
             mainAxisSpacing: 16,
             crossAxisSpacing: 16,
-            childAspectRatio: 1.2,
+            childAspectRatio: childAspectRatio,
           ),
           itemBuilder: (context, index) {
             return _MenuItemWidget(item: items[index]);
