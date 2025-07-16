@@ -110,18 +110,31 @@ class PantallaLogin extends StatelessWidget {
           }
           
           return Scaffold(
-            body: Stack(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32.0),
-                  child: Center(
-                    child: SingleChildScrollView(
-                      child: Form(
-                        key: vm.formKey,
-                        child: Column(
-                          children: [
-                            Image.asset('assets/logo_diana.png', height: 320),
-                            const SizedBox(height: 32),
+            body: SafeArea(
+              child: Stack(
+                children: [
+                  Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 500),
+                      child: SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                        child: Form(
+                          key: vm.formKey,
+                          child: Column(
+                            children: [
+                              // Logo responsivo
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final maxLogoHeight = MediaQuery.of(context).size.height * 0.25;
+                                  return Image.asset(
+                                    'assets/logo_diana.png',
+                                    height: maxLogoHeight.clamp(80.0, 200.0),
+                                    fit: BoxFit.contain,
+                                  );
+                                },
+                              ),
+                            const SizedBox(height: 24),
                             Text(
                               'Modelo de Gestión de Ventas',
                               style: GoogleFonts.poppins(
@@ -131,7 +144,16 @@ class PantallaLogin extends StatelessWidget {
                               ),
                               textAlign: TextAlign.center,
                             ),
-                            const SizedBox(height: 48),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Inicia sesión con tu cuenta corporativa de Azure AD',
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                color: Colors.grey[700],
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 32),
 
                             // Mostrar mensaje de error si existe
                             if (vm.errorMessage != null) ...[
@@ -176,54 +198,54 @@ class PantallaLogin extends StatelessWidget {
                             const SizedBox(height: 32),
                             SizedBox(
                               width: double.infinity,
-                              child: ElevatedButton(
-                                onPressed: redirectToAzureLogin,
+                              child: ElevatedButton.icon(
+                                onPressed: vm.isLoading ? null : redirectToAzureLogin,
+                                icon: vm.isLoading
+                                    ? const SizedBox.shrink()
+                                    : const Icon(Icons.login, size: 20),
+                                label: vm.isLoading
+                                    ? Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          const SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              valueColor: AlwaysStoppedAnimation<Color>(
+                                                Color(0xFF1C2120),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Text(
+                                            'INICIANDO SESIÓN...',
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 11.2,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    : Text(
+                                        'INICIAR SESIÓN',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 11.2,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFFFFBD59),
                                   foregroundColor: const Color(0xFF1C2120),
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 24),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   elevation: 0,
                                 ),
-                                child:
-                                    vm.isLoading
-                                        ? Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            const SizedBox(
-                                              width: 16,
-                                              height: 16,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                                valueColor:
-                                                    AlwaysStoppedAnimation<Color>(
-                                                      Color(0xFF1C2120),
-                                                    ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 12),
-                                            Text(
-                                              'INICIANDO SESIÓN...',
-                                              style: GoogleFonts.poppins(
-                                                fontSize: 11.2,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ],
-                                        )
-                                        : Text(
-                                          'INICIAR SESIÓN',
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 11.2,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
                               ),
                             ),
-                            const SizedBox(height: 80), // Espacio para el footer
+                            const SizedBox(height: 60), // Espacio para el footer
                           ],
                         ),
                       ),
@@ -235,28 +257,26 @@ class PantallaLogin extends StatelessWidget {
                   left: 0,
                   right: 0,
                   child: Container(
-                    height: 60,
+                    height: 48,
                     width: double.infinity,
-                    color: const Color(0xFFDE1327),
+                    color: const Color(0xFFDE1327).withOpacity(0.9),
                     child: Align(
-                      alignment: Alignment.topCenter,
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          'Esta aplicación es propiedad exclusiva de DIANA ©. Todos los derechos reservados.',
-                          style: GoogleFonts.poppins(
-                            fontSize: 10,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w400,
-                          ),
-                          textAlign: TextAlign.center,
+                      alignment: Alignment.center,
+                      child: Text(
+                        'Esta aplicación es propiedad exclusiva de DIANA ©. Todos los derechos reservados.',
+                        style: GoogleFonts.poppins(
+                          fontSize: 10,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w400,
                         ),
+                        textAlign: TextAlign.center,
                       ),
                     ),
                   ),
                 ),
               ],
             ),
+          ),
           );
         },
       ),
