@@ -349,45 +349,50 @@ class _CompactConnectionStatusWidgetState extends State<CompactConnectionStatusW
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: _getStatusColor().withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: _getStatusColor().withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            _getStatusIcon(),
-            size: 16,
-            color: _getStatusColor(),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            _getStatusText(),
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: _getStatusColor(),
+    return SizedBox(
+      height: kToolbarHeight,
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: _getStatusColor().withOpacity(0.1),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: _getStatusColor().withOpacity(0.3),
+              width: 1,
             ),
           ),
-          if (_syncStatus == SyncStatus.syncing) ...[
-            const SizedBox(width: 6),
-            SizedBox(
-              width: 12,
-              height: 12,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(_getStatusColor()),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                _getStatusIcon(),
+                size: 16,
+                color: _getStatusColor(),
               ),
-            ),
-          ],
-        ],
+              const SizedBox(width: 6),
+              Text(
+                _getStatusText(),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: _getStatusColor(),
+                ),
+              ),
+              if (_syncStatus == SyncStatus.syncing) ...[
+                const SizedBox(width: 6),
+                SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(_getStatusColor()),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }

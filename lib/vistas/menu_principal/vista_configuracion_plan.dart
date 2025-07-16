@@ -46,7 +46,7 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
   LiderComercial? _liderActual;
   bool _cargando = true;
   int _currentIndex = 1;
-  bool _modoOffline = false;
+  // bool _modoOffline = false;
 
   // Selector de semanas
   List<SemanaOpcion> _semanasDisponibles = [];
@@ -116,6 +116,32 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
     _semanasDisponibles.clear();
     DateTime ahora = DateTime.now();
 
+    // Primero añadir la semana actual
+    DateTime inicioSemanaActual = ahora.subtract(
+      Duration(days: ahora.weekday - 1),
+    );
+    
+    int numeroSemanaActual =
+        ((inicioSemanaActual.difference(DateTime(inicioSemanaActual.year, 1, 1)).inDays +
+                    DateTime(inicioSemanaActual.year, 1, 1).weekday -
+                    1) /
+                7)
+            .ceil();
+    
+    String codigoSemanaActual = 'SEMANA $numeroSemanaActual - ${inicioSemanaActual.year}';
+    DateTime finSemanaActual = inicioSemanaActual.add(const Duration(days: 5));
+    
+    _semanasDisponibles.add(
+      SemanaOpcion(
+        codigo: codigoSemanaActual,
+        etiqueta: 'SEMANA $numeroSemanaActual (Actual)',
+        fechaInicio: DateFormat('dd/MM/yyyy').format(inicioSemanaActual),
+        fechaFin: DateFormat('dd/MM/yyyy').format(finSemanaActual),
+        inicioSemana: inicioSemanaActual,
+        esActual: true,
+      ),
+    );
+    
     // NUEVA LÓGICA: Si es lunes o después, empezar desde la siguiente semana
     DateTime fechaBase = ahora;
     if (ahora.weekday >= 1) {
@@ -123,7 +149,7 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
       fechaBase = ahora.add(Duration(days: 7 - ahora.weekday + 1));
     }
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) { // Reducido a 4 porque ya añadimos la semana actual
       DateTime fechaSemana = fechaBase.add(Duration(days: i * 7));
       DateTime inicioSemana = fechaSemana.subtract(
         Duration(days: fechaSemana.weekday - 1),
@@ -146,13 +172,7 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
       String etiqueta;
       if (i == 0) {
         // La primera semana disponible para programar
-        bool esSemanaSiguiente = inicioSemana.isAfter(DateTime.now());
-        etiqueta =
-            esSemanaSiguiente
-                ? '$codigoSemana (Próxima)'
-                : '$codigoSemana (Actual)';
-      } else if (i == 1) {
-        etiqueta = '$codigoSemana';
+        etiqueta = '$codigoSemana (Próxima)';
       } else {
         etiqueta = codigoSemana;
       }
@@ -164,7 +184,7 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
           fechaInicio: fechaInicio,
           fechaFin: fechaFin,
           inicioSemana: inicioSemana,
-          esActual: i == 0,
+          esActual: false,
         ),
       );
     }
@@ -216,7 +236,7 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
 
       setState(() {
         _cargando = false;
-        _modoOffline = true; // Indicar que estamos en modo offline
+        // _modoOffline = true; // Indicar que estamos en modo offline
       });
 
       print(
@@ -337,12 +357,12 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
         setState(() {
           _planActual = planCargado;
           _cargando = false;
-          _modoOffline = true;
+          // _modoOffline = true;
         });
       }
 
-      // Intentar sincronizar con el servidor en segundo plano
-      _sincronizarEnSegundoPlano();
+      // Comentado: Ya no sincronizamos con el servidor, usamos solo HIVE
+      // _sincronizarEnSegundoPlano();
     } catch (e) {
       print('Error al cargar plan: $e');
       setState(() => _cargando = false);
@@ -371,7 +391,7 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
       if (planDesdeServidor != null && mounted) {
         setState(() {
           _planActual = planDesdeServidor;
-          _modoOffline = false;
+          // _modoOffline = false;
         });
         print('Plan sincronizado desde servidor');
       }
@@ -441,21 +461,29 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
         context: context,
         barrierDismissible: false,
         builder:
-            (context) => Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const CircularProgressIndicator(color: Color(0xFFDE1327)),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Enviando plan al servidor...',
-                    style: GoogleFonts.poppins(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
+            (context) => Dialog(
+              backgroundColor: Colors.transparent,
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(color: Color(0xFFDE1327)),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Enviando plan al servidor...',
+                      style: GoogleFonts.poppins(
+                        color: Color(0xFF1C2120),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
       );
@@ -1966,7 +1994,15 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Color(0xFF1C2120)),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              // Hay al menos otra ruta debajo: regresa a ella
+              Navigator.of(context).pop();
+            } else {
+              // Esta es la única ruta: reemplaza por /home
+              Navigator.pushReplacementNamed(context, '/home');
+            }
+          },
         ),
         title: Column(
           children: [
@@ -1978,22 +2014,22 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                 fontSize: 20,
               ),
             ),
-            if (_modoOffline)
-              Text(
-                'Modo Offline',
-                style: TextStyle(
-                  color: Colors.orange.shade700,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+            // if (_modoOffline)
+            //   Text(
+            //     'Modo Offline',
+            //     style: TextStyle(
+            //       color: Colors.orange.shade700,
+            //       fontSize: 12,
+            //       fontWeight: FontWeight.w500,
+            //     ),
+            //   ),
           ],
         ),
         centerTitle: true,
         actions: [
-          // Indicador de conexión
-          ConnectionStatusWidget(),
-          const SizedBox(width: 8),
+          // Indicador de conexión comentado
+          // CompactConnectionStatusWidget(),
+          // const SizedBox(width: 8),
         ],
       ),
       body: ListView(
