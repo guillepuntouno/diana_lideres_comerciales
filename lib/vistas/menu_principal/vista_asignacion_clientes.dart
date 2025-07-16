@@ -40,7 +40,7 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
   bool _todosSeleccionados = false;
   List<DiaTrabajoModelo> _actividadesExistentes = [];
 
-  int _currentIndex = 1;
+  int _currentIndex = 0;
   bool _cargando = true;
 
   @override
@@ -1231,10 +1231,6 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
             label: 'Inicio',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.assignment_outlined),
-            label: 'Rutinas',
-          ),
-          BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
             label: 'Perfil',
           ),
@@ -1249,8 +1245,8 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 60,
+          Expanded(
+            flex: 3,  // La etiqueta ocupa 3/5 del ancho
             child: Text(
               label,
               style: GoogleFonts.poppins(
@@ -1261,12 +1257,14 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
             ),
           ),
           Expanded(
+            flex: 2,  // El valor ocupa 2/5 del ancho
             child: Text(
               value,
               style: GoogleFonts.poppins(
                 fontSize: 13,
                 color: const Color(0xFF1C2120),
               ),
+              textAlign: TextAlign.right,
             ),
           ),
         ],

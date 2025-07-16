@@ -60,6 +60,12 @@ class _VistaIndicadoresGestionState extends State<VistaIndicadoresGestion> {
     setState(() => _cargando = true);
     
     try {
+      // Obtener datos del asesor activo
+      final lider = await SesionServicio.obtenerLiderComercial();
+      if (lider != null) {
+        asesor = lider.nombre;
+      }
+      
       // Cargar indicadores disponibles
       _indicadoresDisponibles = await _indicadoresServicio.obtenerIndicadores();
       
@@ -366,7 +372,12 @@ class _VistaIndicadoresGestionState extends State<VistaIndicadoresGestion> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        setState(() {
+                          _clienteActualIndex = 0; // volver al primer cliente
+                        });
+                      },
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
@@ -391,6 +402,7 @@ class _VistaIndicadoresGestionState extends State<VistaIndicadoresGestion> {
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFDE1327),
+                        foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -399,13 +411,14 @@ class _VistaIndicadoresGestionState extends State<VistaIndicadoresGestion> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.send, size: 20),
+                          const Icon(Icons.send, size: 20, color: Colors.white),
                           const SizedBox(width: 8),
                           Text(
                             'Enviar',
                             style: GoogleFonts.poppins(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
+                              color: Colors.white,
                             ),
                           ),
                         ],
@@ -841,6 +854,7 @@ class _VistaIndicadoresGestionState extends State<VistaIndicadoresGestion> {
                                             const SizedBox(width: 40), // Alineación con el checkbox
                                             Expanded(
                                               child: TextFormField(
+                                                key: ValueKey('${_clienteActual.clienteId}-${indicador.id}'),
                                                 initialValue: resultado,
                                                 onChanged: (value) {
                                                   setState(() {
@@ -982,6 +996,8 @@ class _VistaIndicadoresGestionState extends State<VistaIndicadoresGestion> {
                     child: OutlinedButton(
                       onPressed: _mostrarAlertaSalir,
                       style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.grey.shade700,
+                        disabledForegroundColor: Colors.grey.shade400,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         side: const BorderSide(color: Colors.grey),
                         shape: RoundedRectangleBorder(
@@ -993,7 +1009,6 @@ class _VistaIndicadoresGestionState extends State<VistaIndicadoresGestion> {
                         style: GoogleFonts.poppins(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: Colors.grey.shade700,
                         ),
                       ),
                     ),
@@ -1004,11 +1019,13 @@ class _VistaIndicadoresGestionState extends State<VistaIndicadoresGestion> {
                       onPressed: _puedeAvanzar ? _navegarSiguienteCliente : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFDE1327),
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: Colors.grey.shade300,
+                        disabledForegroundColor: Colors.grey.shade500,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        disabledBackgroundColor: Colors.grey.shade300,
                       ),
                       child: Text(
                         _clienteActualIndex == clientesAsignados.length - 1
