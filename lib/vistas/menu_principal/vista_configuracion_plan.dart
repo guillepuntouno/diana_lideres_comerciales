@@ -1410,7 +1410,9 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                         style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFDE1327),
+                        backgroundColor: Colors.white,
+                        foregroundColor: const Color(0xFFDE1327),
+                        side: const BorderSide(color: Color(0xFFDE1327), width: 1.5),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
