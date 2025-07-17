@@ -205,6 +205,32 @@ class ClientesLocalesService {
     return _box.values.where((cliente) => cliente.rutaId == rutaId).toList();
   }
 
+  /// Obtiene clientes filtrados por nombre de ruta
+  List<ClienteHive> obtenerClientesPorRutaNombre(String rutaNombre) {
+    if (!_initialized) {
+      print('⚠️ Servicio no inicializado');
+      return [];
+    }
+    return _box.values.where((cliente) => cliente.rutaNombre == rutaNombre).toList();
+  }
+
+  /// Obtiene clientes filtrados por nombre de ruta (búsqueda flexible)
+  /// Compara ignorando mayúsculas/minúsculas y espacios extras
+  List<ClienteHive> obtenerClientesPorRutaNombreFlexible(String rutaNombre) {
+    if (!_initialized) {
+      print('⚠️ Servicio no inicializado');
+      return [];
+    }
+    
+    final rutaNormalizada = rutaNombre.trim().toLowerCase();
+    return _box.values.where((cliente) {
+      final rutaCliente = cliente.rutaNombre?.trim().toLowerCase() ?? '';
+      return rutaCliente == rutaNormalizada || 
+             rutaCliente.contains(rutaNormalizada) ||
+             rutaNormalizada.contains(rutaCliente);
+    }).toList();
+  }
+
   /// Obtiene clientes filtrados por líder
   List<ClienteHive> obtenerClientesPorLider(String codigoLider) {
     if (!_initialized) {

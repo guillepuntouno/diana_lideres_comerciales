@@ -16,6 +16,8 @@ import '../../servicios/clientes_servicio.dart';
 import '../../servicios/plan_trabajo_unificado_service.dart';
 import '../../modelos/hive/plan_trabajo_unificado_hive.dart';
 import '../../servicios/visita_cliente_unificado_service.dart';
+import '../../servicios/clientes_locales_service.dart';
+import '../../modelos/hive/cliente_hive.dart';
 
 // -----------------------------------------------------------------------------
 // COLORES CORPORATIVOS DIANA
@@ -128,6 +130,7 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
       PlanTrabajoUnificadoService();
   final VisitaClienteUnificadoService _visitaUnificadoService =
       VisitaClienteUnificadoService();
+  final ClientesLocalesService _clientesLocalesService = ClientesLocalesService();
 
   List<ActivityModel> _actividades = [];
   List<PlanOpcion> _planesDisponibles = [];
@@ -212,6 +215,15 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
 
       DateTime ahora = DateTime.now();
       _configurarFechaActual(ahora);
+
+      // Inicializar servicio de clientes locales
+      try {
+        await _clientesLocalesService.initialize();
+        print('✅ Servicio de clientes locales inicializado');
+      } catch (e) {
+        print('⚠️ Error al inicializar servicio de clientes locales: $e');
+        // No interrumpir el flujo si falla
+      }
 
       await _cargarPlanesDisponibles();
 
@@ -615,6 +627,17 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
                 String clienteTipo =
                     cliente['clienteTipo'] ?? 'No especificado';
 
+                // Buscar información complementaria del cliente en HIVE
+                String? subcanal;
+                try {
+                  final clienteHive = _clientesLocalesService.obtenerCliente(clienteId);
+                  if (clienteHive != null) {
+                    subcanal = clienteHive.subcanalVenta;
+                  }
+                } catch (e) {
+                  print('⚠️ No se pudo obtener info adicional del cliente $clienteId: $e');
+                }
+
                 actividadesDelDia.add(
                   ActivityModel(
                     id: '${_diaActual}_cliente_$clienteId',
@@ -631,6 +654,7 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
                       'esFoco': true,
                       'planId': _planUnificado?.id,
                       'dia': _diaSimulado ?? _diaActual,
+                      'subcanal': subcanal,
                     },
                   ),
                 );
@@ -904,34 +928,62 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
     });
 
     try {
-      String diaParaBuscar = _diaSimulado ?? _diaActual;
+      print('🔍 Cargando clientes adicionales desde almacenamiento local...');
+      print('   Ruta seleccionada: $_rutaSeleccionada');
+      
+      // Primero, vamos a ver todos los clientes para depurar
+      final todosClientes = _clientesLocalesService.obtenerTodosLosClientes();
+      print('   Total de clientes en Hive: ${todosClientes.length}');
+      
+      // Mostrar las primeras 5 rutas únicas para depuración
+      final rutasUnicas = todosClientes.map((c) => c.rutaNombre).toSet().take(5);
+      print('   Rutas disponibles (primeras 5): $rutasUnicas');
 
-      print('🔍 Cargando clientes adicionales...');
-      print('   Día: $diaParaBuscar');
-      print('   Líder: ${_liderActual!.clave}');
-      print('   Ruta: $_rutaSeleccionada');
+      // Cargar clientes desde el servicio local
+      var clientesHive = _clientesLocalesService.obtenerClientesPorRutaNombre(_rutaSeleccionada!);
+      print('   Clientes encontrados (búsqueda exacta) para ruta "$_rutaSeleccionada": ${clientesHive.length}');
+      
+      // Si no encuentra con búsqueda exacta, intentar con búsqueda flexible
+      if (clientesHive.isEmpty) {
+        print('   Intentando búsqueda flexible...');
+        clientesHive = _clientesLocalesService.obtenerClientesPorRutaNombreFlexible(_rutaSeleccionada!);
+        print('   Clientes encontrados (búsqueda flexible): ${clientesHive.length}');
+        
+        // Si aún no encuentra, mostrar todos los clientes como opción
+        if (clientesHive.isEmpty && todosClientes.isNotEmpty) {
+          print('   ⚠️ No se encontraron clientes para la ruta específica.');
+          print('   Mostrando todos los clientes disponibles...');
+          clientesHive = todosClientes;
+        }
+      }
 
-      final clientes = await _clientesServicio.obtenerClientesPorRuta(
-        dia: diaParaBuscar,
-        lider: _liderActual!.clave,
-        ruta: _rutaSeleccionada!,
-      );
-
-      if (clientes != null && clientes.isNotEmpty) {
+      if (clientesHive.isNotEmpty) {
         // Filtrar clientes que NO son FOCO y NO están ya en las actividades
         final clientesExistentes = _actividades
             .where((a) => a.type == ActivityType.visita && a.cliente != null)
             .map((a) => a.cliente)
             .toSet();
         
-        final clientesNoFoco =
-            clientes.where((cliente) {
-              final clienteId = cliente['Cliente_ID']?.toString() ?? '';
-              // Excluir si es FOCO o si ya existe en las actividades
-              return !_clientesFoco.contains(clienteId) && !clientesExistentes.contains(clienteId);
-            }).toList();
+        // Convertir ClienteHive a Map para mantener compatibilidad
+        final clientesMap = clientesHive.map((cliente) {
+          return {
+            'Cliente_ID': cliente.id,
+            'Negocio': cliente.nombre,
+            'Direccion': cliente.direccion,
+            'Ruta': cliente.rutaNombre,
+            'Clasificación': cliente.clasificacionCliente ?? '',
+            'Subcanal': cliente.subcanalVenta ?? '',
+            'Canal': cliente.canalVenta ?? '',
+          };
+        }).toList();
+        
+        final clientesNoFoco = clientesMap.where((cliente) {
+          final clienteId = cliente['Cliente_ID']?.toString() ?? '';
+          // Excluir si es FOCO o si ya existe en las actividades
+          return !_clientesFoco.contains(clienteId) && !clientesExistentes.contains(clienteId);
+        }).toList();
 
-        print('📊 Clientes obtenidos: ${clientes.length}');
+        print('📊 Clientes locales obtenidos: ${clientesHive.length}');
         print('📊 Clientes FOCO a excluir: ${_clientesFoco.length}');
         print('📊 Clientes ya en actividades: ${clientesExistentes.length}');
         print('📊 Clientes adicionales (no duplicados): ${clientesNoFoco.length}');
@@ -947,7 +999,7 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
         // Agregar actividades para clientes adicionales
         await _agregarActividadesClientesAdicionales();
       } else {
-        print('❌ No se obtuvieron clientes del endpoint');
+        print('❌ No se encontraron clientes locales para esta ruta');
         setState(() {
           _cargandoClientes = false;
         });
@@ -955,7 +1007,7 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('No se encontraron clientes adicionales'),
+              content: Text('No se encontraron clientes adicionales en almacenamiento local'),
               backgroundColor: Colors.orange,
               duration: Duration(seconds: 2),
             ),
@@ -963,7 +1015,7 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
         }
       }
     } catch (e) {
-      print('❌ Error al cargar clientes: $e');
+      print('❌ Error al cargar clientes locales: $e');
       setState(() {
         _cargandoClientes = false;
       });
@@ -989,6 +1041,7 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
       final direccion = cliente['Direccion'] ?? 'Dirección no disponible';
       final ruta = cliente['Ruta'] ?? '';
       final clasificacion = cliente['Clasificación'] ?? '';
+      final subcanal = cliente['Subcanal'] ?? '';
 
       // Crear actividad para cliente adicional
       nuevasActividades.add(
@@ -1005,6 +1058,7 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
             'clienteData': cliente,
             'planId': _planUnificado?.id,
             'dia': _diaSimulado ?? _diaActual,
+            'subcanal': subcanal,
           },
         ),
       );
@@ -2130,12 +2184,44 @@ class _ActivityTile extends StatelessWidget {
                       ),
                       if (actividad.cliente != null) ...[
                         const SizedBox(height: 4),
-                        Text(
-                          'ID: ${actividad.cliente}',
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            color: AppColors.mediumGray,
-                          ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'ID: ${actividad.cliente}',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  color: AppColors.mediumGray,
+                                ),
+                              ),
+                            ),
+                            if (actividad.metadata?['subcanal'] != null && 
+                                actividad.metadata!['subcanal'].toString().isNotEmpty) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade50,
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                    color: Colors.blue.shade200,
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Text(
+                                  actividad.metadata!['subcanal'].toString(),
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.blue.shade800,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ],
                       if (actividad.asesor != null) ...[
