@@ -7,6 +7,7 @@ import '../../servicios/sesion_servicio.dart';
 import '../../modelos/lider_comercial_modelo.dart';
 import '../../servicios/clientes_servicio.dart';
 import '../../servicios/rutas_servicio.dart';
+import '../../servicios/clientes_locales_service.dart';
 
 class VistaAsignacionClientes extends StatefulWidget {
   const VistaAsignacionClientes({super.key});
@@ -20,6 +21,7 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
   final PlanTrabajoOfflineService _planServicio = PlanTrabajoOfflineService();
   final ClientesServicio _clientesServicio = ClientesServicio();
   final RutasServicio _rutasServicio = RutasServicio();
+  final ClientesLocalesService _clientesLocalesService = ClientesLocalesService();
 
   // Parámetros recibidos
   late String diaAsignado;
@@ -130,16 +132,38 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
       print('   - Código día visita: $codigoDiaVisita');
       print('   - Ruta: $rutaSeleccionada');
 
-      // Cargar clientes desde el nuevo endpoint
-      final clientes = await _rutasServicio.obtenerClientesPorRuta(
+      // Cargar clientes desde el nuevo endpoint con JSON
+      final resultado = await _rutasServicio.obtenerClientesPorRutaConJson(
         liderId,
         codigoDiaVisita,
         rutaSeleccionada,
       );
 
+      final clientes = resultado['negocios'] as List<Negocio>;
+      final clientesJson = resultado['jsonData'] as List<Map<String, dynamic>>;
+
       if (clientes.isNotEmpty) {
         _clientesDisponibles = clientes;
         print('✅ Clientes cargados desde AWS: ${_clientesDisponibles.length}');
+
+        // Guardar clientes en Hive para persistencia local
+        try {
+          await _clientesLocalesService.guardarClientesDesdeJson(
+            clientesJson,
+            rutaId: rutaSeleccionada,
+            rutaNombre: rutaSeleccionada,
+            asesorId: _rutaActual?.asesor,
+            asesorNombre: _rutaActual?.asesor,
+            codigoLider: liderId,
+            nombreLider: liderNombre,
+            emailLider: null, // El modelo LiderComercial no tiene email
+            centroDistribucion: centroDistribucion,
+          );
+          print('✅ Clientes guardados en almacenamiento local');
+        } catch (e) {
+          print('⚠️ Error al guardar clientes localmente: $e');
+          // No interrumpir el flujo si falla el guardado local
+        }
 
         // Mostrar información del primer cliente para debug
         if (_clientesDisponibles.isNotEmpty) {

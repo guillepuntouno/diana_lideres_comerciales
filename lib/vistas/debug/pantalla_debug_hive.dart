@@ -16,6 +16,7 @@ import 'package:http/http.dart' as http;
 import '../../configuracion/ambiente_config.dart';
 import '../../servicios/sesion_servicio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../servicios/clientes_locales_service.dart';
 
 class PantallaDebugHive extends StatefulWidget {
   const PantallaDebugHive({super.key});
@@ -26,6 +27,7 @@ class PantallaDebugHive extends StatefulWidget {
 
 class _PantallaDebugHiveState extends State<PantallaDebugHive> {
   final HiveService _hiveService = HiveService();
+  final ClientesLocalesService _clientesLocalesService = ClientesLocalesService();
   int _selectedIndex = 0;
   
   final List<String> _tabs = [
@@ -486,45 +488,223 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
           return _buildEmptyState('No hay clientes guardados');
         }
 
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: clientes.length,
-          itemBuilder: (context, index) {
-            final cliente = clientes[index];
-            return Card(
-              margin: const EdgeInsets.only(bottom: 12),
-              child: ListTile(
-                title: Text(
-                  cliente.nombre,
-                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-                ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'ID: ${cliente.id}',
-                      style: GoogleFonts.poppins(fontSize: 12),
-                    ),
-                    Text(
-                      'Ruta: ${cliente.rutaNombre} - Activo: ${cliente.activo ? "Sí" : "No"}',
-                      style: GoogleFonts.poppins(fontSize: 12),
-                    ),
-                    if (cliente.direccion != null)
-                      Text(
-                        'Dirección: ${cliente.direccion}',
-                        style: GoogleFonts.poppins(fontSize: 12),
-                      ),
-                  ],
-                ),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => _eliminarCliente(index),
-                ),
+        // Agrupar clientes por ruta
+        final clientesPorRuta = <String, List<ClienteHive>>{};
+        for (var cliente in clientes) {
+          final ruta = cliente.rutaNombre ?? 'Sin ruta';
+          clientesPorRuta[ruta] = (clientesPorRuta[ruta] ?? [])..add(cliente);
+        }
+
+        return Column(
+          children: [
+            // Estadísticas
+            Container(
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue.shade200),
               ),
-            );
-          },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Resumen de Clientes',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.blue.shade800,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildStatItem('Total', clientes.length.toString(), Colors.blue),
+                      _buildStatItem(
+                        'Activos', 
+                        clientes.where((c) => c.activo).length.toString(), 
+                        Colors.green
+                      ),
+                      _buildStatItem(
+                        'Rutas', 
+                        clientesPorRuta.keys.length.toString(), 
+                        Colors.orange
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            // Lista de clientes
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: clientes.length,
+                itemBuilder: (context, index) {
+                  final cliente = clientes[index];
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    elevation: 2,
+                    child: ExpansionTile(
+                      leading: CircleAvatar(
+                        backgroundColor: cliente.activo ? Colors.green : Colors.grey,
+                        child: Text(
+                          cliente.nombre.substring(0, 1).toUpperCase(),
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ),
+                      title: Text(
+                        cliente.nombre,
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'ID: ${cliente.id}',
+                            style: GoogleFonts.poppins(fontSize: 12),
+                          ),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.route,
+                                size: 14,
+                                color: Colors.grey.shade600,
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  cliente.rutaNombre ?? 'Sin ruta',
+                                  style: GoogleFonts.poppins(fontSize: 12),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildDetailRow('Dirección', cliente.direccion ?? 'No especificada'),
+                              _buildDetailRow('Asesor', cliente.asesorNombre ?? 'No asignado'),
+                              _buildDetailRow('Canal', cliente.canalVenta ?? 'No especificado'),
+                              _buildDetailRow('Subcanal', cliente.subcanalVenta ?? 'No especificado'),
+                              _buildDetailRow('Clasificación', cliente.clasificacionCliente ?? 'No especificada'),
+                              _buildDetailRow('Estado', cliente.estadoCliente ?? 'No especificado'),
+                              _buildDetailRow('Día visita', cliente.diaVisita ?? 'No especificado'),
+                              if (cliente.codigoLider != null)
+                                _buildDetailRow('Líder', '${cliente.nombreLider ?? ""} (${cliente.codigoLider})'),
+                              if (cliente.centroDistribucion != null)
+                                _buildDetailRow('Centro Dist.', cliente.centroDistribucion!),
+                              _buildDetailRow(
+                                'Última modificación', 
+                                cliente.fechaModificacion.toLocal().toString().split('.')[0]
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  TextButton.icon(
+                                    icon: const Icon(Icons.copy, size: 16),
+                                    label: Text(
+                                      'Copiar ID',
+                                      style: GoogleFonts.poppins(fontSize: 12),
+                                    ),
+                                    onPressed: () {
+                                      Clipboard.setData(ClipboardData(text: cliente.id));
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('ID copiado al portapapeles'),
+                                          duration: Duration(seconds: 1),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(width: 8),
+                                  TextButton.icon(
+                                    icon: const Icon(Icons.delete, size: 16, color: Colors.red),
+                                    label: Text(
+                                      'Eliminar',
+                                      style: GoogleFonts.poppins(fontSize: 12, color: Colors.red),
+                                    ),
+                                    onPressed: () => _eliminarCliente(cliente.id),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
         );
       },
+    );
+  }
+
+  Widget _buildStatItem(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: GoogleFonts.poppins(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            color: Colors.grey.shade600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              '$label:',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade700,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: Colors.grey.shade800,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -935,14 +1115,14 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
     }
   }
 
-  Future<void> _eliminarCliente(int index) async {
+  Future<void> _eliminarCliente(String clienteId) async {
     final confirmar = await _mostrarDialogoConfirmacion(
       'Eliminar Cliente',
       '¿Estás seguro de que deseas eliminar este cliente?',
     );
     
     if (confirmar == true) {
-      await Hive.box<ClienteHive>('clientes').deleteAt(index);
+      await _clientesLocalesService.eliminarCliente(clienteId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

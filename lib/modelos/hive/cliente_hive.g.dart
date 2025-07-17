@@ -31,13 +31,25 @@ class ClienteHiveAdapter extends TypeAdapter<ClienteHive> {
       fechaModificacion: fields[11] as DateTime?,
       tipoNegocio: fields[12] as String?,
       segmento: fields[13] as String?,
+      pais: fields[14] as String?,
+      centroDistribucion: fields[15] as String?,
+      codigoLider: fields[16] as String?,
+      nombreLider: fields[17] as String?,
+      emailLider: fields[18] as String?,
+      canalVenta: fields[19] as String?,
+      subcanalVenta: fields[20] as String?,
+      estadoRuta: fields[21] as String?,
+      estadoCliente: fields[22] as String?,
+      clasificacionCliente: fields[23] as String?,
+      diaVisita: fields[24] as String?,
+      diaVisitaCod: fields[25] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, ClienteHive obj) {
     writer
-      ..writeByte(14)
+      ..writeByte(26)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -65,7 +77,31 @@ class ClienteHiveAdapter extends TypeAdapter<ClienteHive> {
       ..writeByte(12)
       ..write(obj.tipoNegocio)
       ..writeByte(13)
-      ..write(obj.segmento);
+      ..write(obj.segmento)
+      ..writeByte(14)
+      ..write(obj.pais)
+      ..writeByte(15)
+      ..write(obj.centroDistribucion)
+      ..writeByte(16)
+      ..write(obj.codigoLider)
+      ..writeByte(17)
+      ..write(obj.nombreLider)
+      ..writeByte(18)
+      ..write(obj.emailLider)
+      ..writeByte(19)
+      ..write(obj.canalVenta)
+      ..writeByte(20)
+      ..write(obj.subcanalVenta)
+      ..writeByte(21)
+      ..write(obj.estadoRuta)
+      ..writeByte(22)
+      ..write(obj.estadoCliente)
+      ..writeByte(23)
+      ..write(obj.clasificacionCliente)
+      ..writeByte(24)
+      ..write(obj.diaVisita)
+      ..writeByte(25)
+      ..write(obj.diaVisitaCod);
   }
 
   @override
