@@ -619,23 +619,39 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
               for (int i = 0; i < clientesAsignados.length; i++) {
                 final cliente = clientesAsignados[i] as Map<String, dynamic>;
 
-                String clienteNombre =
-                    cliente['clienteNombre'] ?? 'Cliente sin nombre';
-                String clienteDireccion =
-                    cliente['clienteDireccion'] ?? 'Dirección no disponible';
                 String clienteId = cliente['clienteId'] ?? 'ID_$i';
-                String clienteTipo =
-                    cliente['clienteTipo'] ?? 'No especificado';
+                String clienteNombreJson = cliente['clienteNombre'] ?? '';
+                String clienteDireccionJson = cliente['clienteDireccion'] ?? '';
+                String clienteTipo = cliente['clienteTipo'] ?? 'No especificado';
 
-                // Buscar información complementaria del cliente en HIVE
+                // Buscar información completa del cliente en HIVE
+                String clienteNombre = clienteNombreJson;
+                String clienteDireccion = clienteDireccionJson;
                 String? subcanal;
+                String? clasificacion;
+                String? canal;
+                
                 try {
                   final clienteHive = _clientesLocalesService.obtenerCliente(clienteId);
                   if (clienteHive != null) {
+                    // Usar información de HIVE si está disponible
+                    clienteNombre = clienteHive.nombre;
+                    clienteDireccion = clienteHive.direccion ?? clienteDireccionJson;
                     subcanal = clienteHive.subcanalVenta;
+                    clasificacion = clienteHive.clasificacionCliente;
+                    canal = clienteHive.canalVenta;
+                    
+                    print('📋 Cliente FOCO encontrado en HIVE:');
+                    print('   └── ID: $clienteId');
+                    print('   └── Nombre: $clienteNombre');
+                    print('   └── Subcanal: $subcanal');
+                    print('   └── Clasificación: $clasificacion');
+                  } else {
+                    print('⚠️ Cliente FOCO no encontrado en HIVE: $clienteId');
+                    print('   └── Usando datos del JSON: $clienteNombreJson');
                   }
                 } catch (e) {
-                  print('⚠️ No se pudo obtener info adicional del cliente $clienteId: $e');
+                  print('❌ Error al buscar cliente $clienteId en HIVE: $e');
                 }
 
                 actividadesDelDia.add(
@@ -645,7 +661,7 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
                     title: clienteNombre,
                     direccion: clienteDireccion,
                     cliente: clienteId,
-                    asesor: '${diaData['rutaNombre']} ($clienteTipo)',
+                    asesor: '${diaData['rutaNombre']} (${clasificacion ?? clienteTipo})',
                     status:
                         cliente['visitado'] == true
                             ? ActivityStatus.completada
@@ -655,11 +671,14 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
                       'planId': _planUnificado?.id,
                       'dia': _diaSimulado ?? _diaActual,
                       'subcanal': subcanal,
+                      'clasificacion': clasificacion,
+                      'canal': canal,
+                      'clienteTipo': clienteTipo,
                     },
                   ),
                 );
 
-                print('➕ ✅ VISITA CREADA: $clienteNombre (FOCO)');
+                print('➕ ✅ VISITA CREADA: $clienteNombre (FOCO) - Subcanal: ${subcanal ?? "No especificado"}');
               }
             } else {
               actividadesDelDia.add(
@@ -1986,6 +2005,21 @@ class _ActivityTile extends StatelessWidget {
     this.onVisitar,
   });
 
+  Color _getSubcanalColor(String subcanal) {
+    final subcanalLower = subcanal.toLowerCase();
+    if (subcanalLower.contains('detalle')) {
+      return Colors.blue.shade700;
+    } else if (subcanalLower.contains('mayoreo') || subcanalLower.contains('mayorista')) {
+      return Colors.purple.shade700;
+    } else if (subcanalLower.contains('autoservicio')) {
+      return Colors.orange.shade700;
+    } else if (subcanalLower.contains('tienda')) {
+      return Colors.green.shade700;
+    } else {
+      return Colors.grey.shade700;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     IconData leadingIcon;
@@ -2138,13 +2172,76 @@ class _ActivityTile extends StatelessWidget {
                       Row(
                         children: [
                           Expanded(
-                            child: Text(
-                              actividad.title,
-                              style: GoogleFonts.poppins(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.darkGray,
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  actividad.title,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: esFoco ? 16.5 : 16,
+                                    fontWeight: esFoco ? FontWeight.w700 : FontWeight.w600,
+                                    color: esFoco ? AppColors.darkGray : AppColors.darkGray,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (actividad.metadata?['subcanal'] != null && 
+                                    actividad.metadata!['subcanal'].toString().isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 3,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: _getSubcanalColor(actividad.metadata!['subcanal'].toString()).withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(4),
+                                          border: Border.all(
+                                            color: _getSubcanalColor(actividad.metadata!['subcanal'].toString()).withOpacity(0.3),
+                                            width: 1,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          actividad.metadata!['subcanal'].toString().toUpperCase(),
+                                          style: GoogleFonts.poppins(
+                                            fontSize: esFoco ? 11 : 10,
+                                            fontWeight: FontWeight.w600,
+                                            color: _getSubcanalColor(actividad.metadata!['subcanal'].toString()),
+                                          ),
+                                        ),
+                                      ),
+                                      if (actividad.metadata?['clasificacion'] != null && 
+                                          actividad.metadata!['clasificacion'].toString().isNotEmpty) ...[
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.grey.shade100,
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(
+                                              color: Colors.grey.shade300,
+                                              width: 1,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            actividad.metadata!['clasificacion'].toString(),
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w500,
+                                              color: Colors.grey.shade700,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
                           if (esFoco &&
@@ -2184,44 +2281,12 @@ class _ActivityTile extends StatelessWidget {
                       ),
                       if (actividad.cliente != null) ...[
                         const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                'ID: ${actividad.cliente}',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 12,
-                                  color: AppColors.mediumGray,
-                                ),
-                              ),
-                            ),
-                            if (actividad.metadata?['subcanal'] != null && 
-                                actividad.metadata!['subcanal'].toString().isNotEmpty) ...[
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.shade50,
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(
-                                    color: Colors.blue.shade200,
-                                    width: 1,
-                                  ),
-                                ),
-                                child: Text(
-                                  actividad.metadata!['subcanal'].toString(),
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.blue.shade800,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
+                        Text(
+                          'ID: ${actividad.cliente}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: AppColors.mediumGray,
+                          ),
                         ),
                       ],
                       if (actividad.asesor != null) ...[
