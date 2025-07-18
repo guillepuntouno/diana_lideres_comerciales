@@ -5,6 +5,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
 import '../../modelos/hive/plan_trabajo_unificado_hive.dart';
+import '../../modelos/hive/visita_cliente_hive.dart';
 import '../../servicios/resultados_dia_service.dart';
 import '../../servicios/sesion_servicio.dart';
 import '../../servicios/hive_service.dart';
@@ -152,6 +153,13 @@ class _PantallaRutinasResultadosState extends State<PantallaRutinasResultados> {
       // Si hay un día seleccionado, cargar su información
       if (_diaSeleccionado.isNotEmpty && _planSeleccionado!.dias.containsKey(_diaSeleccionado)) {
         _diaPlan = _planSeleccionado!.dias[_diaSeleccionado];
+        print('📊 Día seleccionado: $_diaSeleccionado');
+        print('   └── Tipo: ${_diaPlan!.tipo}');
+        print('   └── Total clientes: ${_diaPlan!.clientes.length}');
+        print('   └── Clientes con estado:');
+        for (var cliente in _diaPlan!.clientes) {
+          print('      - ${cliente.clienteId}: ${cliente.estatus}');
+        }
       } else {
         // Seleccionar el primer día con actividades
         final diasConActividades = _planSeleccionado!.dias.entries
@@ -160,8 +168,13 @@ class _PantallaRutinasResultadosState extends State<PantallaRutinasResultados> {
         if (diasConActividades.isNotEmpty) {
           _diaSeleccionado = diasConActividades.first.key;
           _diaPlan = diasConActividades.first.value;
+          print('📊 Día auto-seleccionado: $_diaSeleccionado');
+          print('   └── Total clientes: ${_diaPlan!.clientes.length}');
         }
       }
+      
+      // Sincronizar estados de visitas reales con el plan
+      await _sincronizarEstadosVisitas();
       
       _kpis = _calcularKPIsRutina();
       
@@ -175,6 +188,91 @@ class _PantallaRutinasResultadosState extends State<PantallaRutinasResultados> {
         _cargando = false;
       });
     }
+  }
+
+  Future<void> _sincronizarEstadosVisitas() async {
+    if (_diaPlan == null || _diaPlan!.tipo != 'gestion_cliente' || _liderClave == null) return;
+    
+    try {
+      print('🔄 Sincronizando estados de visitas con Hive...');
+      
+      // Abrir el box de visitas
+      final visitasBox = await Hive.openBox<VisitaClienteHive>('visitas_clientes');
+      
+      // Obtener la fecha del día seleccionado
+      final fechaDia = _obtenerFechaDelDia(_diaSeleccionado);
+      
+      // Iterar sobre cada cliente del día
+      for (var cliente in _diaPlan!.clientes) {
+        print('🔍 Buscando visita para cliente: ${cliente.clienteId}');
+        
+        // Buscar visitas de este cliente en la fecha específica
+        bool visitaEncontrada = false;
+        for (var visita in visitasBox.values) {
+          if (visita.clienteId == cliente.clienteId && 
+              visita.liderClave == _liderClave &&
+              visita.fechaCreacion.year == fechaDia.year &&
+              visita.fechaCreacion.month == fechaDia.month &&
+              visita.fechaCreacion.day == fechaDia.day) {
+            
+            print('✅ Visita encontrada en Hive:');
+            print('   └── Estado Hive: ${visita.estatus}');
+            print('   └── CheckOut: ${visita.checkOut != null}');
+            print('   └── Estado actual en plan: ${cliente.estatus}');
+            
+            // Actualizar el estado del cliente en el plan
+            if (visita.estatus == 'completada' || visita.checkOut != null) {
+              cliente.estatus = 'completada';
+              cliente.horaInicio = visita.checkIn.timestamp.toIso8601String();
+              if (visita.checkOut != null) {
+                cliente.horaFin = visita.checkOut!.timestamp.toIso8601String();
+              }
+              cliente.comentarioInicio = visita.checkIn.comentarios;
+              
+              print('   └── Estado actualizado a: completada');
+            } else if (visita.estatus == 'en_proceso') {
+              cliente.estatus = 'en_proceso';
+              cliente.horaInicio = visita.checkIn.timestamp.toIso8601String();
+              cliente.comentarioInicio = visita.checkIn.comentarios;
+              
+              print('   └── Estado actualizado a: en_proceso');
+            }
+            
+            visitaEncontrada = true;
+            break;
+          }
+        }
+        
+        if (!visitaEncontrada) {
+          print('❌ No se encontró visita en Hive para cliente: ${cliente.clienteId}');
+        }
+      }
+      
+      print('✅ Sincronización de estados completada');
+      print('   └── Total clientes procesados: ${_diaPlan!.clientes.length}');
+      print('   └── Clientes con visitas completadas: ${_diaPlan!.clientes.where((c) => c.estatus == 'completada').length}');
+      
+    } catch (e) {
+      print('❌ Error al sincronizar estados de visitas: $e');
+    }
+  }
+  
+  DateTime _obtenerFechaDelDia(String nombreDia) {
+    final ahora = DateTime.now();
+    final diasSemana = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+    final diaIndex = diasSemana.indexOf(nombreDia.toLowerCase());
+    final diaActualIndex = ahora.weekday - 1;
+    
+    var diferenciaDias = diaIndex - diaActualIndex;
+    
+    // Ajustar a la misma semana
+    if (diferenciaDias < -3) {
+      diferenciaDias += 7;
+    } else if (diferenciaDias > 3) {
+      diferenciaDias -= 7;
+    }
+    
+    return ahora.add(Duration(days: diferenciaDias));
   }
 
   Map<String, dynamic> _calcularKPIsRutina() {
@@ -246,10 +344,8 @@ class _PantallaRutinasResultadosState extends State<PantallaRutinasResultados> {
     // Filtrar por tipo de rutina seleccionada
     switch (_rutinaSeleccionada) {
       case TipoRutina.visitasClientes:
-        // Solo mostrar visitas con check-in
-        actividades = actividades.where((a) => 
-          a.horaInicio != null || a.estatus != 'pendiente'
-        ).toList();
+        // Mostrar todas las visitas programadas, no solo las que tienen check-in
+        // Esto permite ver tanto las completadas como las pendientes
         break;
       case TipoRutina.formularios:
         // Solo mostrar clientes con formularios capturados
@@ -284,11 +380,28 @@ class _PantallaRutinasResultadosState extends State<PantallaRutinasResultados> {
     return formularios.any((f) => f.clienteId == visita.clienteId);
   }
 
-  void _cambiarDia(String nuevoDia) {
+  void _cambiarDia(String nuevoDia) async {
     setState(() {
       _diaSeleccionado = nuevoDia;
+      _cargando = true;
     });
-    _cargarDatos();
+    
+    // Actualizar el día del plan
+    if (_planSeleccionado != null && _planSeleccionado!.dias.containsKey(nuevoDia)) {
+      _diaPlan = _planSeleccionado!.dias[nuevoDia];
+      
+      // Sincronizar estados de visitas para el nuevo día
+      await _sincronizarEstadosVisitas();
+      
+      // Recalcular KPIs
+      _kpis = _calcularKPIsRutina();
+      
+      setState(() {
+        _cargando = false;
+      });
+    } else {
+      await _cargarDatos();
+    }
   }
 
   void _cambiarRutina(TipoRutina nuevaRutina) {
