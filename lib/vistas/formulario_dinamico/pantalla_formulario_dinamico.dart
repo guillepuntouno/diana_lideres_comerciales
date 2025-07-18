@@ -57,7 +57,13 @@ class _PantallaFormularioDinamicoState
   // Formulario dinámico
   FormularioPlantillaDTO? formularioPlantilla;
   Map<String, dynamic> respuestasFormulario = {};
-  List<String> nombresSecciones = [];
+  List<String> nombresSecciones = [
+    'Información General',
+    'Evaluación',
+    'Disponibilidad',
+    'Compromisos',
+    'Comentarios',
+  ]; // Inicializar con valores por defecto
   
   // Secciones estáticas que se mantienen
   final List<String> seccionesEstaticas = [
@@ -66,7 +72,7 @@ class _PantallaFormularioDinamicoState
   ];
 
   // Estados de completitud por sección
-  List<bool> seccionesCompletadas = [false, false, false, false, false];
+  List<bool> seccionesCompletadas = [false, false, false, false, false]; // Inicializar con 5 elementos por defecto
 
   // Datos del formulario por sección
   Map<String, dynamic> datosFormulario = {
@@ -285,8 +291,8 @@ class _PantallaFormularioDinamicoState
         print('🔄 Intentando recuperar visita existente...');
         await _recuperarVisitaExistente();
       } else {
-        _mostrarError('Error al crear la visita. Continuando en modo offline.');
-        // Continuar en modo offline
+        _mostrarError('Error al crear la visita. Por favor verifique su conexión.');
+        // No continuar sin visita creada
       }
     }
   }
@@ -398,10 +404,24 @@ class _PantallaFormularioDinamicoState
 
   Future<void> _cargarFormularioDinamico() async {
     try {
-      print('📋 Cargando formulario dinámico para tipo de cliente: $tipoCliente');
+      print('\n========== INICIO CARGA FORMULARIO DINÁMICO ==========');
+      print('📋 Tipo de cliente recibido: $tipoCliente');
+      print('📋 Tipo de cliente en mayúsculas: ${tipoCliente?.toUpperCase()}');
       
       // Abrir box de formularios
-      final formulariosBox = await Hive.openBox<FormularioPlantillaDTO>('formularios_plantilla');
+      print('🔓 Abriendo box de formularios...');
+      final formulariosBox = await Hive.openBox<FormularioPlantillaDTO>('formularios');
+      print('✅ Box abierto correctamente');
+      
+      print('📦 Total de formularios en Hive: ${formulariosBox.length}');
+      
+      // Si no hay formularios, usar formulario por defecto
+      if (formulariosBox.isEmpty) {
+        print('❌ ERROR: No hay formularios en Hive');
+        print('📋 Usando formulario estático por defecto');
+        _usarFormularioPorDefecto();
+        return;
+      }
       
       // Buscar formulario activo según el tipo de cliente
       CanalType canalBuscado = CanalType.DETALLE; // Por defecto
@@ -412,76 +432,139 @@ class _PantallaFormularioDinamicoState
         canalBuscado = CanalType.EXCELENCIA;
       }
       
+      // Listar todos los formularios disponibles para depuración
+      print('\n📋 LISTANDO TODOS LOS FORMULARIOS EN HIVE:');
+      int index = 0;
+      for (var key in formulariosBox.keys) {
+        var formulario = formulariosBox.get(key);
+        if (formulario != null) {
+          print('[$index] Key: $key');
+          print('    └── Nombre: ${formulario.nombre}');
+          print('    └── Canal: ${formulario.canal} (${formulario.canal.runtimeType})');
+          print('    └── Estado: ${formulario.estatus} (${formulario.estatus.runtimeType})');
+          print('    └── Preguntas: ${formulario.questions.length}');
+          print('    └── PlantillaId: ${formulario.plantillaId}');
+          print('    └── Version: ${formulario.version}');
+          index++;
+        }
+      }
+      
+      print('\n🔍 BUSCANDO FORMULARIO:');
+      print('   Canal buscado: $canalBuscado (${canalBuscado.runtimeType})');
+      print('   Estado buscado: ${FormStatus.ACTIVO} (${FormStatus.ACTIVO.runtimeType})');
+      
       // Buscar formulario que coincida con el canal y esté activo
+      FormularioPlantillaDTO? formularioEncontrado;
       for (var formulario in formulariosBox.values) {
+        print('\n   Comparando con: ${formulario.nombre}');
+        print('   ¿Canal coincide? ${formulario.canal} == $canalBuscado → ${formulario.canal == canalBuscado}');
+        print('   ¿Estado activo? ${formulario.estatus} == ${FormStatus.ACTIVO} → ${formulario.estatus == FormStatus.ACTIVO}');
+        
         if (formulario.canal == canalBuscado && formulario.estatus == FormStatus.ACTIVO) {
+          formularioEncontrado = formulario;
           formularioPlantilla = formulario;
+          print('   ✅ FORMULARIO ENCONTRADO!');
           break;
         }
       }
       
-      if (formularioPlantilla != null) {
-        print('✅ Formulario encontrado: ${formularioPlantilla!.nombre}');
+      if (formularioEncontrado != null) {
+        print('\n✅ FORMULARIO SELECCIONADO:');
+        print('   Nombre: ${formularioEncontrado.nombre}');
+        print('   Total preguntas: ${formularioEncontrado.questions.length}');
         
+        // Listar todas las preguntas
+        print('\n📝 PREGUNTAS DEL FORMULARIO:');
+        for (var i = 0; i < formularioEncontrado.questions.length; i++) {
+          var pregunta = formularioEncontrado.questions[i];
+          print('   [$i] ${pregunta.etiqueta}');
+          print('       └── Tipo: ${pregunta.tipoEntrada}');
+          print('       └── Sección: ${pregunta.section}');
+          print('       └── Orden: ${pregunta.orden}');
+        }
+        
+        // Listar las secciones únicas
+        final secciones = formularioEncontrado.questions.map((p) => p.section).toSet().toList();
+        print('\n📑 SECCIONES ÚNICAS: $secciones');
+      }
+      
+      if (formularioPlantilla != null) {
         // Obtener secciones únicas del formulario
         final seccionesDinamicas = formularioPlantilla!.questions
             .map((p) => p.section)
             .toSet()
             .toList();
             
+        print('\n📑 CONFIGURANDO SECCIONES:');
+        print('   Secciones dinámicas: $seccionesDinamicas');
+        print('   Secciones estáticas: $seccionesEstaticas');
+        
         // Actualizar nombres de secciones (dinámicas + estáticas)
         setState(() {
           nombresSecciones = [...seccionesDinamicas, ...seccionesEstaticas];
           seccionesCompletadas = List<bool>.filled(nombresSecciones.length, false);
         });
         
-        print('📑 Secciones cargadas: $nombresSecciones');
+        print('   Secciones finales: $nombresSecciones');
+        print('   Total secciones: ${nombresSecciones.length}');
+        print('========== FIN CARGA EXITOSA ==========\n');
+        
+        // Mostrar alerta de éxito
+        _mostrarExito('Formulario cargado correctamente: ${formularioPlantilla!.nombre}');
+        
       } else {
-        print('⚠️ No se encontró formulario para canal: $canalBuscado');
-        // Usar secciones por defecto
-        setState(() {
-          nombresSecciones = [
-            'Información General',
-            'Evaluación',
-            'Disponibilidad',
-            ...seccionesEstaticas
-          ];
-          seccionesCompletadas = List<bool>.filled(nombresSecciones.length, false);
-        });
+        print('\n❌ ERROR: No se encontró formulario activo para canal: $canalBuscado');
+        print('📋 Usando formulario estático por defecto');
+        print('========== FIN CARGA CON FORMULARIO POR DEFECTO ==========\n');
+        
+        _usarFormularioPorDefecto();
       }
       
-    } catch (e) {
-      print('❌ Error al cargar formulario dinámico: $e');
-      // Usar secciones por defecto en caso de error
-      setState(() {
-        nombresSecciones = [
-          'Información General',
-          'Evaluación',
-          'Disponibilidad',
-          ...seccionesEstaticas
-        ];
-        seccionesCompletadas = List<bool>.filled(nombresSecciones.length, false);
-      });
+    } catch (e, stackTrace) {
+      print('\n❌ EXCEPCIÓN AL CARGAR FORMULARIO:');
+      print('   Error: $e');
+      print('   StackTrace: $stackTrace');
+      print('📋 Usando formulario estático por defecto debido al error');
+      print('========== FIN CARGA CON EXCEPCIÓN ==========\n');
+      
+      _usarFormularioPorDefecto();
     }
+  }
+  
+  void _usarFormularioPorDefecto() {
+    // Usar secciones por defecto
+    setState(() {
+      nombresSecciones = [
+        'Información General',
+        'Evaluación',
+        'Disponibilidad',
+        ...seccionesEstaticas
+      ];
+      seccionesCompletadas = List<bool>.filled(nombresSecciones.length, false);
+    });
+    print('📋 Usando formulario por defecto con ${nombresSecciones.length} secciones');
   }
 
   void _verificarCompletitudSecciones() {
+    // Solo verificar si tenemos formulario estático (no dinámico)
+    if (formularioPlantilla != null) return;
+    
+    // Solo verificar si las secciones están inicializadas y son las estáticas
+    if (seccionesCompletadas.length < 5) return;
+    
     setState(() {
       seccionesCompletadas[0] = poseeExhibidorAdecuado != null;
-      seccionesCompletadas[1] =
-          primeraPosition != null &&
+      seccionesCompletadas[1] = primeraPosition != null &&
           planograma != null &&
           portafolioFoco != null &&
           anclaje != null;
-      seccionesCompletadas[2] =
-          ristras != null &&
+      seccionesCompletadas[2] = ristras != null &&
           max != null &&
           familiar != null &&
           dulce != null &&
           galleta != null;
       seccionesCompletadas[3] = true; // Compromisos son opcionales
-      seccionesCompletadas[4] =
-          retroalimentacionController.text.trim().isNotEmpty;
+      seccionesCompletadas[4] = retroalimentacionController.text.trim().isNotEmpty;
     });
   }
 
@@ -1046,6 +1129,29 @@ class _PantallaFormularioDinamicoState
       ),
     );
   }
+  
+  void _mostrarExito(String mensaje) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                mensaje,
+                style: GoogleFonts.poppins(color: Colors.white, fontSize: 14),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: AppColors.dianaGreen,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
 
   String _obtenerDiaActual() {
     final diasSemana = [
@@ -1292,12 +1398,48 @@ class _PantallaFormularioDinamicoState
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: preguntasSeccion.map((pregunta) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 24),
-            child: _buildPreguntaDinamica(pregunta),
-          );
-        }).toList(),
+        children: [
+          // Título de la sección
+          Container(
+            padding: const EdgeInsets.all(16),
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(
+              color: AppColors.dianaRed.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.dianaRed.withOpacity(0.2),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.assignment,
+                  color: AppColors.dianaRed,
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    seccionNombre,
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.darkGray,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Preguntas de la sección
+          ...preguntasSeccion.map((pregunta) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 24),
+              child: _buildPreguntaDinamica(pregunta),
+            );
+          }).toList(),
+        ],
       ),
     );
   }
@@ -1305,8 +1447,9 @@ class _PantallaFormularioDinamicoState
   Widget _buildPreguntaDinamica(PreguntaDTO pregunta) {
     final respuestaActual = respuestasFormulario[pregunta.name];
     
-    switch (pregunta.tipoEntrada) {
-      case 'SI_NO':
+    switch (pregunta.tipoEntrada.toLowerCase()) {
+      case 'si_no':
+      case 'radio': // Soporte para tipo radio como SI/NO
         return _buildPreguntaSiNo(
           pregunta.etiqueta,
           respuestaActual as bool?,
@@ -1318,7 +1461,8 @@ class _PantallaFormularioDinamicoState
           },
         );
         
-      case 'SELECCION_UNICA':
+      case 'seleccion_unica':
+      case 'select':
         return _buildDropdown(
           pregunta.etiqueta,
           respuestaActual as String?,
@@ -1334,11 +1478,13 @@ class _PantallaFormularioDinamicoState
           },
         );
         
-      case 'SELECCION_MULTIPLE':
+      case 'seleccion_multiple':
+      case 'checkbox':
         final valoresSeleccionados = (respuestaActual as List<String>?) ?? [];
         return _buildSeleccionMultiple(pregunta, valoresSeleccionados);
         
-      case 'NUMERO':
+      case 'numero':
+      case 'number':
         return _buildCampoNumerico(
           pregunta.etiqueta,
           respuestaActual as int? ?? 0,
@@ -1350,7 +1496,8 @@ class _PantallaFormularioDinamicoState
           },
         );
         
-      case 'TEXTO':
+      case 'texto':
+      case 'text':
         return _buildCampoTexto(
           pregunta.etiqueta,
           respuestaActual as String? ?? '',
@@ -1363,7 +1510,35 @@ class _PantallaFormularioDinamicoState
         );
         
       default:
-        return Text('Tipo de pregunta no soportado: ${pregunta.tipoEntrada}');
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.orange.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.orange.shade200),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                pregunta.etiqueta,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.darkGray,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Tipo de pregunta no soportado: ${pregunta.tipoEntrada}',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: Colors.orange.shade700,
+                ),
+              ),
+            ],
+          ),
+        );
     }
   }
 
@@ -1530,6 +1705,13 @@ class _PantallaFormularioDinamicoState
   void _verificarCompletitudSeccionDinamica() {
     if (formularioPlantilla == null) return;
     
+    // Verificar que los índices sean válidos
+    if (seccionActual >= nombresSecciones.length || 
+        seccionActual >= seccionesCompletadas.length) {
+      print('⚠️ Índice de sección fuera de rango: $seccionActual');
+      return;
+    }
+    
     final seccionNombre = nombresSecciones[seccionActual];
     
     // Si es sección estática, usar lógica original
@@ -1557,7 +1739,9 @@ class _PantallaFormularioDinamicoState
     }
     
     setState(() {
-      seccionesCompletadas[seccionActual] = seccionCompleta;
+      if (seccionActual < seccionesCompletadas.length) {
+        seccionesCompletadas[seccionActual] = seccionCompleta;
+      }
     });
   }
 

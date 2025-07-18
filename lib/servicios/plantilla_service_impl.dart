@@ -191,6 +191,82 @@ class PlantillaServiceImpl implements PlantillaService {
     }
   }
   
+  /// Valida que solo haya un formulario activo por canal
+  /// Desactiva todos los formularios del canal especificado excepto el indicado
+  /// 
+  /// [canal] - El canal del cual se desactivarán los demás formularios
+  /// [formularioIdActivar] - El ID del formulario que se activará
+  /// 
+  /// Retorna true si la operación fue exitosa, false en caso contrario
+  Future<bool> validarFormularioUnicoPorCanal(
+    CanalType canal, 
+    String formularioIdActivar,
+  ) async {
+    await _ensureInitialized();
+    
+    try {
+      // Obtener todos los formularios del canal
+      final formulariosCanal = _plantillasBox.values
+          .where((formulario) => formulario.canal == canal)
+          .toList();
+      
+      print('📋 Formularios encontrados para canal ${canal.name}: ${formulariosCanal.length}');
+      
+      // Verificar que el formulario a activar existe
+      final formularioActivar = formulariosCanal
+          .firstWhere(
+            (f) => f.plantillaId == formularioIdActivar,
+            orElse: () => throw Exception('Formulario $formularioIdActivar no encontrado'),
+          );
+      
+      // Actualizar los formularios
+      final actualizaciones = <String, FormularioPlantillaDTO>{};
+      
+      for (final formulario in formulariosCanal) {
+        if (formulario.plantillaId == formularioIdActivar) {
+          // Activar el formulario especificado
+          final formularioActualizado = FormularioPlantillaDTO(
+            plantillaId: formulario.plantillaId,
+            nombre: formulario.nombre,
+            version: formulario.version,
+            estatus: FormStatus.ACTIVO,
+            canal: formulario.canal,
+            questions: formulario.questions,
+            fechaCreacion: formulario.fechaCreacion,
+            fechaActualizacion: DateTime.now(),
+          );
+          actualizaciones[formulario.plantillaId] = formularioActualizado;
+          print('✅ Activando formulario: ${formulario.nombre}');
+        } else if (formulario.estatus == FormStatus.ACTIVO) {
+          // Desactivar otros formularios activos del mismo canal
+          final formularioActualizado = FormularioPlantillaDTO(
+            plantillaId: formulario.plantillaId,
+            nombre: formulario.nombre,
+            version: formulario.version,
+            estatus: FormStatus.INACTIVO,
+            canal: formulario.canal,
+            questions: formulario.questions,
+            fechaCreacion: formulario.fechaCreacion,
+            fechaActualizacion: DateTime.now(),
+          );
+          actualizaciones[formulario.plantillaId] = formularioActualizado;
+          print('❌ Desactivando formulario: ${formulario.nombre}');
+        }
+      }
+      
+      // Guardar todas las actualizaciones en Hive
+      if (actualizaciones.isNotEmpty) {
+        await _plantillasBox.putAll(actualizaciones);
+        print('✅ Se actualizaron ${actualizaciones.length} formularios para el canal ${canal.name}');
+      }
+      
+      return true;
+    } catch (e) {
+      print('❌ Error al validar formulario único por canal: $e');
+      return false;
+    }
+  }
+  
   /// Cierra la caja de Hive
   Future<void> cerrar() async {
     if (_initialized) {
