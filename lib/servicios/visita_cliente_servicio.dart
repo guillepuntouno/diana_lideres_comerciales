@@ -321,6 +321,41 @@ class VisitaClienteServicio {
     return clave;
   }
 
+  /// Buscar visita por clienteId y fecha
+  Future<VisitaClienteModelo?> buscarVisitaPorClienteYFecha({
+    required String clienteId,
+    required DateTime fecha,
+    required String liderClave,
+  }) async {
+    try {
+      final box = await _getBox();
+      print('🔍 Buscando visita para cliente: $clienteId en fecha: ${fecha.toString().split(' ')[0]}');
+      
+      // Buscar en todos los valores del box
+      for (var visita in box.values) {
+        if (visita.clienteId == clienteId && 
+            visita.liderClave == liderClave &&
+            visita.fechaCreacion.year == fecha.year &&
+            visita.fechaCreacion.month == fecha.month &&
+            visita.fechaCreacion.day == fecha.day) {
+          
+          print('✅ Visita encontrada:');
+          print('   └── VisitaId: ${visita.visitaId}');
+          print('   └── Estado: ${visita.estatus}');
+          print('   └── CheckOut: ${visita.checkOut != null ? "Sí" : "No"}');
+          
+          return VisitaClienteModelo.fromJson(visita.toJson());
+        }
+      }
+      
+      print('❌ No se encontró visita para el cliente $clienteId en la fecha especificada');
+      return null;
+    } catch (e) {
+      print('❌ Error al buscar visita: $e');
+      return null;
+    }
+  }
+
   /// Crear visita desde una actividad
   Future<VisitaClienteModelo> crearVisitaDesdeActividad({
     required String clienteId,

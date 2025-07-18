@@ -514,6 +514,9 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
           print('   └── Objetivo: ${diaData['objetivo']}');
           print('   └── Tipo: ${diaData['tipo']}');
 
+          // NUEVO: Verificar visitas existentes antes de procesar
+          await _verificarVisitasExistentes(diaData);
+
           _rutaSeleccionada = diaData['rutaNombre'];
 
           String tipoActividad = diaData['tipo'] ?? '';
@@ -732,14 +735,43 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
 
       for (final actividad in actividadesVisita) {
         if (actividad.cliente != null) {
+          // Primero intentar buscar por clave generada
+          int numeroSemana;
+          if (_planSeleccionado != null) {
+            numeroSemana = _planSeleccionado!.semana;
+          } else {
+            // Calcular número de semana usando el mismo método que VisitaClienteServicio
+            final ahora = DateTime.now();
+            final primerDiaDelAno = DateTime(ahora.year, 1, 1);
+            final diferencia = ahora.difference(primerDiaDelAno).inDays;
+            numeroSemana = ((diferencia + primerDiaDelAno.weekday) / 7).ceil();
+          }
+          
           final claveVisita = _visitaServicio.generarClaveVisita(
             liderClave: _liderActual!.clave,
-            numeroSemana: _obtenerSemanaActual(),
-            dia: _diaActual,
+            numeroSemana: numeroSemana,
+            dia: _diaActual.toLowerCase(),
             clienteId: actividad.cliente!,
           );
 
-          final visita = await _visitaServicio.obtenerVisita(claveVisita);
+          print('🔍 Verificando estado de visita con clave: $claveVisita');
+          
+          var visita = await _visitaServicio.obtenerVisita(claveVisita);
+          
+          // Si no se encuentra con la clave, buscar por clienteId y fecha
+          if (visita == null) {
+            print('⚠️ No se encontró con clave, buscando por clienteId y fecha...');
+            
+            final fechaBusqueda = _diaSimulado != null 
+                ? _obtenerFechaDelDiaSimulado() 
+                : DateTime.now();
+            
+            visita = await _visitaServicio.buscarVisitaPorClienteYFecha(
+              clienteId: actividad.cliente!,
+              fecha: fechaBusqueda,
+              liderClave: _liderActual!.clave,
+            );
+          }
 
           if (visita != null) {
             _visitasEstados[actividad.id] = visita;
@@ -751,6 +783,8 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
             }
 
             print('✅ Estado de visita ${actividad.title}: ${visita.estatus}');
+          } else {
+            print('❌ No se encontró visita para ${actividad.title}');
           }
         }
       }
@@ -764,14 +798,6 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
     }
   }
 
-  int _obtenerSemanaActual() {
-    final ahora = DateTime.now();
-    return ((ahora.difference(DateTime(ahora.year, 1, 1)).inDays +
-                DateTime(ahora.year, 1, 1).weekday -
-                1) /
-            7)
-        .ceil();
-  }
 
   Future<void> _cargarPlanUnificado() async {
     if (_liderActual == null || _planSeleccionado == null) return;
@@ -794,6 +820,119 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
     } catch (e) {
       print('❌ Error al cargar plan unificado: $e');
     }
+  }
+  
+  // NUEVO: Verificar visitas existentes para cada cliente
+  Future<void> _verificarVisitasExistentes(Map<String, dynamic> diaData) async {
+    if (_liderActual == null) return;
+    
+    try {
+      print('🔍 Verificando visitas existentes para marcar clientes como visitados...');
+      
+      final visitaServicio = VisitaClienteServicio();
+      final diaActual = _diaSimulado ?? _diaActual;
+      
+      // Verificar clientes normales
+      if (diaData['clientes'] != null) {
+        for (var cliente in diaData['clientes']) {
+          await _verificarVisitaCliente(cliente, visitaServicio, diaActual);
+        }
+      }
+      
+      // Verificar clientes asignados (FOCO)
+      if (diaData['clientesAsignados'] != null) {
+        for (var cliente in diaData['clientesAsignados']) {
+          await _verificarVisitaCliente(cliente, visitaServicio, diaActual);
+        }
+      }
+      
+      print('✅ Verificación de visitas completada');
+    } catch (e) {
+      print('❌ Error al verificar visitas existentes: $e');
+    }
+  }
+  
+  Future<void> _verificarVisitaCliente(
+    Map<String, dynamic> cliente,
+    VisitaClienteServicio visitaServicio,
+    String diaActual,
+  ) async {
+    final clienteId = cliente['clienteId'];
+    if (clienteId == null) return;
+    
+    // Primero intentar buscar por clave generada (método tradicional)
+    int numeroSemana;
+    if (_planSeleccionado != null) {
+      numeroSemana = _planSeleccionado!.semana;
+    } else {
+      // Calcular número de semana usando el mismo método que VisitaClienteServicio
+      final ahora = DateTime.now();
+      final primerDiaDelAno = DateTime(ahora.year, 1, 1);
+      final diferencia = ahora.difference(primerDiaDelAno).inDays;
+      numeroSemana = ((diferencia + primerDiaDelAno.weekday) / 7).ceil();
+    }
+    
+    // Generar la clave de visita para este cliente
+    final claveVisita = visitaServicio.generarClaveVisita(
+      liderClave: _liderActual!.clave,
+      numeroSemana: numeroSemana,
+      dia: diaActual.toLowerCase(),
+      clienteId: clienteId,
+    );
+    
+    print('🔍 Buscando visita con clave: $claveVisita');
+    
+    // Verificar si existe la visita con la clave generada
+    var visitaExistente = await visitaServicio.obtenerVisita(claveVisita);
+    
+    // Si no se encuentra con la clave, buscar por clienteId y fecha
+    if (visitaExistente == null) {
+      print('⚠️ No se encontró con clave, buscando por clienteId y fecha...');
+      
+      // Usar la fecha simulada si está disponible, sino usar la fecha actual
+      final fechaBusqueda = _diaSimulado != null 
+          ? _obtenerFechaDelDiaSimulado() 
+          : DateTime.now();
+      
+      visitaExistente = await visitaServicio.buscarVisitaPorClienteYFecha(
+        clienteId: clienteId,
+        fecha: fechaBusqueda,
+        liderClave: _liderActual!.clave,
+      );
+    }
+    
+    if (visitaExistente != null) {
+      // Marcar como visitado si la visita existe y está completada o tiene checkout
+      cliente['visitado'] = visitaExistente.checkOut != null || 
+                           visitaExistente.estatus == 'completada';
+      
+      print('✅ Cliente ${cliente['clienteNombre']} - Visitado: ${cliente['visitado']}');
+      print('   └── Estado visita: ${visitaExistente.estatus}');
+      print('   └── Tiene checkout: ${visitaExistente.checkOut != null}');
+    } else {
+      print('❌ No se encontró visita para cliente ${cliente['clienteNombre']}');
+      cliente['visitado'] = false;
+    }
+  }
+  
+  DateTime _obtenerFechaDelDiaSimulado() {
+    // Obtener la fecha actual y ajustar al día simulado
+    final ahora = DateTime.now();
+    final diasSemana = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+    final diaSimuladoIndex = diasSemana.indexOf(_diaSimulado!.toLowerCase());
+    final diaActualIndex = ahora.weekday - 1;
+    
+    // Calcular la diferencia de días
+    var diferenciaDias = diaSimuladoIndex - diaActualIndex;
+    
+    // Ajustar a la misma semana
+    if (diferenciaDias < -3) {
+      diferenciaDias += 7; // Siguiente semana
+    } else if (diferenciaDias > 3) {
+      diferenciaDias -= 7; // Semana anterior
+    }
+    
+    return ahora.add(Duration(days: diferenciaDias));
   }
 
   Future<void> _verificarVisitasEnPlanUnificado(List<ActivityModel> actividades) async {
