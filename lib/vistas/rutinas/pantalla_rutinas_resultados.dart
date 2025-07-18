@@ -238,6 +238,36 @@ class _PantallaRutinasResultadosState extends State<PantallaRutinasResultados> {
               print('   └── Estado actualizado a: en_proceso');
             }
             
+            // Sincronizar formularios capturados
+            if (visita.formularios.isNotEmpty) {
+              print('   └── Formularios encontrados: ${visita.formularios.length}');
+              
+              // Convertir los formularios del formato de VisitaClienteHive a FormularioDinamicoHive
+              for (var formularioEntry in visita.formularios.entries) {
+                final formularioId = formularioEntry.key;
+                final formularioData = formularioEntry.value;
+                
+                // Verificar si ya existe el formulario en el día del plan
+                bool formularioExiste = _diaPlan!.formularios.any((f) => 
+                  f.clienteId == cliente.clienteId && 
+                  f.formularioId == formularioId
+                );
+                
+                if (!formularioExiste) {
+                  // Crear un formulario del día para agregarlo al plan
+                  final nuevoFormulario = FormularioDiaHive(
+                    formularioId: formularioId,
+                    clienteId: cliente.clienteId,
+                    respuestas: formularioData is Map<String, dynamic> ? formularioData : {},
+                    fechaCaptura: visita.fechaCreacion,
+                  );
+                  
+                  _diaPlan!.formularios.add(nuevoFormulario);
+                  print('   └── Formulario agregado: $formularioId para cliente ${cliente.clienteId}');
+                }
+              }
+            }
+            
             visitaEncontrada = true;
             break;
           }
@@ -352,6 +382,9 @@ class _PantallaRutinasResultadosState extends State<PantallaRutinasResultados> {
         actividades = actividades.where((a) => 
           _diaPlan!.formularios.any((f) => f.clienteId == a.clienteId)
         ).toList();
+        print('🔍 Filtrando por formularios:');
+        print('   └── Total formularios en el día: ${_diaPlan!.formularios.length}');
+        print('   └── Clientes con formularios: ${actividades.length}');
         break;
       case TipoRutina.administrativas:
         // No mostrar clientes en vista administrativa
@@ -1561,18 +1594,38 @@ class _PantallaRutinasResultadosState extends State<PantallaRutinasResultados> {
         .toList();
     
     if (formularios.isEmpty) {
-      return Text(
-        'No hay formularios capturados',
-        style: GoogleFonts.poppins(
-          fontSize: 14,
-          color: AppColors.mediumGray,
-          fontStyle: FontStyle.italic,
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.info_outline,
+              size: 16,
+              color: Colors.grey.shade600,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'No hay formularios capturados',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: Colors.grey.shade600,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
         ),
       );
     }
     
     return Column(
       children: formularios.map((formulario) {
+        // Determinar el nombre del formulario basado en el ID
+        String nombreFormulario = _obtenerNombreFormulario(formulario.formularioId);
+        
         return Container(
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.all(12),
@@ -1583,31 +1636,73 @@ class _PantallaRutinasResultadosState extends State<PantallaRutinasResultados> {
           ),
           child: Row(
             children: [
-              Icon(
-                Icons.check_circle,
-                size: 16,
-                color: AppColors.dianaGreen,
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.dianaGreen.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.assignment_turned_in,
+                  size: 20,
+                  color: AppColors.dianaGreen,
+                ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Formulario ${formulario.formularioId}',
+                      nombreFormulario,
                       style: GoogleFonts.poppins(
                         fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.darkGray,
                       ),
                     ),
-                    Text(
-                      'Capturado: ${DateFormat('dd/MM/yyyy HH:mm').format(formulario.fechaCaptura)}',
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        color: AppColors.mediumGray,
-                      ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.access_time,
+                          size: 12,
+                          color: AppColors.mediumGray,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          DateFormat('dd/MM/yyyy HH:mm').format(formulario.fechaCaptura),
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: AppColors.mediumGray,
+                          ),
+                        ),
+                      ],
                     ),
+                    if (formulario.respuestas.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        '${formulario.respuestas.length} respuestas capturadas',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          color: AppColors.dianaGreen,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: AppColors.dianaGreen.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.check,
+                  size: 16,
+                  color: AppColors.dianaGreen,
                 ),
               ),
             ],
@@ -1615,6 +1710,37 @@ class _PantallaRutinasResultadosState extends State<PantallaRutinasResultados> {
         );
       }).toList(),
     );
+  }
+  
+  String _obtenerNombreFormulario(String formularioId) {
+    // Mapeo de IDs de formularios a nombres legibles
+    switch (formularioId.toLowerCase()) {
+      case 'visita_cliente':
+      case 'visitacliente':
+        return 'Visita a Cliente';
+      case 'toma_pedido':
+      case 'tomapedido':
+        return 'Toma de Pedido';
+      case 'encuesta_satisfaccion':
+      case 'encuestasatisfaccion':
+        return 'Encuesta de Satisfacción';
+      case 'relevamiento':
+        return 'Relevamiento';
+      case 'censo':
+        return 'Censo';
+      case 'seguimiento':
+        return 'Seguimiento';
+      default:
+        // Si no está mapeado, formatear el ID para que sea más legible
+        return formularioId
+            .replaceAll('_', ' ')
+            .replaceAll('-', ' ')
+            .split(' ')
+            .map((word) => word.isNotEmpty 
+                ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}'
+                : '')
+            .join(' ');
+    }
   }
 
   Widget _buildCompromisos(VisitaClienteUnificadaHive visita) {
