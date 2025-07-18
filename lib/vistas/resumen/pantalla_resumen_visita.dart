@@ -7,6 +7,7 @@ import '../../modelos/visita_cliente_modelo.dart';
 import '../../modelos/hive/plan_trabajo_unificado_hive.dart';
 import '../../servicios/visita_cliente_unificado_service.dart';
 import '../../servicios/clientes_servicio.dart';
+import '../../modelos/formulario_dto.dart';
 
 class AppColors {
   static const Color dianaRed = Color(0xFFDE1327);
@@ -34,6 +35,10 @@ class _PantallaResumenVisitaState extends State<PantallaResumenVisita> {
   bool _modoConsulta = false;
   Map<String, dynamic>? _infoCliente;
   List<FormularioDiaHive> _formulariosCliente = [];
+  
+  // Formulario dinámico
+  FormularioPlantillaDTO? _formularioDinamico;
+  Map<String, dynamic>? _respuestasFormulario;
   
   @override
   void initState() {
@@ -143,6 +148,13 @@ class _PantallaResumenVisitaState extends State<PantallaResumenVisita> {
     Map<String, dynamic>? formularios =
         args['formularios'] as Map<String, dynamic>?;
     final Duration? duracion = args['duracion'] as Duration?;
+    
+    // Obtener datos del formulario dinámico si existen
+    if (args['formularioDinamico'] != null) {
+      final formularioDinamico = args['formularioDinamico'] as Map<String, dynamic>;
+      _formularioDinamico = formularioDinamico['plantilla'] as FormularioPlantillaDTO?;
+      _respuestasFormulario = formularioDinamico['respuestas'] as Map<String, dynamic>?;
+    }
     
     // En modo consulta, los formularios ya vienen en la estructura unificada
     // No necesitamos construirlos manualmente
@@ -432,33 +444,39 @@ class _PantallaResumenVisitaState extends State<PantallaResumenVisita> {
           ),
           const SizedBox(height: 16),
 
-          // Sección 1: Tipo de Exhibidor
-          if (formularios['seccion1'] != null)
-            _buildSeccionResumen(
-              'Tipo de Exhibidor',
-              formularios['seccion1'],
-              Icons.store,
-            ),
+          // Mostrar formulario dinámico si existe
+          if (_formularioDinamico != null && _respuestasFormulario != null) ...[
+            _buildFormularioDinamicoResumen(),
+          ] else ...[
+            // Mostrar formularios estáticos originales
+            // Sección 1: Tipo de Exhibidor
+            if (formularios['seccion1'] != null)
+              _buildSeccionResumen(
+                'Tipo de Exhibidor',
+                formularios['seccion1'],
+                Icons.store,
+              ),
 
-          // Sección 2: Estándares de Ejecución
-          if (formularios['seccion2'] != null)
-            _buildSeccionResumen(
-              'Estándares de Ejecución',
-              formularios['seccion2'],
-              Icons.checklist,
-            ),
+            // Sección 2: Estándares de Ejecución
+            if (formularios['seccion2'] != null)
+              _buildSeccionResumen(
+                'Estándares de Ejecución',
+                formularios['seccion2'],
+                Icons.checklist,
+              ),
 
-          // Sección 3: Disponibilidad
-          if (formularios['seccion3'] != null)
-            _buildSeccionResumen(
-              'Disponibilidad',
-              formularios['seccion3'],
-              Icons.inventory,
-            ),
+            // Sección 3: Disponibilidad
+            if (formularios['seccion3'] != null)
+              _buildSeccionResumen(
+                'Disponibilidad',
+                formularios['seccion3'],
+                Icons.inventory,
+              ),
+          ],
 
-          // Sección 5: Comentarios
-          if (formularios['seccion5'] != null)
-            _buildComentarios(formularios['seccion5']),
+          // Comentarios siempre se muestran (estático)
+          if (formularios['comentarios'] != null)
+            _buildComentarios(formularios['comentarios']),
         ],
       ),
     );
@@ -702,6 +720,84 @@ class _PantallaResumenVisitaState extends State<PantallaResumenVisita> {
         ),
       ],
     );
+  }
+
+  Widget _buildFormularioDinamicoResumen() {
+    if (_formularioDinamico == null || _respuestasFormulario == null) {
+      return const SizedBox.shrink();
+    }
+
+    // Agrupar preguntas por sección
+    Map<String, List<PreguntaDTO>> preguntasPorSeccion = {};
+    for (var pregunta in _formularioDinamico!.questions) {
+      if (!preguntasPorSeccion.containsKey(pregunta.section)) {
+        preguntasPorSeccion[pregunta.section] = [];
+      }
+      preguntasPorSeccion[pregunta.section]!.add(pregunta);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: preguntasPorSeccion.entries.map((entry) {
+        final seccion = entry.key;
+        final preguntas = entry.value;
+        
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.checklist, size: 18, color: AppColors.dianaRed),
+                  const SizedBox(width: 8),
+                  Text(
+                    seccion,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.darkGray,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              
+              // Mostrar respuestas de cada pregunta
+              ...preguntas.map((pregunta) {
+                final respuesta = _respuestasFormulario![pregunta.name];
+                if (respuesta == null) return const SizedBox.shrink();
+                
+                return _buildRespuestaDinamica(pregunta, respuesta);
+              }).toList(),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildRespuestaDinamica(PreguntaDTO pregunta, dynamic respuesta) {
+    switch (pregunta.tipoEntrada) {
+      case 'SI_NO':
+        return _buildRespuestaBool(pregunta.etiqueta, respuesta as bool);
+        
+      case 'SELECCION_UNICA':
+        return _buildRespuestaTexto(pregunta.etiqueta, respuesta as String);
+        
+      case 'SELECCION_MULTIPLE':
+        final valores = (respuesta as List).cast<String>().join(', ');
+        return _buildRespuestaTexto(pregunta.etiqueta, valores);
+        
+      case 'NUMERO':
+        return _buildRespuestaTexto(pregunta.etiqueta, respuesta.toString());
+        
+      case 'TEXTO':
+        return _buildRespuestaTexto(pregunta.etiqueta, respuesta as String);
+        
+      default:
+        return const SizedBox.shrink();
+    }
   }
 
   // Métodos auxiliares
@@ -1370,8 +1466,8 @@ class _PantallaResumenVisitaState extends State<PantallaResumenVisita> {
           const SizedBox(height: 24),
           if (formularios != null) _buildResumenFormulario(formularios),
           const SizedBox(height: 24),
-          if (formularios?['seccion4']?['compromisos'] != null)
-            _buildCompromisos(formularios!['seccion4']['compromisos']),
+          if (formularios?['compromisos']?['compromisos'] != null)
+            _buildCompromisos(formularios!['compromisos']['compromisos']),
           const SizedBox(height: 32),
           _buildBotonesAccion(context),
         ],

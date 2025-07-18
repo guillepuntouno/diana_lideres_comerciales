@@ -9,6 +9,8 @@ import '../../servicios/visita_cliente_unificado_service.dart';
 import '../../servicios/sesion_servicio.dart';
 import '../../servicios/notificaciones_servicio.dart'; // NUEVO IMPORT
 import '../../modelos/visita_cliente_modelo.dart';
+import '../../modelos/formulario_dto.dart';
+import 'package:hive/hive.dart';
 
 class AppColors {
   static const Color dianaRed = Color(0xFFDE1327);
@@ -47,13 +49,18 @@ class _PantallaFormularioDinamicoState
   ActivityModel? actividad;
   String? comentarios;
   String? ubicacion;
+  String? tipoCliente;
 
   // Control del timeline/secciones
   int seccionActual = 0;
-  final List<String> nombresSecciones = [
-    'Tipo de Exhibidor',
-    'Estándares de Ejecución',
-    'Disponibilidad',
+  
+  // Formulario dinámico
+  FormularioPlantillaDTO? formularioPlantilla;
+  Map<String, dynamic> respuestasFormulario = {};
+  List<String> nombresSecciones = [];
+  
+  // Secciones estáticas que se mantienen
+  final List<String> seccionesEstaticas = [
     'Compromisos',
     'Comentarios',
   ];
@@ -167,6 +174,7 @@ class _PantallaFormularioDinamicoState
         actividad = args['actividad'] as ActivityModel?;
         comentarios = args['comentarios'] as String?;
         ubicacion = args['ubicacion'] as String?;
+        tipoCliente = args['tipoCliente'] as String? ?? 'DETALLE';
         
         // Verificar si hay datos del plan unificado
         if (args['planUnificado'] != null) {
@@ -195,6 +203,7 @@ class _PantallaFormularioDinamicoState
     await Future.delayed(const Duration(milliseconds: 100));
 
     await _cargarDatosGuardados();
+    await _cargarFormularioDinamico();
 
     // Solo crear visita si tenemos datos de actividad válidos
     if (actividad?.cliente != null) {
@@ -387,6 +396,75 @@ class _PantallaFormularioDinamicoState
     }
   }
 
+  Future<void> _cargarFormularioDinamico() async {
+    try {
+      print('📋 Cargando formulario dinámico para tipo de cliente: $tipoCliente');
+      
+      // Abrir box de formularios
+      final formulariosBox = await Hive.openBox<FormularioPlantillaDTO>('formularios_plantilla');
+      
+      // Buscar formulario activo según el tipo de cliente
+      CanalType canalBuscado = CanalType.DETALLE; // Por defecto
+      
+      if (tipoCliente?.toUpperCase() == 'MAYOREO') {
+        canalBuscado = CanalType.MAYOREO;
+      } else if (tipoCliente?.toUpperCase() == 'EXCELENCIA') {
+        canalBuscado = CanalType.EXCELENCIA;
+      }
+      
+      // Buscar formulario que coincida con el canal y esté activo
+      for (var formulario in formulariosBox.values) {
+        if (formulario.canal == canalBuscado && formulario.estatus == FormStatus.ACTIVO) {
+          formularioPlantilla = formulario;
+          break;
+        }
+      }
+      
+      if (formularioPlantilla != null) {
+        print('✅ Formulario encontrado: ${formularioPlantilla!.nombre}');
+        
+        // Obtener secciones únicas del formulario
+        final seccionesDinamicas = formularioPlantilla!.questions
+            .map((p) => p.section)
+            .toSet()
+            .toList();
+            
+        // Actualizar nombres de secciones (dinámicas + estáticas)
+        setState(() {
+          nombresSecciones = [...seccionesDinamicas, ...seccionesEstaticas];
+          seccionesCompletadas = List<bool>.filled(nombresSecciones.length, false);
+        });
+        
+        print('📑 Secciones cargadas: $nombresSecciones');
+      } else {
+        print('⚠️ No se encontró formulario para canal: $canalBuscado');
+        // Usar secciones por defecto
+        setState(() {
+          nombresSecciones = [
+            'Información General',
+            'Evaluación',
+            'Disponibilidad',
+            ...seccionesEstaticas
+          ];
+          seccionesCompletadas = List<bool>.filled(nombresSecciones.length, false);
+        });
+      }
+      
+    } catch (e) {
+      print('❌ Error al cargar formulario dinámico: $e');
+      // Usar secciones por defecto en caso de error
+      setState(() {
+        nombresSecciones = [
+          'Información General',
+          'Evaluación',
+          'Disponibilidad',
+          ...seccionesEstaticas
+        ];
+        seccionesCompletadas = List<bool>.filled(nombresSecciones.length, false);
+      });
+    }
+  }
+
   void _verificarCompletitudSecciones() {
     setState(() {
       seccionesCompletadas[0] = poseeExhibidorAdecuado != null;
@@ -447,6 +525,53 @@ class _PantallaFormularioDinamicoState
   }
 
   void _actualizarDatosFormulario() {
+    final seccionNombre = nombresSecciones[seccionActual];
+    
+    // Manejar secciones estáticas
+    if (seccionNombre == 'Compromisos') {
+      datosFormulario['compromisos'] = {
+        'compromisos': compromisos,
+        'tipoCompromisoSeleccionado': tipoCompromisoSeleccionado,
+        'detalleCompromisoSeleccionado': detalleCompromisoSeleccionado,
+        'cantidadCompromiso': cantidadCompromiso,
+        'fechaCompromiso': fechaCompromiso?.toIso8601String(),
+      };
+      return;
+    } else if (seccionNombre == 'Comentarios') {
+      datosFormulario['comentarios'] = {
+        'retroalimentacion': retroalimentacionController.text,
+        'reconocimiento': reconocimientoController.text,
+      };
+      return;
+    }
+    
+    // Si hay formulario dinámico, guardar respuestas dinámicas
+    if (formularioPlantilla != null) {
+      // Filtrar respuestas de la sección actual
+      final preguntasSeccion = formularioPlantilla!.questions
+          .where((p) => p.section == seccionNombre)
+          .map((p) => p.name)
+          .toList();
+          
+      final respuestasSeccion = <String, dynamic>{};
+      
+      for (var preguntaName in preguntasSeccion) {
+        if (respuestasFormulario.containsKey(preguntaName)) {
+          respuestasSeccion[preguntaName] = respuestasFormulario[preguntaName];
+          
+          // Si tiene puntuación, también guardarla
+          if (respuestasFormulario.containsKey('${preguntaName}_puntuacion')) {
+            respuestasSeccion['${preguntaName}_puntuacion'] = 
+                respuestasFormulario['${preguntaName}_puntuacion'];
+          }
+        }
+      }
+      
+      datosFormulario[seccionNombre] = respuestasSeccion;
+      return;
+    }
+    
+    // Fallback a lógica original para formularios estáticos
     switch (seccionActual) {
       case 0:
         datosFormulario['seccion1'] = {
@@ -472,21 +597,6 @@ class _PantallaFormularioDinamicoState
           'familiar': familiar,
           'dulce': dulce,
           'galleta': galleta,
-        };
-        break;
-      case 3:
-        datosFormulario['seccion4'] = {
-          'compromisos': compromisos,
-          'tipoCompromisoSeleccionado': tipoCompromisoSeleccionado,
-          'detalleCompromisoSeleccionado': detalleCompromisoSeleccionado,
-          'cantidadCompromiso': cantidadCompromiso,
-          'fechaCompromiso': fechaCompromiso?.toIso8601String(),
-        };
-        break;
-      case 4:
-        datosFormulario['seccion5'] = {
-          'retroalimentacion': retroalimentacionController.text,
-          'reconocimiento': reconocimientoController.text,
         };
         break;
     }
@@ -530,24 +640,42 @@ class _PantallaFormularioDinamicoState
     try {
       // Preparar estructura de formularios
       print('📦 Preparando datos para guardar:');
-      print('   └── Sección 1: ${datosFormulario['seccion1']}');
-      print('   └── Sección 2: ${datosFormulario['seccion2']}');
-      print('   └── Sección 3: ${datosFormulario['seccion3']}');
-      print('   └── Sección 4: ${datosFormulario['seccion4']}');
-      print('   └── Sección 5: ${datosFormulario['seccion5']}');
+      for (var key in datosFormulario.keys) {
+        print('   └── $key: ${datosFormulario[key]}');
+      }
       
-      final formularios = {
-        'cuestionario': {
-          'tipoExhibidor': datosFormulario['seccion1'],
-          'estandaresEjecucion': datosFormulario['seccion2'],
-          'disponibilidad': datosFormulario['seccion3'],
-        },
-        'compromisos': datosFormulario['seccion4'] != null ? datosFormulario['seccion4']['compromisos'] ?? [] : [],
-        'retroalimentacion': datosFormulario['seccion5'] != null ? datosFormulario['seccion5']['retroalimentacion'] : null,
-        'reconocimiento': datosFormulario['seccion5'] != null ? datosFormulario['seccion5']['reconocimiento'] : null,
-        'fechaActualizacion': DateTime.now().toIso8601String(),
-        'version': '1.0',
-      };
+      // Preparar formulario para guardado
+      Map<String, dynamic> formularios;
+      
+      if (formularioPlantilla != null) {
+        // Usar estructura dinámica
+        formularios = {
+          'formularioDinamico': {
+            'plantillaId': formularioPlantilla!.plantillaId,
+            'version': formularioPlantilla!.version,
+            'respuestas': respuestasFormulario,
+            'datosSeccion': datosFormulario,
+          },
+          'compromisos': datosFormulario['compromisos']?['compromisos'] ?? [],
+          'retroalimentacion': datosFormulario['comentarios']?['retroalimentacion'],
+          'reconocimiento': datosFormulario['comentarios']?['reconocimiento'],
+          'fechaActualizacion': DateTime.now().toIso8601String(),
+        };
+      } else {
+        // Usar estructura estática original
+        formularios = {
+          'cuestionario': {
+            'tipoExhibidor': datosFormulario['seccion1'],
+            'estandaresEjecucion': datosFormulario['seccion2'],
+            'disponibilidad': datosFormulario['seccion3'],
+          },
+          'compromisos': datosFormulario['seccion4'] != null ? datosFormulario['seccion4']['compromisos'] ?? [] : [],
+          'retroalimentacion': datosFormulario['seccion5'] != null ? datosFormulario['seccion5']['retroalimentacion'] : null,
+          'reconocimiento': datosFormulario['seccion5'] != null ? datosFormulario['seccion5']['reconocimiento'] : null,
+          'fechaActualizacion': DateTime.now().toIso8601String(),
+          'version': '1.0',
+        };
+      }
 
       if (_usandoPlanUnificado && _planUnificadoData != null) {
         // Usar servicio unificado
@@ -617,6 +745,35 @@ class _PantallaFormularioDinamicoState
   }
 
   bool _validarSeccionActual() {
+    final seccionNombre = nombresSecciones[seccionActual];
+    
+    // Validar secciones estáticas
+    if (seccionNombre == 'Compromisos') {
+      return true; // Los compromisos son opcionales
+    } else if (seccionNombre == 'Comentarios') {
+      return retroalimentacionController.text.isNotEmpty;
+    }
+    
+    // Si hay formulario dinámico, validar sección dinámica
+    if (formularioPlantilla != null) {
+      final preguntasSeccion = formularioPlantilla!.questions
+          .where((p) => p.section == seccionNombre)
+          .toList();
+          
+      for (var pregunta in preguntasSeccion) {
+        final respuesta = respuestasFormulario[pregunta.name];
+        
+        if (respuesta == null || 
+            (respuesta is String && respuesta.isEmpty) ||
+            (respuesta is List && respuesta.isEmpty)) {
+          return false;
+        }
+      }
+      
+      return true;
+    }
+    
+    // Fallback a validación original
     switch (seccionActual) {
       case 0: // Tipo de Exhibidor
         return poseeExhibidorAdecuado != null;
@@ -772,7 +929,12 @@ class _PantallaFormularioDinamicoState
         'actividad': actividad,
         'visita': _visitaActual,
         'formularios': datosFormulario,
+        'formularioDinamico': formularioPlantilla != null ? {
+          'plantilla': formularioPlantilla,
+          'respuestas': respuestasFormulario,
+        } : null,
         'duracion': duracion,
+        'tipoCliente': tipoCliente,
       };
 
       // Navegar al resumen y esperar el resultado
@@ -1092,6 +1254,21 @@ class _PantallaFormularioDinamicoState
   }
 
   Widget _buildContenidoSeccion() {
+    final seccionNombre = nombresSecciones[seccionActual];
+    
+    // Verificar si es una sección estática
+    if (seccionNombre == 'Compromisos') {
+      return _buildSeccionCompromisos();
+    } else if (seccionNombre == 'Comentarios') {
+      return _buildSeccionComentarios();
+    }
+    
+    // Si hay formulario dinámico, construir sección dinámica
+    if (formularioPlantilla != null) {
+      return _buildSeccionDinamica(seccionNombre);
+    }
+    
+    // Fallback a secciones estáticas originales
     switch (seccionActual) {
       case 0:
         return _buildSeccionTipoExhibidor();
@@ -1099,13 +1276,289 @@ class _PantallaFormularioDinamicoState
         return _buildSeccionEstandares();
       case 2:
         return _buildSeccionDisponibilidad();
-      case 3:
-        return _buildSeccionCompromisos();
-      case 4:
-        return _buildSeccionComentarios();
       default:
         return const Center(child: Text('Sección no encontrada'));
     }
+  }
+
+  Widget _buildSeccionDinamica(String seccionNombre) {
+    // Filtrar preguntas de la sección actual
+    final preguntasSeccion = formularioPlantilla!.questions
+        .where((p) => p.section == seccionNombre)
+        .toList()
+      ..sort((a, b) => a.orden.compareTo(b.orden));
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: preguntasSeccion.map((pregunta) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 24),
+            child: _buildPreguntaDinamica(pregunta),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildPreguntaDinamica(PreguntaDTO pregunta) {
+    final respuestaActual = respuestasFormulario[pregunta.name];
+    
+    switch (pregunta.tipoEntrada) {
+      case 'SI_NO':
+        return _buildPreguntaSiNo(
+          pregunta.etiqueta,
+          respuestaActual as bool?,
+          (valor) {
+            setState(() {
+              respuestasFormulario[pregunta.name] = valor;
+              _verificarCompletitudSeccionDinamica();
+            });
+          },
+        );
+        
+      case 'SELECCION_UNICA':
+        return _buildDropdown(
+          pregunta.etiqueta,
+          respuestaActual as String?,
+          pregunta.opciones.map((o) => o.etiqueta).toList(),
+          (valor) {
+            setState(() {
+              respuestasFormulario[pregunta.name] = valor;
+              // Guardar también la puntuación
+              final opcion = pregunta.opciones.firstWhere((o) => o.etiqueta == valor);
+              respuestasFormulario['${pregunta.name}_puntuacion'] = opcion.puntuacion;
+              _verificarCompletitudSeccionDinamica();
+            });
+          },
+        );
+        
+      case 'SELECCION_MULTIPLE':
+        final valoresSeleccionados = (respuestaActual as List<String>?) ?? [];
+        return _buildSeleccionMultiple(pregunta, valoresSeleccionados);
+        
+      case 'NUMERO':
+        return _buildCampoNumerico(
+          pregunta.etiqueta,
+          respuestaActual as int? ?? 0,
+          (valor) {
+            setState(() {
+              respuestasFormulario[pregunta.name] = valor;
+              _verificarCompletitudSeccionDinamica();
+            });
+          },
+        );
+        
+      case 'TEXTO':
+        return _buildCampoTexto(
+          pregunta.etiqueta,
+          respuestaActual as String? ?? '',
+          (valor) {
+            setState(() {
+              respuestasFormulario[pregunta.name] = valor;
+              _verificarCompletitudSeccionDinamica();
+            });
+          },
+        );
+        
+      default:
+        return Text('Tipo de pregunta no soportado: ${pregunta.tipoEntrada}');
+    }
+  }
+
+  Widget _buildSeleccionMultiple(PreguntaDTO pregunta, List<String> valoresSeleccionados) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          pregunta.etiqueta,
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: AppColors.darkGray,
+          ),
+        ),
+        const SizedBox(height: 12),
+        ...pregunta.opciones.map((opcion) {
+          final isSelected = valoresSeleccionados.contains(opcion.valor);
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: InkWell(
+              onTap: () {
+                setState(() {
+                  if (isSelected) {
+                    valoresSeleccionados.remove(opcion.valor);
+                  } else {
+                    valoresSeleccionados.add(opcion.valor);
+                  }
+                  respuestasFormulario[pregunta.name] = valoresSeleccionados;
+                  _verificarCompletitudSeccionDinamica();
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isSelected ? AppColors.dianaRed.withOpacity(0.1) : Colors.white,
+                  border: Border.all(
+                    color: isSelected ? AppColors.dianaRed : Colors.grey[300]!,
+                    width: isSelected ? 2 : 1,
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      isSelected ? Icons.check_box : Icons.check_box_outline_blank,
+                      color: isSelected ? AppColors.dianaRed : Colors.grey[400],
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        opcion.etiqueta,
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                          color: isSelected ? AppColors.dianaRed : AppColors.darkGray,
+                        ),
+                      ),
+                    ),
+                    if (opcion.puntuacion > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[200],
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '${opcion.puntuacion} pts',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ],
+    );
+  }
+
+  Widget _buildCampoNumerico(String label, int valor, Function(int) onChanged) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: AppColors.darkGray,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            IconButton(
+              onPressed: valor > 0 ? () => onChanged(valor - 1) : null,
+              icon: const Icon(Icons.remove_circle_outline),
+              color: AppColors.dianaRed,
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey[300]!),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                valor.toString(),
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            IconButton(
+              onPressed: () => onChanged(valor + 1),
+              icon: const Icon(Icons.add_circle_outline),
+              color: AppColors.dianaRed,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCampoTexto(String label, String valor, Function(String) onChanged) {
+    final controller = TextEditingController(text: valor);
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: AppColors.darkGray,
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: controller,
+          onChanged: onChanged,
+          decoration: InputDecoration(
+            hintText: 'Ingrese su respuesta',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: AppColors.dianaRed, width: 2),
+            ),
+          ),
+          maxLines: 3,
+        ),
+      ],
+    );
+  }
+
+  void _verificarCompletitudSeccionDinamica() {
+    if (formularioPlantilla == null) return;
+    
+    final seccionNombre = nombresSecciones[seccionActual];
+    
+    // Si es sección estática, usar lógica original
+    if (seccionesEstaticas.contains(seccionNombre)) {
+      _verificarCompletitudSecciones();
+      return;
+    }
+    
+    // Verificar completitud de sección dinámica
+    final preguntasSeccion = formularioPlantilla!.questions
+        .where((p) => p.section == seccionNombre)
+        .toList();
+        
+    bool seccionCompleta = true;
+    
+    for (var pregunta in preguntasSeccion) {
+      final respuesta = respuestasFormulario[pregunta.name];
+      
+      if (respuesta == null || 
+          (respuesta is String && respuesta.isEmpty) ||
+          (respuesta is List && respuesta.isEmpty)) {
+        seccionCompleta = false;
+        break;
+      }
+    }
+    
+    setState(() {
+      seccionesCompletadas[seccionActual] = seccionCompleta;
+    });
   }
 
   // [Resto de métodos _buildSeccion... se mantienen exactamente igual]

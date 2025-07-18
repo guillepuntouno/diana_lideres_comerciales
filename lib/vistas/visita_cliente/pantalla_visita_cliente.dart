@@ -374,6 +374,7 @@ class _PantallaVisitaClienteState extends State<PantallaVisitaCliente> {
               arguments: {
                 'actividad': actividad,
                 'checkIn': checkIn,
+                'tipoCliente': metadata['canal'] ?? 'DETALLE', // Usar canal o default DETALLE
                 'planUnificado': {
                   'planId': metadata['planId'],
                   'dia': metadata['dia'],
@@ -422,6 +423,7 @@ class _PantallaVisitaClienteState extends State<PantallaVisitaCliente> {
               'actividad': actividad,
               'visita': visita,
               'checkIn': checkIn,
+              'tipoCliente': actividad!.metadata?['canal'] ?? 'DETALLE', // Usar canal desde metadata
               'visitaServicio': visitaServicio,
             },
           );
