@@ -902,13 +902,20 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
     }
     
     if (visitaExistente != null) {
+      // Debug detallado del objeto visita
+      print('📊 Visita encontrada - Debug completo:');
+      print('   └── VisitaId: ${visitaExistente.visitaId}');
+      print('   └── Estatus: ${visitaExistente.estatus}');
+      print('   └── CheckOut existe: ${visitaExistente.checkOut != null}');
+      print('   └── estaCompletada: ${visitaExistente.estaCompletada}');
+      
       // Marcar como visitado si la visita existe y está completada o tiene checkout
       cliente['visitado'] = visitaExistente.checkOut != null || 
-                           visitaExistente.estatus == 'completada';
+                           visitaExistente.estatus == 'completada' ||
+                           visitaExistente.estaCompletada;
       
       print('✅ Cliente ${cliente['clienteNombre']} - Visitado: ${cliente['visitado']}');
-      print('   └── Estado visita: ${visitaExistente.estatus}');
-      print('   └── Tiene checkout: ${visitaExistente.checkOut != null}');
+      print('   └── Estado final asignado: ${cliente['visitado'] ? "VISITADO" : "NO VISITADO"}');
     } else {
       print('❌ No se encontró visita para cliente ${cliente['clienteNombre']}');
       cliente['visitado'] = false;

@@ -344,7 +344,45 @@ class VisitaClienteServicio {
           print('   └── Estado: ${visita.estatus}');
           print('   └── CheckOut: ${visita.checkOut != null ? "Sí" : "No"}');
           
-          return VisitaClienteModelo.fromJson(visita.toJson());
+          // Convertir directamente desde el modelo Hive
+          return VisitaClienteModelo(
+            visitaId: visita.visitaId,
+            liderClave: visita.liderClave,
+            clienteId: visita.clienteId,
+            clienteNombre: visita.clienteNombre,
+            planId: visita.planId,
+            dia: visita.dia,
+            fechaCreacion: visita.fechaCreacion,
+            checkIn: CheckInModelo(
+              timestamp: visita.checkIn.timestamp,
+              comentarios: visita.checkIn.comentarios,
+              ubicacion: UbicacionModelo(
+                latitud: visita.checkIn.ubicacion.latitud,
+                longitud: visita.checkIn.ubicacion.longitud,
+                precision: visita.checkIn.ubicacion.precision,
+                direccion: visita.checkIn.ubicacion.direccion,
+              ),
+            ),
+            checkOut: visita.checkOut != null
+                ? CheckOutModelo(
+                    timestamp: visita.checkOut!.timestamp,
+                    comentarios: visita.checkOut!.comentarios,
+                    ubicacion: UbicacionModelo(
+                      latitud: visita.checkOut!.ubicacion.latitud,
+                      longitud: visita.checkOut!.ubicacion.longitud,
+                      precision: visita.checkOut!.ubicacion.precision,
+                      direccion: visita.checkOut!.ubicacion.direccion,
+                    ),
+                    duracionMinutos: visita.checkOut!.duracionMinutos,
+                  )
+                : null,
+            formularios: visita.formularios,
+            estatus: visita.estatus,
+            fechaModificacion: visita.fechaModificacion,
+            fechaFinalizacion: visita.fechaFinalizacion,
+            fechaCancelacion: visita.fechaCancelacion,
+            motivoCancelacion: visita.motivoCancelacion,
+          );
         }
       }
       
