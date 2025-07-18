@@ -10,6 +10,7 @@ import '../../servicios/sesion_servicio.dart';
 import '../../servicios/notificaciones_servicio.dart'; // NUEVO IMPORT
 import '../../modelos/visita_cliente_modelo.dart';
 import '../../modelos/formulario_dto.dart';
+import '../../servicios/plantilla_service_impl.dart';
 import 'package:hive/hive.dart';
 
 class AppColors {
@@ -34,6 +35,7 @@ class _PantallaFormularioDinamicoState
   // Servicios
   final VisitaClienteServicio _visitaServicio = VisitaClienteServicio();
   final VisitaClienteUnificadoService _visitaUnificadoService = VisitaClienteUnificadoService();
+  dynamic _visitaServicioRecibido; // Servicio recibido desde check-in
 
   // Control de visita
   String? _claveVisita;
@@ -182,6 +184,23 @@ class _PantallaFormularioDinamicoState
         ubicacion = args['ubicacion'] as String?;
         tipoCliente = args['tipoCliente'] as String? ?? 'DETALLE';
         
+        // NUEVO: Verificar si viene una visita ya creada desde check-in
+        if (args['visita'] != null) {
+          _visitaActual = args['visita'] as VisitaClienteModelo;
+          _claveVisita = _visitaActual!.visitaId;
+          _visitaCreada = true;
+          print('📋 Visita recibida desde check-in:');
+          print('   └── Visita ID: ${_visitaActual!.visitaId}');
+          print('   └── Cliente: ${_visitaActual!.clienteNombre}');
+          print('   └── Estado: ${_visitaActual!.estatus}');
+          
+          // También guardar el servicio si viene
+          if (args['visitaServicio'] != null) {
+            _visitaServicioRecibido = args['visitaServicio'];
+            print('📋 Usando servicio recibido desde check-in');
+          }
+        }
+        
         // Verificar si hay datos del plan unificado
         if (args['planUnificado'] != null) {
           _planUnificadoData = args['planUnificado'] as Map<String, dynamic>;
@@ -211,9 +230,12 @@ class _PantallaFormularioDinamicoState
     await _cargarDatosGuardados();
     await _cargarFormularioDinamico();
 
-    // Solo crear visita si tenemos datos de actividad válidos
-    if (actividad?.cliente != null) {
+    // Solo crear visita si NO tenemos una ya creada y tenemos datos válidos
+    if (_visitaActual == null && actividad?.cliente != null) {
       await _crearORecuperarVisita();
+    } else if (_visitaActual != null) {
+      print('📋 Usando visita existente recibida desde check-in');
+      print('   └── Visita ID: ${_visitaActual!.visitaId}');
     } else {
       print('⚠️ No hay datos de cliente válidos para crear visita');
       setState(() {});
@@ -272,16 +294,21 @@ class _PantallaFormularioDinamicoState
         ),
       );
 
-      _visitaActual = await _visitaServicio.crearVisitaDesdeActividad(
+      // Usar la clave que ya generamos
+      _visitaActual = await _visitaServicio.crearVisitaConCheckIn(
+        claveVisita: _claveVisita!,
+        liderClave: lider.clave,
         clienteId: actividad!.cliente!,
         clienteNombre: actividad!.title!,
+        planId: 'PLAN_SEMANAL', // TODO: Obtener del plan real
         dia: _obtenerDiaActual(),
         checkIn: checkIn,
-        planId: 'PLAN_SEMANAL', // TODO: Obtener del plan real
       );
 
       _visitaCreada = true;
       print('✅ Visita creada exitosamente');
+      print('🔑 Clave visita guardada: $_claveVisita');
+      print('🆔 VisitaId del objeto: ${_visitaActual?.visitaId}');
     } catch (e) {
       print('❌ Error al crear visita: $e');
 
@@ -305,6 +332,8 @@ class _PantallaFormularioDinamicoState
         _visitaCreada = true;
         _cargarDatosDesdeVisita();
         print('✅ Visita existente recuperada exitosamente');
+        print('🔑 Clave visita guardada: $_claveVisita');
+        print('🆔 VisitaId del objeto: ${_visitaActual?.visitaId}');
 
         // Mostrar mensaje informativo al usuario
         if (mounted) {
@@ -408,20 +437,9 @@ class _PantallaFormularioDinamicoState
       print('📋 Tipo de cliente recibido: $tipoCliente');
       print('📋 Tipo de cliente en mayúsculas: ${tipoCliente?.toUpperCase()}');
       
-      // Abrir box de formularios
-      print('🔓 Abriendo box de formularios...');
-      final formulariosBox = await Hive.openBox<FormularioPlantillaDTO>('formularios');
-      print('✅ Box abierto correctamente');
-      
-      print('📦 Total de formularios en Hive: ${formulariosBox.length}');
-      
-      // Si no hay formularios, usar formulario por defecto
-      if (formulariosBox.isEmpty) {
-        print('❌ ERROR: No hay formularios en Hive');
-        print('📋 Usando formulario estático por defecto');
-        _usarFormularioPorDefecto();
-        return;
-      }
+      // Inicializar servicio de plantillas
+      final plantillaService = PlantillaServiceImpl();
+      await plantillaService.initialize();
       
       // Buscar formulario activo según el tipo de cliente
       CanalType canalBuscado = CanalType.DETALLE; // Por defecto
@@ -432,60 +450,38 @@ class _PantallaFormularioDinamicoState
         canalBuscado = CanalType.EXCELENCIA;
       }
       
-      // Listar todos los formularios disponibles para depuración
-      print('\n📋 LISTANDO TODOS LOS FORMULARIOS EN HIVE:');
-      int index = 0;
-      for (var key in formulariosBox.keys) {
-        var formulario = formulariosBox.get(key);
-        if (formulario != null) {
-          print('[$index] Key: $key');
-          print('    └── Nombre: ${formulario.nombre}');
-          print('    └── Canal: ${formulario.canal} (${formulario.canal.runtimeType})');
-          print('    └── Estado: ${formulario.estatus} (${formulario.estatus.runtimeType})');
-          print('    └── Preguntas: ${formulario.questions.length}');
-          print('    └── PlantillaId: ${formulario.plantillaId}');
-          print('    └── Version: ${formulario.version}');
-          index++;
-        }
+      print('\n🔍 BUSCANDO FORMULARIO PARA CANAL: $canalBuscado');
+      
+      // Obtener plantillas activas para el canal usando el servicio
+      final plantillasCanal = await plantillaService.getPlantillasByCanal(canalBuscado);
+      
+      print('📋 Plantillas encontradas para canal $canalBuscado: ${plantillasCanal.length}');
+      
+      if (plantillasCanal.isEmpty) {
+        print('❌ No se encontraron plantillas activas para el canal $canalBuscado');
+        print('📋 Usando formulario estático por defecto');
+        _usarFormularioPorDefecto();
+        return;
       }
       
-      print('\n🔍 BUSCANDO FORMULARIO:');
-      print('   Canal buscado: $canalBuscado (${canalBuscado.runtimeType})');
-      print('   Estado buscado: ${FormStatus.ACTIVO} (${FormStatus.ACTIVO.runtimeType})');
+      // Usar la primera plantilla activa encontrada (ya vienen ordenadas por fecha)
+      formularioPlantilla = plantillasCanal.first;
       
-      // Buscar formulario que coincida con el canal y esté activo
-      FormularioPlantillaDTO? formularioEncontrado;
-      for (var formulario in formulariosBox.values) {
-        print('\n   Comparando con: ${formulario.nombre}');
-        print('   ¿Canal coincide? ${formulario.canal} == $canalBuscado → ${formulario.canal == canalBuscado}');
-        print('   ¿Estado activo? ${formulario.estatus} == ${FormStatus.ACTIVO} → ${formulario.estatus == FormStatus.ACTIVO}');
-        
-        if (formulario.canal == canalBuscado && formulario.estatus == FormStatus.ACTIVO) {
-          formularioEncontrado = formulario;
-          formularioPlantilla = formulario;
-          print('   ✅ FORMULARIO ENCONTRADO!');
-          break;
-        }
-      }
+      print('\n✅ FORMULARIO SELECCIONADO:');
+      print('   Nombre: ${formularioPlantilla!.nombre}');
+      print('   Canal: ${formularioPlantilla!.canal}');
+      print('   Estado: ${formularioPlantilla!.estatus}');
+      print('   Total preguntas: ${formularioPlantilla!.questions.length}');
+      print('   PlantillaId: ${formularioPlantilla!.plantillaId}');
       
-      if (formularioEncontrado != null) {
-        print('\n✅ FORMULARIO SELECCIONADO:');
-        print('   Nombre: ${formularioEncontrado.nombre}');
-        print('   Total preguntas: ${formularioEncontrado.questions.length}');
-        
-        // Listar todas las preguntas
-        print('\n📝 PREGUNTAS DEL FORMULARIO:');
-        for (var i = 0; i < formularioEncontrado.questions.length; i++) {
-          var pregunta = formularioEncontrado.questions[i];
-          print('   [$i] ${pregunta.etiqueta}');
-          print('       └── Tipo: ${pregunta.tipoEntrada}');
-          print('       └── Sección: ${pregunta.section}');
-          print('       └── Orden: ${pregunta.orden}');
-        }
-        
-        // Listar las secciones únicas
-        final secciones = formularioEncontrado.questions.map((p) => p.section).toSet().toList();
-        print('\n📑 SECCIONES ÚNICAS: $secciones');
+      // Listar todas las preguntas
+      print('\n📝 PREGUNTAS DEL FORMULARIO:');
+      for (var i = 0; i < formularioPlantilla!.questions.length; i++) {
+        var pregunta = formularioPlantilla!.questions[i];
+        print('   [$i] ${pregunta.etiqueta}');
+        print('       └── Tipo: ${pregunta.tipoEntrada}');
+        print('       └── Sección: ${pregunta.section}');
+        print('       └── Orden: ${pregunta.orden}');
       }
       
       if (formularioPlantilla != null) {
@@ -904,7 +900,10 @@ class _PantallaFormularioDinamicoState
   }
 
   Future<void> _finalizarFormulario() async {
+    print('\n🔔 INICIANDO _finalizarFormulario()');
     print('✅ Formulario completado para cliente: ${actividad?.cliente}');
+    print('🔑 Clave de visita actual: $_claveVisita');
+    print('📋 Visita creada: $_visitaCreada');
 
     // Mostrar confirmación
     bool? confirmar = await showDialog<bool>(
@@ -949,6 +948,7 @@ class _PantallaFormularioDinamicoState
 
   // NUEVO MÉTODO: Finalizar con notificación y resumen
   Future<void> _finalizarVisitaConNotificacionYResumen() async {
+    print('\n🔔 INICIANDO _finalizarVisitaConNotificacionYResumen()');
     try {
       // Finalizar visita en API
       await _finalizarVisitaEnAPI();
@@ -1049,10 +1049,23 @@ class _PantallaFormularioDinamicoState
 
   Future<void> _finalizarVisitaEnAPI() async {
     // Verificar si tenemos datos para finalizar
-    if (!_usandoPlanUnificado && (_claveVisita == null || !_visitaCreada)) return;
+    if (!_usandoPlanUnificado && (_claveVisita == null || !_visitaCreada)) {
+      print('⚠️ No se puede finalizar: claveVisita=$_claveVisita, visitaCreada=$_visitaCreada');
+      return;
+    }
 
     try {
       print('🏁 Finalizando visita...');
+      print('🔑 Usando clave: $_claveVisita');
+      print('📋 Visita actual ID: ${_visitaActual?.visitaId}');
+      
+      // Usar ubicación por defecto por ahora
+      final ubicacionCheckout = UbicacionModelo(
+        latitud: 0.0,
+        longitud: 0.0,
+        precision: 0.0,
+        direccion: ubicacion ?? 'Ubicación de checkout',
+      );
 
       if (_usandoPlanUnificado && _planUnificadoData != null) {
         // Calcular duración desde el check-in (aproximado por ahora)
@@ -1061,12 +1074,7 @@ class _PantallaFormularioDinamicoState
         final checkOut = CheckOutModelo(
           timestamp: DateTime.now(),
           comentarios: 'Formulario completado exitosamente',
-          ubicacion: UbicacionModelo(
-            latitud: 0.0, // TODO: Obtener ubicación real
-            longitud: 0.0,
-            precision: 0.0,
-            direccion: ubicacion ?? '',
-          ),
+          ubicacion: ubicacionCheckout,
           duracionMinutos: duracionMinutos,
         );
 
@@ -1090,17 +1098,23 @@ class _PantallaFormularioDinamicoState
         final checkOut = CheckOutModelo(
           timestamp: DateTime.now(),
           comentarios: 'Formulario completado exitosamente',
-          ubicacion: UbicacionModelo(
-            latitud: 0.0, // TODO: Obtener ubicación real
-            longitud: 0.0,
-            precision: 0.0,
-            direccion: ubicacion ?? '',
-          ),
+          ubicacion: ubicacionCheckout,
           duracionMinutos: duracionMinutos,
         );
 
-        await _visitaServicio.finalizarVisitaConCheckOut(_claveVisita!, checkOut);
-        print('✅ Visita finalizada exitosamente en API tradicional');
+        print('🔑 Finalizando visita con clave: $_claveVisita');
+        print('📍 Cliente ID: ${actividad?.cliente}');
+        
+        // Usar el servicio recibido si existe, sino usar el servicio por defecto
+        if (_visitaServicioRecibido != null) {
+          print('📋 Usando servicio recibido desde check-in para finalizar');
+          await _visitaServicioRecibido.finalizarVisitaConCheckOut(_claveVisita!, checkOut);
+        } else {
+          print('📋 Usando servicio por defecto para finalizar');
+          await _visitaServicio.finalizarVisitaConCheckOut(_claveVisita!, checkOut);
+        }
+        
+        print('✅ Visita finalizada exitosamente');
       }
     } catch (e) {
       print('⚠️ Error al finalizar visita: $e');
