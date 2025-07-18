@@ -1626,6 +1626,11 @@ class _PantallaRutinasResultadosState extends State<PantallaRutinasResultados> {
         // Determinar el nombre del formulario basado en el ID
         String nombreFormulario = _obtenerNombreFormulario(formulario.formularioId);
         
+        // Contar respuestas válidas (no vacías)
+        final respuestasValidas = formulario.respuestas.entries
+            .where((entry) => entry.value != null && entry.value.toString().isNotEmpty)
+            .length;
+        
         return Container(
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.all(12),
@@ -1634,77 +1639,130 @@ class _PantallaRutinasResultadosState extends State<PantallaRutinasResultados> {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: AppColors.dianaGreen.withOpacity(0.3)),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppColors.dianaGreen.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.assignment_turned_in,
-                  size: 20,
-                  color: AppColors.dianaGreen,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      nombreFormulario,
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.darkGray,
-                      ),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.dianaGreen.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    const SizedBox(height: 2),
-                    Row(
+                    child: Icon(
+                      Icons.assignment_turned_in,
+                      size: 20,
+                      color: AppColors.dianaGreen,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          Icons.access_time,
-                          size: 12,
-                          color: AppColors.mediumGray,
-                        ),
-                        const SizedBox(width: 4),
                         Text(
-                          DateFormat('dd/MM/yyyy HH:mm').format(formulario.fechaCaptura),
+                          nombreFormulario,
                           style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            color: AppColors.mediumGray,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.darkGray,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.access_time,
+                              size: 12,
+                              color: AppColors.mediumGray,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              DateFormat('dd/MM/yyyy HH:mm').format(formulario.fechaCaptura),
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color: AppColors.mediumGray,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '$respuestasValidas respuestas capturadas',
+                          style: GoogleFonts.poppins(
+                            fontSize: 11,
+                            color: AppColors.dianaGreen,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
                     ),
-                    if (formulario.respuestas.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        '${formulario.respuestas.length} respuestas capturadas',
-                        style: GoogleFonts.poppins(
-                          fontSize: 11,
-                          color: AppColors.dianaGreen,
-                          fontWeight: FontWeight.w500,
-                        ),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.expand_more,
+                      color: AppColors.dianaGreen,
+                    ),
+                    onPressed: () => _mostrarDetalleFormulario(formulario, nombreFormulario),
+                  ),
+                ],
+              ),
+              // Mostrar resumen de respuestas del formulario
+              if (formulario.respuestas.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Container(
+                  constraints: BoxConstraints(maxHeight: 200),
+                  child: SingleChildScrollView(
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade200),
                       ),
-                    ],
-                  ],
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.list_alt,
+                                size: 16,
+                                color: AppColors.dianaGreen,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Resumen de respuestas:',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.darkGray,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          ..._buildRespuestasFormularioResumen(formulario.respuestas, limite: 3),
+                          if (formulario.respuestas.length > 3) ...[
+                            const SizedBox(height: 8),
+                            Center(
+                              child: Text(
+                                '... y ${formulario.respuestas.length - 3} más',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  color: AppColors.dianaGreen,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: AppColors.dianaGreen.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.check,
-                  size: 16,
-                  color: AppColors.dianaGreen,
-                ),
-              ),
+              ],
             ],
           ),
         );
@@ -1934,6 +1992,386 @@ class _PantallaRutinasResultadosState extends State<PantallaRutinasResultados> {
     } catch (_) {
       return 0;
     }
+  }
+
+  List<Widget> _buildRespuestasFormulario(Map<String, dynamic> respuestas) {
+    List<Widget> widgets = [];
+    
+    respuestas.forEach((pregunta, respuesta) {
+      widgets.add(
+        Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _formatearPregunta(pregunta),
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.darkGray,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.lightGray,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  _formatearRespuesta(respuesta),
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: AppColors.mediumGray,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    });
+    
+    return widgets;
+  }
+
+  List<Widget> _buildRespuestasFormularioResumen(Map<String, dynamic> respuestas, {int limite = 5}) {
+    List<Widget> widgets = [];
+    int contador = 0;
+    
+    // Filtrar respuestas no vacías y ordenar por clave
+    final respuestasOrdenadas = respuestas.entries
+        .where((entry) => entry.value != null && entry.value.toString().isNotEmpty)
+        .toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    
+    for (var entry in respuestasOrdenadas) {
+      if (contador >= limite) break;
+      
+      widgets.add(
+        Container(
+          margin: const EdgeInsets.only(bottom: 6),
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: AppColors.lightGray.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: Colors.grey.shade300, width: 0.5),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 2),
+                width: 4,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.dianaGreen,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _formatearPregunta(entry.key),
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.darkGray,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _formatearRespuestaCorta(entry.value),
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        color: AppColors.mediumGray,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      contador++;
+    }
+    
+    return widgets;
+  }
+
+  String _formatearPregunta(String pregunta) {
+    // Convertir snake_case o camelCase a texto legible
+    return pregunta
+        .replaceAll('_', ' ')
+        .replaceAll(RegExp(r'(?<!^)(?=[A-Z])'), ' ')
+        .split(' ')
+        .map((word) => word.isNotEmpty 
+            ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}'
+            : '')
+        .join(' ')
+        .trim();
+  }
+
+  String _formatearRespuesta(dynamic respuesta) {
+    if (respuesta == null) return 'Sin respuesta';
+    
+    if (respuesta is List) {
+      return respuesta.map((item) => '• $item').join('\n');
+    } else if (respuesta is Map) {
+      return respuesta.entries
+          .map((entry) => '${_formatearPregunta(entry.key)}: ${entry.value}')
+          .join('\n');
+    } else if (respuesta is bool) {
+      return respuesta ? 'Sí' : 'No';
+    } else {
+      return respuesta.toString();
+    }
+  }
+
+  String _formatearRespuestaCorta(dynamic respuesta) {
+    if (respuesta == null) return 'Sin respuesta';
+    
+    if (respuesta is List) {
+      if (respuesta.isEmpty) return 'Lista vacía';
+      return respuesta.length == 1 
+          ? respuesta.first.toString() 
+          : '${respuesta.first} (+${respuesta.length - 1} más)';
+    } else if (respuesta is Map) {
+      if (respuesta.isEmpty) return 'Sin datos';
+      final primerItem = respuesta.entries.first;
+      return respuesta.length == 1
+          ? '${primerItem.key}: ${primerItem.value}'
+          : '${primerItem.key}: ${primerItem.value} (+${respuesta.length - 1} más)';
+    } else if (respuesta is bool) {
+      return respuesta ? 'Sí' : 'No';
+    } else {
+      final texto = respuesta.toString();
+      return texto.length > 50 ? '${texto.substring(0, 47)}...' : texto;
+    }
+  }
+
+  void _mostrarDetalleFormulario(FormularioDiaHive formulario, String nombreFormulario) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Container(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width * 0.9,
+            maxHeight: MediaQuery.of(context).size.height * 0.8,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppColors.dianaGreen,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.assignment_turned_in, color: Colors.white, size: 28),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            nombreFormulario,
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          Text(
+                            DateFormat('dd/MM/yyyy HH:mm').format(formulario.fechaCaptura),
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              color: Colors.white.withOpacity(0.9),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Body
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Respuestas del Formulario',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.darkGray,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      if (formulario.respuestas.isEmpty) ...[
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Center(
+                            child: Text(
+                              'No hay respuestas registradas',
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                color: AppColors.mediumGray,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ] else ...[
+                        ..._buildRespuestasFormularioDetalle(formulario.respuestas),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              
+              // Footer
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(20),
+                    bottomRight: Radius.circular(20),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: Text(
+                        'Cerrar',
+                        style: GoogleFonts.poppins(
+                          color: AppColors.darkGray,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildRespuestasFormularioDetalle(Map<String, dynamic> respuestas) {
+    List<Widget> widgets = [];
+    int index = 0;
+    
+    respuestas.forEach((pregunta, respuesta) {
+      widgets.add(
+        Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: index % 2 == 0 ? Colors.white : AppColors.lightGray,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: AppColors.dianaGreen.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        '${index + 1}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.dianaGreen,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _formatearPregunta(pregunta),
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.darkGray,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: Text(
+                            _formatearRespuesta(respuesta),
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              color: AppColors.darkGray,
+                              height: 1.5,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+      index++;
+    });
+    
+    return widgets;
   }
 
   void _mostrarDetalleActividadAdministrativa() {
