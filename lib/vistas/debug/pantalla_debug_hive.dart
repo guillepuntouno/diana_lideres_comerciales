@@ -17,6 +17,10 @@ import '../../configuracion/ambiente_config.dart';
 import '../../servicios/sesion_servicio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../servicios/clientes_locales_service.dart';
+import '../../modelos/formulario_dto.dart';
+import '../../servicios/plantilla_service_impl.dart';
+import '../../servicios/captura_formulario_service_impl.dart';
+import '../../servicios/formulario_helper.dart';
 
 class PantallaDebugHive extends StatefulWidget {
   const PantallaDebugHive({super.key});
@@ -28,6 +32,8 @@ class PantallaDebugHive extends StatefulWidget {
 class _PantallaDebugHiveState extends State<PantallaDebugHive> {
   final HiveService _hiveService = HiveService();
   final ClientesLocalesService _clientesLocalesService = ClientesLocalesService();
+  final PlantillaServiceImpl _plantillaService = PlantillaServiceImpl();
+  final CapturaFormularioServiceImpl _capturaService = CapturaFormularioServiceImpl();
   int _selectedIndex = 0;
   
   final List<String> _tabs = [
@@ -37,6 +43,7 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
     'Visitas',
     'Clientes',
     'Objetivos',
+    'Formularios',
     'Config',
   ];
 
@@ -179,6 +186,8 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
       case 5:
         return _buildObjetivosTab();
       case 6:
+        return _buildFormulariosTab();
+      case 7:
         return _buildConfigTab();
       default:
         return const Center(child: Text('Tab no implementado'));
@@ -1401,6 +1410,527 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
     final diasDesdeInicio = fecha.difference(primerDiaDelAnio).inDays;
     return ((diasDesdeInicio + primerDiaDelAnio.weekday - 1) / 7).ceil();
   }
+
+  Widget _buildFormulariosTab() {
+    return FutureBuilder<List<FormularioPlantillaDTO>>(
+      future: _plantillaService.initialize().then((_) => _plantillaService.getAllPlantillas()),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        
+        if (snapshot.hasError) {
+          return _buildEmptyState('Error al cargar formularios: ${snapshot.error}');
+        }
+
+        final formularios = snapshot.data ?? [];
+        
+        return Column(
+          children: [
+            // Botones de acción
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.1),
+                    spreadRadius: 1,
+                    blurRadius: 5,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _crearFormulariosDemoDebug,
+                    icon: const Icon(Icons.auto_fix_high),
+                    label: const Text('Crear Demo'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () => _mostrarDialogoImportarFormulario(),
+                    icon: const Icon(Icons.upload_file),
+                    label: const Text('Importar JSON'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () => _mostrarDialogoCrearFormulario(),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Nuevo'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            // Lista de formularios
+            Expanded(
+              child: formularios.isEmpty
+                  ? _buildEmptyState('No hay formularios guardados')
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: formularios.length,
+                      itemBuilder: (context, index) {
+                        final formulario = formularios[index];
+                        return _buildFormularioCard(formulario);
+                      },
+                    ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildFormularioCard(FormularioPlantillaDTO formulario) {
+    final colorCanal = {
+      CanalType.DETALLE: Colors.blue,
+      CanalType.MAYOREO: Colors.purple,
+      CanalType.EXCELENCIA: Colors.orange,
+    };
+    
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      elevation: 2,
+      child: ExpansionTile(
+        leading: CircleAvatar(
+          backgroundColor: colorCanal[formulario.canal] ?? Colors.grey,
+          child: Text(
+            formulario.canal.name.substring(0, 1),
+            style: const TextStyle(color: Colors.white),
+          ),
+        ),
+        title: Text(
+          formulario.nombre,
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.w600,
+            fontSize: 16,
+          ),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'ID: ${formulario.plantillaId} | Versión: ${formulario.version}',
+              style: GoogleFonts.poppins(fontSize: 12),
+            ),
+            Row(
+              children: [
+                Chip(
+                  label: Text(
+                    formulario.canal.name,
+                    style: const TextStyle(fontSize: 10),
+                  ),
+                  backgroundColor: (colorCanal[formulario.canal] ?? Colors.grey).withOpacity(0.2),
+                  padding: EdgeInsets.zero,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                const SizedBox(width: 8),
+                Chip(
+                  label: Text(
+                    formulario.estatus.name,
+                    style: const TextStyle(fontSize: 10),
+                  ),
+                  backgroundColor: formulario.estatus == FormStatus.ACTIVO
+                      ? Colors.green.withOpacity(0.2)
+                      : Colors.red.withOpacity(0.2),
+                  padding: EdgeInsets.zero,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${formulario.questions.length} preguntas',
+                  style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+          ],
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Secciones y preguntas
+                ..._buildSeccionesFormulario(formulario),
+                const SizedBox(height: 16),
+                
+                // Botones de acción
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () => _mostrarJsonFormulario(formulario),
+                      icon: const Icon(Icons.code, size: 16),
+                      label: const Text('Ver JSON'),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => _editarFormulario(formulario),
+                      icon: const Icon(Icons.edit, size: 16),
+                      label: const Text('Editar'),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => _eliminarFormulario(formulario),
+                      icon: const Icon(Icons.delete, size: 16, color: Colors.red),
+                      label: const Text('Eliminar', style: TextStyle(color: Colors.red)),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildSeccionesFormulario(FormularioPlantillaDTO formulario) {
+    final seccionesMap = <String, List<PreguntaDTO>>{};
+    
+    // Agrupar preguntas por sección
+    for (final pregunta in formulario.questions) {
+      if (!seccionesMap.containsKey(pregunta.section)) {
+        seccionesMap[pregunta.section] = [];
+      }
+      seccionesMap[pregunta.section]!.add(pregunta);
+    }
+    
+    final widgets = <Widget>[];
+    
+    seccionesMap.forEach((seccion, preguntas) {
+      widgets.add(
+        Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                seccion,
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                  color: Colors.grey.shade800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ...preguntas.map((pregunta) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${pregunta.orden}. ',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            pregunta.etiqueta,
+                            style: GoogleFonts.poppins(fontSize: 12),
+                          ),
+                          Text(
+                            'Tipo: ${pregunta.tipoEntrada} | ${pregunta.opciones.length} opciones',
+                            style: GoogleFonts.poppins(
+                              fontSize: 10,
+                              color: Colors.grey.shade500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              )).toList(),
+            ],
+          ),
+        ),
+      );
+    });
+    
+    return widgets;
+  }
+
+  Future<void> _crearFormulariosDemoDebug() async {
+    try {
+      await FormularioHelper.inicializar();
+      await FormularioHelper.crearDatosEjemplo();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Formularios de demo creados exitosamente'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      
+      setState(() {});
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al crear formularios demo: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _mostrarDialogoImportarFormulario() {
+    final jsonController = TextEditingController();
+    final idController = TextEditingController();
+    final nombreController = TextEditingController();
+    final versionController = TextEditingController(text: 'v1.0');
+    CanalType canalSeleccionado = CanalType.DETALLE;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Importar Formulario desde JSON'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: idController,
+                decoration: const InputDecoration(
+                  labelText: 'ID del Formulario',
+                  hintText: 'Ej: FORM_001',
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: nombreController,
+                decoration: const InputDecoration(
+                  labelText: 'Nombre del Formulario',
+                  hintText: 'Ej: Evaluación de Ventas',
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: versionController,
+                decoration: const InputDecoration(
+                  labelText: 'Versión',
+                ),
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<CanalType>(
+                value: canalSeleccionado,
+                decoration: const InputDecoration(labelText: 'Canal'),
+                items: CanalType.values.map((canal) {
+                  return DropdownMenuItem(
+                    value: canal,
+                    child: Text(canal.name),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) canalSeleccionado = value;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: jsonController,
+                decoration: const InputDecoration(
+                  labelText: 'JSON de Preguntas',
+                  hintText: 'Pega aquí el array JSON de preguntas',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 10,
+                style: GoogleFonts.robotoMono(fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                final preguntasJson = jsonDecode(jsonController.text);
+                
+                final formulario = FormularioHelper.importarFormularioDesdeJson(
+                  plantillaId: idController.text,
+                  nombre: nombreController.text,
+                  version: versionController.text,
+                  canal: canalSeleccionado,
+                  preguntasJson: preguntasJson,
+                );
+                
+                await _plantillaService.savePlantilla(formulario);
+                
+                Navigator.pop(context);
+                setState(() {});
+                
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Formulario importado exitosamente'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error al importar: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            child: const Text('Importar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _mostrarDialogoCrearFormulario() {
+    // Por ahora solo mostrar mensaje
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Crear formulario manualmente no implementado aún'),
+        backgroundColor: Colors.orange,
+      ),
+    );
+  }
+
+  void _mostrarJsonFormulario(FormularioPlantillaDTO formulario) {
+    final preguntas = formulario.questions.map((p) => p.toJson()).toList();
+    final jsonString = const JsonEncoder.withIndent('  ').convert(preguntas);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('JSON de ${formulario.nombre}'),
+        content: SingleChildScrollView(
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: SelectableText(
+              jsonString,
+              style: GoogleFonts.robotoMono(fontSize: 12),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cerrar'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: jsonString));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('JSON copiado al portapapeles'),
+                  duration: Duration(seconds: 1),
+                ),
+              );
+            },
+            icon: const Icon(Icons.copy, size: 16),
+            label: const Text('Copiar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _editarFormulario(FormularioPlantillaDTO formulario) {
+    // Por ahora solo cambiar estado
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cambiar Estado'),
+        content: Text('¿Desea cambiar el estado del formulario "${formulario.nombre}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              formulario.estatus = formulario.estatus == FormStatus.ACTIVO 
+                  ? FormStatus.INACTIVO 
+                  : FormStatus.ACTIVO;
+              formulario.fechaActualizacion = DateTime.now();
+              
+              await _plantillaService.savePlantilla(formulario);
+              
+              Navigator.pop(context);
+              setState(() {});
+              
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Estado cambiado a ${formulario.estatus.name}'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
+            child: const Text('Cambiar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _eliminarFormulario(FormularioPlantillaDTO formulario) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Eliminar Formulario'),
+        content: Text('¿Está seguro de eliminar "${formulario.nombre}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await _plantillaService.deletePlantilla(formulario.plantillaId);
+              
+              Navigator.pop(context);
+              setState(() {});
+              
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Formulario eliminado'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -2397,6 +2927,7 @@ class _PostPlanesCardState extends State<PostPlanesCard> {
       ),
     );
   }
+
 }
 
 // -----------------------------------------------------------------------------
@@ -2831,6 +3362,7 @@ class _PutPlanesCardState extends State<PutPlanesCard> {
       ),
     );
   }
+
 }
 
 // -----------------------------------------------------------------------------
@@ -3232,4 +3764,5 @@ class _DeletePlanesCardState extends State<DeletePlanesCard> {
       ),
     );
   }
+
 }
