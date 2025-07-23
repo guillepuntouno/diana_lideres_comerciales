@@ -112,6 +112,23 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
     }
   }
 
+  /// Calcula el número de semana ISO 8601
+  int _calcularNumeroSemanaISO(DateTime fecha) {
+    // Ajustar al jueves de la semana actual (ISO 8601 usa el jueves para determinar el año)
+    DateTime jueves = fecha.add(Duration(days: 4 - fecha.weekday));
+    
+    // Primer jueves del año
+    DateTime primerEnero = DateTime(jueves.year, 1, 1);
+    DateTime primerJueves = primerEnero;
+    while (primerJueves.weekday != 4) {
+      primerJueves = primerJueves.add(const Duration(days: 1));
+    }
+    
+    // Calcular la diferencia en semanas
+    int diferenciaDias = jueves.difference(primerJueves).inDays;
+    return (diferenciaDias / 7).floor() + 1;
+  }
+
   void _generarSemanasDisponibles() {
     _semanasDisponibles.clear();
     DateTime ahora = DateTime.now();
@@ -121,12 +138,7 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
       Duration(days: ahora.weekday - 1),
     );
     
-    int numeroSemanaActual =
-        ((inicioSemanaActual.difference(DateTime(inicioSemanaActual.year, 1, 1)).inDays +
-                    DateTime(inicioSemanaActual.year, 1, 1).weekday -
-                    1) /
-                7)
-            .ceil();
+    int numeroSemanaActual = _calcularNumeroSemanaISO(inicioSemanaActual);
     
     String codigoSemanaActual = 'SEMANA $numeroSemanaActual - ${inicioSemanaActual.year}';
     DateTime finSemanaActual = inicioSemanaActual.add(const Duration(days: 5));
@@ -155,12 +167,7 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
         Duration(days: fechaSemana.weekday - 1),
       );
 
-      int numeroSemana =
-          ((inicioSemana.difference(DateTime(inicioSemana.year, 1, 1)).inDays +
-                      DateTime(inicioSemana.year, 1, 1).weekday -
-                      1) /
-                  7)
-              .ceil();
+      int numeroSemana = _calcularNumeroSemanaISO(inicioSemana);
 
       String codigoSemana = 'SEMANA $numeroSemana - ${inicioSemana.year}';
       DateTime finSemana = inicioSemana.add(const Duration(days: 5));
