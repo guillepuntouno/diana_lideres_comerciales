@@ -94,7 +94,40 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
 
     final nombreUsuario = _liderComercial?.nombre ?? 'Usuario';
 
-    return Scaffold(
+    return WillPopScope(
+      onWillPop: () async {
+        // Mostrar diálogo de confirmación antes de salir
+        return await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text('Confirmar salida'),
+              content: const Text('¿Realmente desea salir del sistema?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('No'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    Navigator.of(context).pop(true);
+                    await SesionServicio.cerrarSesion(context);
+                    if (context.mounted) {
+                      Navigator.pushReplacementNamed(context, '/login');
+                    }
+                  },
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.red,
+                  ),
+                  child: const Text('Sí'),
+                ),
+              ],
+            );
+          },
+        ) ?? false;
+      },
+      child: Scaffold(
       backgroundColor: Colors.white,
       body: LayoutBuilder(
         builder: (context, constraints) {
@@ -497,6 +530,7 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
           }
         },
       ),
+    ),
     );
   }
 
