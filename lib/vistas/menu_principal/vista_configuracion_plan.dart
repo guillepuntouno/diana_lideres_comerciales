@@ -2254,7 +2254,7 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                             ),
                           ],
                         ),
-                child: Column(
+                        child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
@@ -2445,150 +2445,150 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                           });
                         },
                         children: diasSemana.asMap().entries.map((entry) {
-                  final indice = entry.key;
-                  final dia = entry.value;
-                  
-                  // Calcular la fecha real del día
-                  final semanaSeleccionadaObj = _semanasDisponibles.firstWhere(
-                    (s) => s.codigo == _semanaSeleccionada,
-                  );
-                  final fechaDia = semanaSeleccionadaObj.inicioSemana.add(Duration(days: indice));
-                  final fechaFormateada = DateFormat('dd/MM/yyyy').format(fechaDia);
-                  
-                  final tieneDia = _planActual!.dias.containsKey(dia);
-                  final tieneObjetivo =
-                      tieneDia &&
-                      _planActual!.dias[dia]!.objetivo != null &&
-                      _planActual!.dias[dia]!.objetivo!.isNotEmpty;
-                  final diaConfigurado = tieneDia && tieneObjetivo;
+                          final indice = entry.key;
+                          final dia = entry.value;
+                          
+                          // Calcular la fecha real del día
+                          final semanaSeleccionadaObj = _semanasDisponibles.firstWhere(
+                            (s) => s.codigo == _semanaSeleccionada,
+                          );
+                          final fechaDia = semanaSeleccionadaObj.inicioSemana.add(Duration(days: indice));
+                          final fechaFormateada = DateFormat('dd/MM/yyyy').format(fechaDia);
+                          
+                          final tieneDia = _planActual!.dias.containsKey(dia);
+                          final tieneObjetivo =
+                              tieneDia &&
+                              _planActual!.dias[dia]!.objetivo != null &&
+                              _planActual!.dias[dia]!.objetivo!.isNotEmpty;
+                          final diaConfigurado = tieneDia && tieneObjetivo;
 
-                  // Log para todos los días para debug
-                  print(
-                    'UI - Verificando $dia: tieneDia=$tieneDia, tieneObjetivo=$tieneObjetivo, configurado=$diaConfigurado',
-                  );
-                  if (tieneDia && _planActual!.dias[dia] != null) {
-                    final diaData = _planActual!.dias[dia]!;
-                    print('  - Objetivo: "${diaData.objetivo}"');
-                    print('  - Tipo: ${diaData.tipo}');
-                    print('  - TipoActividad: ${diaData.tipoActividad}');
-                  }
+                          // Log para todos los días para debug
+                          print(
+                            'UI - Verificando $dia: tieneDia=$tieneDia, tieneObjetivo=$tieneObjetivo, configurado=$diaConfigurado',
+                          );
+                          if (tieneDia && _planActual!.dias[dia] != null) {
+                            final diaData = _planActual!.dias[dia]!;
+                            print('  - Objetivo: "${diaData.objetivo}"');
+                            print('  - Tipo: ${diaData.tipo}');
+                            print('  - TipoActividad: ${diaData.tipoActividad}');
+                          }
 
-                  final esEditable =
-                      _planActual!.estatus == 'borrador' ||
-                      _puedeEditarPlan(_planActual!);
+                          final esEditable =
+                              _planActual!.estatus == 'borrador' ||
+                              _puedeEditarPlan(_planActual!);
 
-                  return ExpansionPanel(
-                    backgroundColor: Colors.white,
-                    isExpanded: _diasExpandidos[indice],
-                    canTapOnHeader: true,
-                    headerBuilder: (BuildContext context, bool isExpanded) {
-                      return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: !esEditable && _planActual!.estatus == 'enviado'
-                              ? Colors.red.shade50
-                              : diaConfigurado 
-                                ? Colors.green.shade50 
-                                : Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              diaConfigurado
-                                  ? Icons.check_circle
-                                  : Icons.radio_button_unchecked,
-                              color:
-                                  !esEditable
-                                      ? Colors.grey.shade400
-                                      : (diaConfigurado ? Colors.green : Colors.grey),
-                              size: 24,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    '$dia - $fechaFormateada',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      color: !esEditable ? Colors.grey : const Color(0xFF1C2120),
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  if (diaConfigurado)
-                                    Text(
-                                      _planActual!.dias[dia]!.objetivo!,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: !esEditable ? Colors.grey.shade400 : Colors.grey.shade600,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                ],
-                              ),
-                            ),
-                            if (!esEditable && _planActual!.estatus == 'enviado')
-                              Icon(
-                                Icons.lock_outline,
-                                size: 18,
-                                color: Colors.red.shade400,
-                              )
-                            else if (diaConfigurado)
-                              PopupMenuButton<String>(
-                                icon: Icon(
-                                  Icons.more_vert,
-                                  color: Colors.grey.shade600,
+                          return ExpansionPanel(
+                            backgroundColor: Colors.white,
+                            isExpanded: _diasExpandidos[indice],
+                            canTapOnHeader: true,
+                            headerBuilder: (BuildContext context, bool isExpanded) {
+                              return Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: !esEditable && _planActual!.estatus == 'enviado'
+                                      ? Colors.red.shade50
+                                      : diaConfigurado 
+                                        ? Colors.green.shade50 
+                                        : Colors.grey.shade50,
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
-                                onSelected: (value) {
-                                  if (value == 'ver') {
-                                    _mostrarResumenDia(dia, _planActual!.dias[dia]!);
-                                  } else if (value == 'editar') {
-                                    _navegarAEditarDia(dia, fechaDia, indice);
-                                  }
-                                },
-                                itemBuilder: (BuildContext context) => [
-                                  PopupMenuItem<String>(
-                                    value: 'ver',
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.visibility_outlined, size: 20),
-                                        SizedBox(width: 8),
-                                        Text('Ver resumen'),
-                                      ],
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      diaConfigurado
+                                          ? Icons.check_circle
+                                          : Icons.radio_button_unchecked,
+                                      color:
+                                          !esEditable
+                                              ? Colors.grey.shade400
+                                              : (diaConfigurado ? Colors.green : Colors.grey),
+                                      size: 24,
                                     ),
-                                  ),
-                                  if (esEditable)
-                                    PopupMenuItem<String>(
-                                      value: 'editar',
-                                      child: Row(
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisAlignment: MainAxisAlignment.center,
                                         children: [
-                                          Icon(Icons.edit, size: 20),
-                                          SizedBox(width: 8),
-                                          Text('Editar'),
+                                          Text(
+                                            '$dia - $fechaFormateada',
+                                            style: TextStyle(
+                                              fontSize: 15,
+                                              color: !esEditable ? Colors.grey : const Color(0xFF1C2120),
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          if (diaConfigurado)
+                                            Text(
+                                              _planActual!.dias[dia]!.objetivo!,
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                color: !esEditable ? Colors.grey.shade400 : Colors.grey.shade600,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
                                         ],
                                       ),
                                     ),
-                                ],
-                              )
-                            else
-                              Icon(
-                                Icons.chevron_right,
-                                color: Colors.grey,
-                              ),
-                          ],
-                        ),
-                      );
-                    },
-                    body: Container(
-                      padding: const EdgeInsets.all(12),
-                      child: diaConfigurado
-                          ? Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
+                                    if (!esEditable && _planActual!.estatus == 'enviado')
+                                      Icon(
+                                        Icons.lock_outline,
+                                        size: 18,
+                                        color: Colors.red.shade400,
+                                      )
+                                    else if (diaConfigurado)
+                                      PopupMenuButton<String>(
+                                        icon: Icon(
+                                          Icons.more_vert,
+                                          color: Colors.grey.shade600,
+                                        ),
+                                        onSelected: (value) {
+                                          if (value == 'ver') {
+                                            _mostrarResumenDia(dia, _planActual!.dias[dia]!);
+                                          } else if (value == 'editar') {
+                                            _navegarAEditarDia(dia, fechaDia, indice);
+                                          }
+                                        },
+                                        itemBuilder: (BuildContext context) => [
+                                          PopupMenuItem<String>(
+                                            value: 'ver',
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.visibility_outlined, size: 20),
+                                                SizedBox(width: 8),
+                                                Text('Ver resumen'),
+                                              ],
+                                            ),
+                                          ),
+                                          if (esEditable)
+                                            PopupMenuItem<String>(
+                                              value: 'editar',
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.edit, size: 20),
+                                                  SizedBox(width: 8),
+                                                  Text('Editar'),
+                                                ],
+                                              ),
+                                            ),
+                                        ],
+                                      )
+                                    else
+                                      Icon(
+                                        Icons.chevron_right,
+                                        color: Colors.grey,
+                                      ),
+                                  ],
+                                ),
+                              );
+                            },
+                            body: Container(
+                              padding: const EdgeInsets.all(12),
+                              child: diaConfigurado
+                                  ? Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
                                 // Resumen del día
                                 _buildResumenCompactoDia(dia, _planActual!.dias[dia]!),
                                 const SizedBox(height: 12),
@@ -2616,9 +2616,9 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                                     ],
                                   ],
                                 ),
-                              ],
-                            )
-                          : Center(
+                                      ],
+                                    )
+                                  : Center(
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(vertical: 20),
                                 child: Column(
@@ -2649,15 +2649,15 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                                         onPressed: () => _navegarAEditarDia(dia, fechaDia, indice),
                                       ),
                                     ],
-                                  ],
-                                ),
-                              ),
-                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                            )
+                          );
+                        }).toList(),
+                      ),
                     ),
-                  );
-                }).toList(),
-                  ),
-                ),
 
                     const SizedBox(height: 24), // Reducido de 32 a 24
                     // INFORMACIÓN ADICIONAL PARA PLANES ENVIADOS

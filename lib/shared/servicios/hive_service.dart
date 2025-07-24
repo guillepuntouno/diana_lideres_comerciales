@@ -29,6 +29,7 @@ class HiveService {
   static const String clienteBox = 'clientes';
   static const String planTrabajoSemanalBox = 'planes_trabajo_semanal';
   static const String planTrabajoUnificadoBox = 'planes_trabajo_unificado';
+  static const String formulariosPlantillasBox = 'formularios_plantillas';
 
   /// Inicializa Hive y registra todos los adaptadores
   Future<void> initialize() async {
@@ -185,6 +186,11 @@ class HiveService {
     if (!Hive.isBoxOpen(planTrabajoUnificadoBox)) {
       await Hive.openBox<PlanTrabajoUnificadoHive>(planTrabajoUnificadoBox);
       print('📦 Caja "$planTrabajoUnificadoBox" abierta correctamente');
+    }
+    
+    if (!Hive.isBoxOpen(formulariosPlantillasBox)) {
+      await Hive.openBox(formulariosPlantillasBox);
+      print('📦 Caja "$formulariosPlantillasBox" abierta correctamente');
     }
   }
 

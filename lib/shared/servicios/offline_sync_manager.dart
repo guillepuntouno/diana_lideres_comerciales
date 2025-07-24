@@ -372,6 +372,41 @@ class OfflineSyncManager {
     };
   }
 
+  /// Encola una operación para sincronización posterior
+  Future<void> encolarOperacion({
+    required String tipo,
+    required String endpoint,
+    required Map<String, dynamic> datos,
+    required String idLocal,
+  }) async {
+    try {
+      // Guardar la operación pendiente en el syncMetadataBox
+      final operacionesPendientes = _hiveService.getSyncMetadata<List>('operaciones_pendientes') ?? [];
+      
+      final nuevaOperacion = {
+        'id': DateTime.now().millisecondsSinceEpoch.toString(),
+        'tipo': tipo,
+        'endpoint': endpoint,
+        'datos': datos,
+        'idLocal': idLocal,
+        'timestamp': DateTime.now().toIso8601String(),
+        'intentos': 0,
+      };
+      
+      operacionesPendientes.add(nuevaOperacion);
+      await _hiveService.saveSyncMetadata('operaciones_pendientes', operacionesPendientes);
+      
+      print('📋 Operación encolada para sincronización: $tipo $endpoint');
+      
+      // Si hay conexión, intentar sincronizar inmediatamente
+      if (_isConnected) {
+        await performFullSync();
+      }
+    } catch (e) {
+      print('❌ Error al encolar operación: $e');
+    }
+  }
+
   /// Limpia todos los datos y resetea el estado
   Future<void> reset() async {
     _stopPeriodicSync();

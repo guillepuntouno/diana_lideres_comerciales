@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app.dart';
 import 'dart:convert';
 import 'dart:io' show Platform;
@@ -54,7 +55,11 @@ void main() async {
     _clearUrlFragment();
   }
   
-  runApp(DianaApp(hasNewToken: hasNewToken));
+  runApp(
+    ProviderScope(
+      child: DianaApp(hasNewToken: hasNewToken),
+    ),
+  );
 }
 
 // 👇 Coloca estas funciones globales o en un helper

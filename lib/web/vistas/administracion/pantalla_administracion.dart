@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:diana_lc_front/shared/servicios/sesion_servicio.dart';
 import 'package:diana_lc_front/shared/modelos/user_dto.dart';
+import 'package:diana_lc_front/web/vistas/gestion_datos/formulario/formulario_list_page.dart';
 
 class PantallaAdministracion extends StatefulWidget {
   const PantallaAdministracion({Key? key}) : super(key: key);
@@ -106,6 +107,7 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
           _buildSidebarItem('roles', 'Roles', Icons.security),
           _buildSidebarItem('permisos', 'Permisos', Icons.lock),
           const Divider(),
+          _buildSidebarItem('formularios', 'Formularios', Icons.description),
           _buildSidebarItem('auditoria', 'Auditoría', Icons.history),
           _buildSidebarItem('configuracion', 'Configuración', Icons.settings),
         ],
@@ -204,11 +206,12 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
           // Actions
           if (_vistaSeleccionada == 'usuarios' || 
               _vistaSeleccionada == 'roles' || 
-              _vistaSeleccionada == 'permisos') ...[
+              _vistaSeleccionada == 'permisos' ||
+              _vistaSeleccionada == 'formularios') ...[
             ElevatedButton.icon(
-              onPressed: _agregarNuevo,
+              onPressed: _vistaSeleccionada == 'formularios' ? _navegarAFormularios : _agregarNuevo,
               icon: const Icon(Icons.add),
-              label: Text('Agregar ${_getNombreSingular()}'),
+              label: Text(_vistaSeleccionada == 'formularios' ? 'Gestionar Formularios' : 'Agregar ${_getNombreSingular()}'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFDE1327),
                 foregroundColor: Colors.white,
@@ -228,6 +231,8 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
         return _buildRolesView();
       case 'permisos':
         return _buildPermisosView();
+      case 'formularios':
+        return _buildFormulariosView();
       case 'auditoria':
         return _buildAuditoriaView();
       case 'configuracion':
@@ -461,6 +466,49 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
             }).toList(),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildFormulariosView() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.description,
+            size: 64,
+            color: Colors.grey[400],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Gestión de Formularios Dinámicos',
+            style: GoogleFonts.poppins(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: const Color(0xFF1C2120),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Administre las plantillas de formularios para captura de datos',
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              color: const Color(0xFF8F8E8E),
+            ),
+          ),
+          const SizedBox(height: 32),
+          ElevatedButton.icon(
+            onPressed: _navegarAFormularios,
+            icon: const Icon(Icons.arrow_forward),
+            label: const Text('Ir a Gestión de Formularios'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDE1327),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -776,6 +824,8 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
         return 'Gestión de Roles';
       case 'permisos':
         return 'Gestión de Permisos';
+      case 'formularios':
+        return 'Gestión de Formularios';
       case 'auditoria':
         return 'Auditoría del Sistema';
       case 'configuracion':
@@ -905,6 +955,15 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
             child: Text(accion.substring(0, 1).toUpperCase() + accion.substring(1)),
           ),
         ],
+      ),
+    );
+  }
+
+  void _navegarAFormularios() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const FormularioListPage(),
       ),
     );
   }
