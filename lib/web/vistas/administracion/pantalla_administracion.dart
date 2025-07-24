@@ -15,7 +15,7 @@ class PantallaAdministracion extends StatefulWidget {
 class _PantallaAdministracionState extends State<PantallaAdministracion> {
   final SesionServicio _sesionServicio = SesionServicio();
   
-  String _vistaSeleccionada = 'usuarios';
+  String _vistaSeleccionada = 'dashboard';
   List<UsuarioDto> _usuarios = [];
   List<Map<String, dynamic>> _roles = [];
   List<Map<String, dynamic>> _permisos = [];
@@ -33,15 +33,14 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
     
     try {
       switch (_vistaSeleccionada) {
-        case 'usuarios':
-          // TODO: Implementar servicio real de usuarios
-          setState(() => _usuarios = _generarUsuariosDePrueba());
+        case 'dashboard':
+          // Dashboard no requiere cargar datos específicos por ahora
           break;
-        case 'roles':
-          setState(() => _roles = _generarRolesDePrueba());
+        case 'formularios':
+          // Los formularios se manejan en su propio componente
           break;
-        case 'permisos':
-          setState(() => _permisos = _generarPermisosDePrueba());
+        case 'programa_excelencia':
+          // Programa de excelencia no requiere cargar datos específicos por ahora
           break;
       }
     } catch (e) {
@@ -103,13 +102,9 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
               ),
             ),
           ),
-          _buildSidebarItem('usuarios', 'Usuarios', Icons.people),
-          _buildSidebarItem('roles', 'Roles', Icons.security),
-          _buildSidebarItem('permisos', 'Permisos', Icons.lock),
-          const Divider(),
+          _buildSidebarItem('dashboard', 'Dashboard', Icons.dashboard),
           _buildSidebarItem('formularios', 'Formularios', Icons.description),
-          _buildSidebarItem('auditoria', 'Auditoría', Icons.history),
-          _buildSidebarItem('configuracion', 'Configuración', Icons.settings),
+          _buildSidebarItem('programa_excelencia', 'Programa de excelencia', Icons.star),
         ],
       ),
     );
@@ -225,18 +220,12 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
 
   Widget _buildContent() {
     switch (_vistaSeleccionada) {
-      case 'usuarios':
-        return _buildUsuariosView();
-      case 'roles':
-        return _buildRolesView();
-      case 'permisos':
-        return _buildPermisosView();
+      case 'dashboard':
+        return _buildDashboardView();
       case 'formularios':
         return _buildFormulariosView();
-      case 'auditoria':
-        return _buildAuditoriaView();
-      case 'configuracion':
-        return _buildConfiguracionView();
+      case 'programa_excelencia':
+        return _buildProgramaExcelenciaView();
       default:
         return const Center(child: Text('Vista no disponible'));
     }
@@ -1065,5 +1054,335 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
         'administrar': true,
       },
     ];
+  }
+  
+  Widget _buildDashboardView() {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Título principal
+          Text(
+            'Dashboard de Administración',
+            style: GoogleFonts.poppins(
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+              color: const Color(0xFF1C2120),
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Métricas y estadísticas principales del sistema',
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              color: const Color(0xFF8F8E8E),
+            ),
+          ),
+          const SizedBox(height: 40),
+          
+          // Grid de métricas
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final crossAxisCount = constraints.maxWidth > 1200 ? 4 : 
+                                      constraints.maxWidth > 900 ? 3 : 
+                                      constraints.maxWidth > 600 ? 2 : 1;
+                
+                return GridView.count(
+                  crossAxisCount: crossAxisCount,
+                  crossAxisSpacing: 24,
+                  mainAxisSpacing: 24,
+                  childAspectRatio: 1.3,
+                  children: [
+                    _buildMetricCard(
+                      'Total de Usuarios',
+                      '0',
+                      Icons.people_outline,
+                      const Color(0xFF1976D2),
+                      '+0%',
+                    ),
+                    _buildMetricCard(
+                      'Formularios Activos',
+                      '0',
+                      Icons.assignment_turned_in,
+                      const Color(0xFF388E3C),
+                      '+0%',
+                    ),
+                    _buildMetricCard(
+                      'Capturas del Mes',
+                      '0',
+                      Icons.edit_document,
+                      const Color(0xFF7B1FA2),
+                      '+0%',
+                    ),
+                    _buildMetricCard(
+                      'Visitas Realizadas',
+                      '0',
+                      Icons.location_on,
+                      const Color(0xFFE64A19),
+                      '+0%',
+                    ),
+                    _buildMetricCard(
+                      'Clientes Activos',
+                      '0',
+                      Icons.business,
+                      const Color(0xFF00796B),
+                      '+0%',
+                    ),
+                    _buildMetricCard(
+                      'Tasa de Completitud',
+                      '0%',
+                      Icons.analytics,
+                      const Color(0xFFF57C00),
+                      '+0%',
+                    ),
+                    _buildMetricCard(
+                      'Sesiones Activas',
+                      '0',
+                      Icons.online_prediction,
+                      const Color(0xFF303F9F),
+                      'En línea',
+                    ),
+                    _buildMetricCard(
+                      'Reportes Generados',
+                      '0',
+                      Icons.assessment,
+                      const Color(0xFF5D4037),
+                      '+0%',
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+          
+          const SizedBox(height: 32),
+          
+          // Sección de gráficos
+          Container(
+            height: 350,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.show_chart,
+                    size: 80,
+                    color: Colors.grey[300],
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Área de Gráficos',
+                    style: GoogleFonts.poppins(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Los gráficos y tendencias se mostrarán aquí',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      color: Colors.grey[500],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildMetricCard(String title, String value, IconData icon, Color color, String trend) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  color: color,
+                  size: 28,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: trend.startsWith('+') ? Colors.green.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (trend.startsWith('+'))
+                      Icon(
+                        Icons.trending_up,
+                        color: Colors.green,
+                        size: 16,
+                      )
+                    else if (trend == 'En línea')
+                      Icon(
+                        Icons.circle,
+                        color: Colors.green,
+                        size: 8,
+                      ),
+                    const SizedBox(width: 4),
+                    Text(
+                      trend,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: trend.startsWith('+') ? Colors.green : Colors.grey[700],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                style: GoogleFonts.poppins(
+                  fontSize: 36,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF1C2120),
+                  height: 1,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: const Color(0xFF8F8E8E),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildProgramaExcelenciaView() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFC107).withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.star,
+              size: 80,
+              color: const Color(0xFFFFC107),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Programa de Excelencia',
+            style: GoogleFonts.poppins(
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+              color: const Color(0xFF1C2120),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Gestión y seguimiento del programa de excelencia comercial',
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              color: const Color(0xFF8F8E8E),
+            ),
+          ),
+          const SizedBox(height: 48),
+          Container(
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.construction,
+                  size: 64,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Módulo en construcción',
+                  style: GoogleFonts.poppins(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Esta funcionalidad estará disponible próximamente',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    color: Colors.grey[500],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

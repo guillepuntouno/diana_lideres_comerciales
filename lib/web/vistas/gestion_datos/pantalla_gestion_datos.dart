@@ -1,11 +1,7 @@
 // lib/web/vistas/gestion_datos/pantalla_gestion_datos.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:diana_lc_front/shared/servicios/clientes_servicio.dart';
-import 'package:diana_lc_front/shared/servicios/lider_comercial_servicio.dart';
 import 'package:diana_lc_front/shared/servicios/plantilla_service_impl.dart';
-import 'package:diana_lc_front/shared/modelos/hive/cliente_hive.dart';
-import 'package:diana_lc_front/shared/modelos/lider_comercial_modelo.dart';
 import 'package:diana_lc_front/shared/modelos/formulario_dto.dart';
 
 class PantallaGestionDatos extends StatefulWidget {
@@ -16,11 +12,9 @@ class PantallaGestionDatos extends StatefulWidget {
 }
 
 class _PantallaGestionDatosState extends State<PantallaGestionDatos> {
-  final ClientesServicio _clientesServicio = ClientesServicio();
-  final LiderComercialServicio _lideresServicio = LiderComercialServicio();
   final PlantillaServiceImpl _plantillasServicio = PlantillaServiceImpl();
   
-  String _tabSeleccionada = 'clientes';
+  String _tabSeleccionada = 'dashboard';
   List<dynamic> _datosActuales = [];
   bool _isLoading = false;
   String _busqueda = '';
@@ -36,13 +30,9 @@ class _PantallaGestionDatosState extends State<PantallaGestionDatos> {
     
     try {
       switch (_tabSeleccionada) {
-        case 'clientes':
-          final clientes = await _clientesServicio.obtenerTodosLosClientes();
-          setState(() => _datosActuales = clientes);
-          break;
-        case 'lideres':
-          final lideres = await _lideresServicio.obtenerLideresComerciales();
-          setState(() => _datosActuales = lideres);
+        case 'dashboard':
+          // Para el dashboard no cargamos datos específicos por ahora
+          setState(() => _datosActuales = []);
           break;
         case 'formularios':
           final plantillas = await _plantillasServicio.obtenerPlantillas();
@@ -80,11 +70,13 @@ class _PantallaGestionDatosState extends State<PantallaGestionDatos> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _agregarNuevoRegistro,
-        backgroundColor: const Color(0xFFDE1327),
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: _tabSeleccionada == 'formularios' 
+          ? FloatingActionButton(
+              onPressed: _agregarNuevoRegistro,
+              backgroundColor: const Color(0xFFDE1327),
+              child: const Icon(Icons.add),
+            )
+          : null,
     );
   }
 
@@ -163,8 +155,7 @@ class _PantallaGestionDatosState extends State<PantallaGestionDatos> {
       ),
       child: Row(
         children: [
-          _buildTab('clientes', 'Clientes', Icons.business),
-          _buildTab('lideres', 'Líderes Comerciales', Icons.people),
+          _buildTab('dashboard', 'Dashboard', Icons.dashboard),
           _buildTab('formularios', 'Formularios', Icons.assignment),
         ],
       ),
@@ -214,18 +205,15 @@ class _PantallaGestionDatosState extends State<PantallaGestionDatos> {
   }
 
   Widget _buildContent() {
+    // Si estamos en el dashboard, mostrar una vista diferente
+    if (_tabSeleccionada == 'dashboard') {
+      return _buildDashboard();
+    }
+    
     final datosFiltrados = _datosActuales.where((dato) {
       if (_busqueda.isEmpty) return true;
       
       switch (_tabSeleccionada) {
-        case 'clientes':
-          final cliente = dato as ClienteHive;
-          return cliente.nombre.toLowerCase().contains(_busqueda.toLowerCase()) ||
-                 cliente.codigo.toLowerCase().contains(_busqueda.toLowerCase());
-        case 'lideres':
-          final lider = dato as LiderComercial;
-          return lider.nombre.toLowerCase().contains(_busqueda.toLowerCase()) ||
-                 lider.email.toLowerCase().contains(_busqueda.toLowerCase());
         case 'formularios':
           final formulario = dato as FormularioDto;
           return formulario.nombre.toLowerCase().contains(_busqueda.toLowerCase());
@@ -307,26 +295,6 @@ class _PantallaGestionDatosState extends State<PantallaGestionDatos> {
 
   List<DataColumn> _buildColumns() {
     switch (_tabSeleccionada) {
-      case 'clientes':
-        return const [
-          DataColumn(label: Text('Código')),
-          DataColumn(label: Text('Nombre')),
-          DataColumn(label: Text('Dirección')),
-          DataColumn(label: Text('Teléfono')),
-          DataColumn(label: Text('Email')),
-          DataColumn(label: Text('Estado')),
-          DataColumn(label: Text('Acciones')),
-        ];
-      case 'lideres':
-        return const [
-          DataColumn(label: Text('ID')),
-          DataColumn(label: Text('Nombre')),
-          DataColumn(label: Text('Email')),
-          DataColumn(label: Text('Centro Distribución')),
-          DataColumn(label: Text('País')),
-          DataColumn(label: Text('Estado')),
-          DataColumn(label: Text('Acciones')),
-        ];
       case 'formularios':
         return const [
           DataColumn(label: Text('ID')),
@@ -344,28 +312,6 @@ class _PantallaGestionDatosState extends State<PantallaGestionDatos> {
 
   DataRow _buildRow(dynamic dato) {
     switch (_tabSeleccionada) {
-      case 'clientes':
-        final cliente = dato as ClienteHive;
-        return DataRow(cells: [
-          DataCell(Text(cliente.codigo)),
-          DataCell(Text(cliente.nombre)),
-          DataCell(Text(cliente.direccion ?? 'N/A')),
-          DataCell(Text(cliente.telefono ?? 'N/A')),
-          DataCell(Text(cliente.email ?? 'N/A')),
-          DataCell(_buildEstadoChip(cliente.activo)),
-          DataCell(_buildAcciones(cliente)),
-        ]);
-      case 'lideres':
-        final lider = dato as LiderComercial;
-        return DataRow(cells: [
-          DataCell(Text(lider.id.toString())),
-          DataCell(Text(lider.nombre)),
-          DataCell(Text(lider.email)),
-          DataCell(Text(lider.centroDistribucion ?? 'N/A')),
-          DataCell(Text(lider.pais ?? 'N/A')),
-          DataCell(_buildEstadoChip(lider.activo)),
-          DataCell(_buildAcciones(lider)),
-        ]);
       case 'formularios':
         final formulario = dato as FormularioDto;
         return DataRow(cells: [
@@ -380,6 +326,191 @@ class _PantallaGestionDatosState extends State<PantallaGestionDatos> {
       default:
         return const DataRow(cells: []);
     }
+  }
+
+  Widget _buildDashboard() {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Título principal
+          Text(
+            'Dashboard de Administración',
+            style: GoogleFonts.poppins(
+              fontSize: 28,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF1C2120),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Visualización de métricas principales del sistema',
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 32),
+          
+          // Grid de métricas
+          Expanded(
+            child: GridView.count(
+              crossAxisCount: 3,
+              crossAxisSpacing: 20,
+              mainAxisSpacing: 20,
+              childAspectRatio: 1.5,
+              children: [
+                _buildMetricCard(
+                  'Total de Formularios',
+                  '0',
+                  Icons.assignment,
+                  const Color(0xFF1976D2),
+                ),
+                _buildMetricCard(
+                  'Formularios Activos',
+                  '0',
+                  Icons.check_circle,
+                  const Color(0xFF388E3C),
+                ),
+                _buildMetricCard(
+                  'Capturas del Mes',
+                  '0',
+                  Icons.edit_document,
+                  const Color(0xFF7B1FA2),
+                ),
+                _buildMetricCard(
+                  'Usuarios Activos',
+                  '0',
+                  Icons.people,
+                  const Color(0xFF0288D1),
+                ),
+                _buildMetricCard(
+                  'Tasa de Completitud',
+                  '0%',
+                  Icons.analytics,
+                  const Color(0xFF00796B),
+                ),
+                _buildMetricCard(
+                  'Tiempo Promedio',
+                  '0 min',
+                  Icons.timer,
+                  const Color(0xFFE64A19),
+                ),
+              ],
+            ),
+          ),
+          
+          const SizedBox(height: 32),
+          
+          // Sección de gráficos
+          Container(
+            height: 300,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.insert_chart,
+                    size: 64,
+                    color: Colors.grey[400],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Gráficos de Tendencias',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Los gráficos se mostrarán aquí',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: Colors.grey[500],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildMetricCard(String title, String value, IconData icon, Color color) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  icon,
+                  color: color,
+                  size: 24,
+                ),
+              ),
+              Icon(
+                Icons.trending_up,
+                color: Colors.green,
+                size: 20,
+              ),
+            ],
+          ),
+          const Spacer(),
+          Text(
+            value,
+            style: GoogleFonts.poppins(
+              fontSize: 32,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF1C2120),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              color: Colors.grey[600],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildEstadoChip(bool activo) {
@@ -512,10 +643,6 @@ class _PantallaGestionDatosState extends State<PantallaGestionDatos> {
 
   String _obtenerNombreTipo() {
     switch (_tabSeleccionada) {
-      case 'clientes':
-        return 'Cliente';
-      case 'lideres':
-        return 'Líder Comercial';
       case 'formularios':
         return 'Formulario';
       default:

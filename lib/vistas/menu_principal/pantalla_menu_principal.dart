@@ -131,41 +131,43 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
       },
       child: Scaffold(
       backgroundColor: Colors.white,
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final width = constraints.maxWidth;
-          
-          // 1) Limitar el ancho máximo del contenido
-          final contentWidth = width > 900 ? 900.0 : width;
-          
-          // 2) Breakpoints para el logo
-          double logoHeight;
-          if (width >= 1024) {
-            logoHeight = 180;    // escritorio
-          } else if (width >= 600) {
-            logoHeight = 150;    // tablet  
-          } else {
-            logoHeight = 120;    // móvil
-          }
-          
-          // 3) Breakpoints para número de columnas
-          int crossAxisCount;
-          double childAspectRatio;
-          if (width >= 1200) {
-            crossAxisCount = 4;
-            childAspectRatio = 1.1;
-          } else if (width >= 800) {
-            crossAxisCount = 3;
-            childAspectRatio = 1.15;
-          } else if (width >= 600) {
-            crossAxisCount = 2;
-            childAspectRatio = 1.3;
-          } else {
-            crossAxisCount = 2;
-            childAspectRatio = 1.2;
-          }
-          
-          return Center(
+      body: Stack(
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth;
+              
+              // 1) Limitar el ancho máximo del contenido
+              final contentWidth = width > 900 ? 900.0 : width;
+              
+              // 2) Breakpoints para el logo
+              double logoHeight;
+              if (width >= 1024) {
+                logoHeight = 180;    // escritorio
+              } else if (width >= 600) {
+                logoHeight = 150;    // tablet  
+              } else {
+                logoHeight = 120;    // móvil
+              }
+              
+              // 3) Breakpoints para número de columnas
+              int crossAxisCount;
+              double childAspectRatio;
+              if (width >= 1200) {
+                crossAxisCount = 4;
+                childAspectRatio = 1.1;
+              } else if (width >= 800) {
+                crossAxisCount = 3;
+                childAspectRatio = 1.15;
+              } else if (width >= 600) {
+                crossAxisCount = 2;
+                childAspectRatio = 1.3;
+              } else {
+                crossAxisCount = 2;
+                childAspectRatio = 1.2;
+              }
+              
+              return Center(
             child: ConstrainedBox(
               constraints: BoxConstraints(maxWidth: contentWidth),
               child: ListView(
@@ -572,6 +574,41 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
               ],
             ),
           ),
+    );
+  }
+            },
+          ),
+          // Distintivo de PRE-PRODUCTIVO
+          Positioned(
+            top: 16,
+            right: 16,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.orange,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 6,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: const Text(
+                'PRE-PRODUCTIVO',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
     );
   }
 
