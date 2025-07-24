@@ -92,181 +92,472 @@ class _MetadatosFormState extends State<MetadatosForm> {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Información General del Formulario',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Configure los datos básicos del formulario',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.grey[600],
-              ),
-            ),
-            const SizedBox(height: 32),
-            
-            // Nombre del formulario
-            TextFormField(
-              controller: _nombreController,
-              decoration: const InputDecoration(
-                labelText: 'Nombre del Formulario *',
-                hintText: 'Ej: Evaluación de Cliente',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.description_outlined),
-              ),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'El nombre es obligatorio';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 24),
-            
-            // Versión y Tipo en la misma fila
-            Row(
-              children: [
-                // Versión
-                Expanded(
-                  child: TextFormField(
-                    controller: _versionController,
-                    decoration: const InputDecoration(
-                      labelText: 'Versión',
-                      hintText: 'v1.0',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.bookmark_outline),
+      child: Container(
+        margin: const EdgeInsets.all(24),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
                     ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'La versión es obligatoria';
-                      }
-                      if (!RegExp(r'^v?\d+\.\d+$').hasMatch(value)) {
-                        return 'Formato inválido (ej: v1.0)';
-                      }
-                      return null;
-                    },
-                        ),
+                  ],
                 ),
-                const SizedBox(width: 16),
-                
-                // Tipo
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _tipoSeleccionado,
-                    decoration: const InputDecoration(
-                      labelText: 'Tipo de Formulario',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.category_outlined),
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'detalle',
-                        child: Text('Detalle'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'mayoreo',
-                        child: Text('Mayoreo'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'programa_excelencia',
-                        child: Text('Programa de excelencia'),
-                      ),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        _tipoSeleccionado = value!;
-                      });
-                      _actualizarFormulario();
-                    },
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            
-            // Descripción
-            TextFormField(
-              controller: _descripcionController,
-              decoration: const InputDecoration(
-                labelText: 'Descripción',
-                hintText: 'Descripción breve del formulario',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.notes_outlined),
-              ),
-              maxLines: 3,
-            ),
-            const SizedBox(height: 24),
-            
-            // Estado activo
-            Card(
-              elevation: 0,
-              color: _activa ? Colors.green[50] : Colors.red[50],
-              child: SwitchListTile(
-                title: const Text('Estado del Formulario'),
-                subtitle: Text(
-                  _activa 
-                      ? 'El formulario está activo y disponible para uso' 
-                      : 'El formulario está inactivo',
-                  style: TextStyle(
-                    color: _activa ? Colors.green[700] : Colors.red[700],
-                  ),
-                ),
-                value: _activa,
-                onChanged: (value) {
-                  setState(() {
-                    _activa = value;
-                  });
-                  _actualizarFormulario();
-                },
-                secondary: Icon(
-                  _activa ? Icons.check_circle : Icons.cancel,
-                  color: _activa ? Colors.green : Colors.red,
-                ),
-              ),
-            ),
-            const SizedBox(height: 32),
-            
-            // Información adicional
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.blue[50],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline, color: Colors.blue[700]),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        Text(
-                          'Información importante',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue[700],
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFDE1327).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.info_outline,
+                            color: Color(0xFFDE1327),
+                            size: 24,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Una vez que el formulario tenga capturas, no podrá ser editado. '
-                          'En su lugar, deberá crear una nueva versión.',
-                          style: TextStyle(color: Colors.blue[700]),
+                        const SizedBox(width: 16),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Información General',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF1C2120),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Configure los datos básicos del formulario',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 32),
+            
+                    // Nombre del formulario
+                    TextFormField(
+                      controller: _nombreController,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Color(0xFF1C2120),
+                      ),
+                      decoration: InputDecoration(
+                        labelText: 'Nombre del Formulario',
+                        labelStyle: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[700],
+                          fontWeight: FontWeight.w500,
+                        ),
+                        hintText: 'Ej: Evaluación de Cliente',
+                        hintStyle: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey[400],
+                        ),
+                        filled: true,
+                        fillColor: const Color(0xFFF8F9FA),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE0E0E0),
+                            width: 1.5,
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE0E0E0),
+                            width: 1.5,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFDE1327),
+                            width: 2,
+                          ),
+                        ),
+                        errorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Colors.red,
+                            width: 1.5,
+                          ),
+                        ),
+                        prefixIcon: const Icon(
+                          Icons.description_outlined,
+                          color: Color(0xFF757575),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'El nombre es obligatorio';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 24),
+            
+                    // Versión y Tipo en la misma fila
+                    Row(
+                      children: [
+                        // Versión
+                        Expanded(
+                          child: TextFormField(
+                            controller: _versionController,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: Color(0xFF1C2120),
+                            ),
+                            decoration: InputDecoration(
+                              labelText: 'Versión',
+                              labelStyle: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[700],
+                                fontWeight: FontWeight.w500,
+                              ),
+                              hintText: 'v1.0',
+                              hintStyle: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey[400],
+                              ),
+                              filled: true,
+                              fillColor: const Color(0xFFF8F9FA),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFFE0E0E0),
+                                  width: 1.5,
+                                ),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFFE0E0E0),
+                                  width: 1.5,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFFDE1327),
+                                  width: 2,
+                                ),
+                              ),
+                              errorBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(
+                                  color: Colors.red,
+                                  width: 1.5,
+                                ),
+                              ),
+                              prefixIcon: const Icon(
+                                Icons.bookmark_outline,
+                                color: Color(0xFF757575),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 16,
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'La versión es obligatoria';
+                              }
+                              if (!RegExp(r'^v?\d+\.\d+$').hasMatch(value)) {
+                                return 'Formato inválido (ej: v1.0)';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        
+                        // Tipo
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            value: _tipoSeleccionado,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: Color(0xFF1C2120),
+                            ),
+                            decoration: InputDecoration(
+                              labelText: 'Tipo de Formulario',
+                              labelStyle: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[700],
+                                fontWeight: FontWeight.w500,
+                              ),
+                              filled: true,
+                              fillColor: const Color(0xFFF8F9FA),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFFE0E0E0),
+                                  width: 1.5,
+                                ),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFFE0E0E0),
+                                  width: 1.5,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFFDE1327),
+                                  width: 2,
+                                ),
+                              ),
+                              prefixIcon: const Icon(
+                                Icons.category_outlined,
+                                color: Color(0xFF757575),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                            ),
+                            icon: const Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              color: Color(0xFF757575),
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'detalle',
+                                child: Text('Detalle'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'mayoreo',
+                                child: Text('Mayoreo'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'programa_excelencia',
+                                child: Text('Programa de excelencia'),
+                              ),
+                            ],
+                            onChanged: (value) {
+                              setState(() {
+                                _tipoSeleccionado = value!;
+                              });
+                              _actualizarFormulario();
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+            const SizedBox(height: 24),
+            
+                    // Descripción
+                    TextFormField(
+                      controller: _descripcionController,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Color(0xFF1C2120),
+                      ),
+                      decoration: InputDecoration(
+                        labelText: 'Descripción',
+                        labelStyle: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[700],
+                          fontWeight: FontWeight.w500,
+                        ),
+                        hintText: 'Descripción breve del formulario',
+                        hintStyle: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey[400],
+                        ),
+                        filled: true,
+                        fillColor: const Color(0xFFF8F9FA),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE0E0E0),
+                            width: 1.5,
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE0E0E0),
+                            width: 1.5,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFDE1327),
+                            width: 2,
+                          ),
+                        ),
+                        errorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Colors.red,
+                            width: 1.5,
+                          ),
+                        ),
+                        prefixIcon: const Icon(
+                          Icons.notes_outlined,
+                          color: Color(0xFF757575),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
+                      ),
+                      maxLines: 3,
+                    ),
+            const SizedBox(height: 24),
+            
+                    // Estado activo
+                    Container(
+                      decoration: BoxDecoration(
+                        color: _activa ? const Color(0xFFE8F5E9) : const Color(0xFFFFEBEE),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _activa ? const Color(0xFF4CAF50) : const Color(0xFFF44336),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: SwitchListTile(
+                        title: Text(
+                          'Estado del Formulario',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF1C2120),
+                          ),
+                        ),
+                        subtitle: Text(
+                          _activa 
+                              ? 'El formulario está activo y disponible para uso' 
+                              : 'El formulario está inactivo',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: _activa ? const Color(0xFF2E7D32) : const Color(0xFFC62828),
+                          ),
+                        ),
+                        value: _activa,
+                        onChanged: (value) {
+                          setState(() {
+                            _activa = value;
+                          });
+                          _actualizarFormulario();
+                        },
+                        secondary: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: _activa ? const Color(0xFF4CAF50).withOpacity(0.1) : const Color(0xFFF44336).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            _activa ? Icons.check_circle_outline : Icons.cancel_outlined,
+                            color: _activa ? const Color(0xFF4CAF50) : const Color(0xFFF44336),
+                            size: 24,
+                          ),
+                        ),
+                        activeColor: const Color(0xFF4CAF50),
+                        activeTrackColor: const Color(0xFF81C784),
+                        inactiveThumbColor: const Color(0xFFF44336),
+                        inactiveTrackColor: const Color(0xFFEF9A9A),
+                      ),
+                    ),
+            const SizedBox(height: 32),
+            
+                    // Información adicional
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            const Color(0xFF1976D2).withOpacity(0.08),
+                            const Color(0xFF2196F3).withOpacity(0.05),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: const Color(0xFF1976D2).withOpacity(0.2),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1976D2).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.info_outline_rounded,
+                              color: const Color(0xFF1976D2),
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Información importante',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF1565C0),
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  'Una vez que el formulario tenga capturas, no podrá ser editado. '
+                                  'En su lugar, deberá crear una nueva versión.',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: const Color(0xFF1565C0),
+                                    height: 1.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

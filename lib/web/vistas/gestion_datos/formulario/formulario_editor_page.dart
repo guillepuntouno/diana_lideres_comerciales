@@ -65,10 +65,26 @@ class _FormularioEditorPageState extends ConsumerState<FormularioEditorPage> {
     final esNuevo = widget.formulario == null;
     
     return Scaffold(
+        backgroundColor: const Color(0xFFF8F9FA),
         appBar: AppBar(
-          title: Text(esNuevo ? 'Nuevo Formulario' : 'Editar Formulario'),
-          backgroundColor: Theme.of(context).primaryColor,
-          foregroundColor: Colors.white,
+          elevation: 0,
+          title: Text(
+            esNuevo ? 'Nuevo Formulario' : 'Editar Formulario',
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.5,
+            ),
+          ),
+          backgroundColor: Colors.white,
+          foregroundColor: const Color(0xFF1C2120),
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(1),
+            child: Container(
+              height: 1,
+              color: const Color(0xFFE0E0E0),
+            ),
+          ),
         ),
         body: Column(
           children: [
@@ -108,19 +124,19 @@ class _FormularioEditorPageState extends ConsumerState<FormularioEditorPage> {
 
   Widget _buildStepIndicator() {
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
+      padding: const EdgeInsets.all(24),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Color(0xFFE0E0E0))),
       ),
       child: Row(
         children: [
           _buildStep(0, 'Datos Generales', Icons.description),
           Expanded(
             child: Container(
-              height: 1,
-              color: _currentStep >= 1 ? Theme.of(context).primaryColor : Colors.grey[300],
-              margin: const EdgeInsets.symmetric(horizontal: 8),
+              height: 2,
+              color: _currentStep >= 1 ? const Color(0xFFDE1327) : const Color(0xFFE0E0E0),
+              margin: const EdgeInsets.symmetric(horizontal: 16),
             ),
           ),
           _buildStep(1, 'Preguntas', Icons.quiz),
@@ -135,32 +151,40 @@ class _FormularioEditorPageState extends ConsumerState<FormularioEditorPage> {
     
     return Column(
       children: [
-        Container(
-          width: 40,
-          height: 40,
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          width: 48,
+          height: 48,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: isActive 
-                ? Theme.of(context).primaryColor 
-                : Colors.grey[300],
+                ? const Color(0xFFDE1327) 
+                : const Color(0xFFE0E0E0),
+            boxShadow: isActive ? [
+              BoxShadow(
+                color: const Color(0xFFDE1327).withOpacity(0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ] : null,
           ),
           child: Center(
             child: isCompleted
-                ? const Icon(Icons.check, color: Colors.white)
+                ? const Icon(Icons.check_rounded, color: Colors.white)
                 : Icon(
                     icon,
                     color: isActive ? Colors.white : Colors.grey[600],
-                    size: 20,
+                    size: 24,
                   ),
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 8),
         Text(
           label,
           style: TextStyle(
-            fontSize: 12,
-            color: isActive ? Theme.of(context).primaryColor : Colors.grey[600],
-            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+            fontSize: 14,
+            color: isActive ? const Color(0xFFDE1327) : Colors.grey[600],
+            fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
       ],
@@ -169,14 +193,14 @@ class _FormularioEditorPageState extends ConsumerState<FormularioEditorPage> {
 
   Widget _buildNavigationButtons() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey[300]!)),
+        border: const Border(top: BorderSide(color: Color(0xFFE0E0E0))),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 5,
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
             offset: const Offset(0, -2),
           ),
         ],
@@ -186,8 +210,16 @@ class _FormularioEditorPageState extends ConsumerState<FormularioEditorPage> {
         children: [
           if (_currentStep > 0)
             OutlinedButton.icon(
-              icon: const Icon(Icons.arrow_back),
+              icon: const Icon(Icons.arrow_back_rounded),
               label: const Text('Anterior'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF1C2120),
+                side: const BorderSide(color: Color(0xFFE0E0E0), width: 1.5),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               onPressed: () {
                 _pageController.previousPage(
                   duration: const Duration(milliseconds: 300),
@@ -201,17 +233,33 @@ class _FormularioEditorPageState extends ConsumerState<FormularioEditorPage> {
           Row(
             children: [
               TextButton(
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.grey[700],
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Cancelar'),
+                child: const Text(
+                  'Cancelar',
+                  style: TextStyle(fontSize: 16),
+                ),
               ),
               const SizedBox(width: 16),
               if (_currentStep < 1)
                 ElevatedButton.icon(
-                  icon: const Icon(Icons.arrow_forward),
-                  label: const Text('Siguiente'),
+                  icon: const Icon(Icons.arrow_forward_rounded, color: Colors.white),
+                  label: const Text(
+                    'Siguiente',
+                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).primaryColor,
+                    backgroundColor: const Color(0xFFDE1327),
                     foregroundColor: Colors.white,
+                    elevation: 2,
+                    shadowColor: const Color(0xFFDE1327).withOpacity(0.3),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   onPressed: _validarPasoActual() ? () {
                     _pageController.nextPage(
@@ -222,11 +270,28 @@ class _FormularioEditorPageState extends ConsumerState<FormularioEditorPage> {
                 )
               else
                 ElevatedButton.icon(
-                  icon: const Icon(Icons.save),
-                  label: Text(_isLoading ? 'Guardando...' : 'Guardar'),
+                  icon: Icon(
+                    Icons.save_rounded,
+                    color: Colors.white,
+                    size: _isLoading ? 0 : 20,
+                  ),
+                  label: Text(
+                    _isLoading ? 'Guardando...' : 'Guardar Formulario',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).primaryColor,
+                    backgroundColor: const Color(0xFFDE1327),
                     foregroundColor: Colors.white,
+                    elevation: 2,
+                    shadowColor: const Color(0xFFDE1327).withOpacity(0.3),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   onPressed: _isLoading ? null : _guardarFormulario,
                 ),
@@ -266,6 +331,47 @@ class _FormularioEditorPageState extends ConsumerState<FormularioEditorPage> {
   }
 
   Future<void> _guardarFormulario() async {
+    // Confirmar antes de guardar
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmar Guardado'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.formulario == null
+                  ? '¿Está seguro de crear este formulario?'
+                  : '¿Está seguro de actualizar este formulario?',
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Información del formulario:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text('• Nombre: ${_formularioEnEdicion['nombre'] ?? 'Sin nombre'}'),
+            Text('• Versión: ${_formularioEnEdicion['version'] ?? 'Sin versión'}'),
+            Text('• Tipo: ${_formularioEnEdicion['tipo'] ?? 'Sin tipo'}'),
+            Text('• Preguntas: ${(_formularioEnEdicion['preguntas'] as List?)?.length ?? 0}'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar != true) return;
+
     setState(() => _isLoading = true);
 
     try {

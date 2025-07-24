@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:diana_lc_front/web/vistas/gestion_datos/formulario/providers/formularios_provider.dart';
 import 'package:diana_lc_front/web/vistas/gestion_datos/formulario/formulario_editor_page.dart';
 import 'package:diana_lc_front/web/vistas/gestion_datos/formulario/widgets/version_dialog.dart';
+import 'package:diana_lc_front/web/vistas/gestion_datos/formulario/widgets/modern_data_table.dart';
 
 class FormularioListPage extends ConsumerStatefulWidget {
   const FormularioListPage({Key? key}) : super(key: key);
@@ -27,15 +28,31 @@ class _FormularioListPageState extends ConsumerState<FormularioListPage> {
     final formulariosState = ref.watch(formulariosProvider);
 
     return Scaffold(
+            backgroundColor: const Color(0xFFF8F9FA),
             appBar: AppBar(
-              title: const Text('Administración de Formularios'),
-              backgroundColor: Theme.of(context).primaryColor,
-              foregroundColor: Colors.white,
+              elevation: 0,
+              title: const Text(
+                'Administración de Formularios',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              backgroundColor: Colors.white,
+              foregroundColor: const Color(0xFF1C2120),
+              bottom: PreferredSize(
+                preferredSize: const Size.fromHeight(1),
+                child: Container(
+                  height: 1,
+                  color: const Color(0xFFE0E0E0),
+                ),
+              ),
             ),
             body: Column(
               children: [
                 // Barra de búsqueda y filtros
-                _buildSearchBar(context),
+                _buildModernSearchBar(context),
                 
                 // Tabla de datos
                 Expanded(
@@ -65,12 +82,31 @@ class _FormularioListPageState extends ConsumerState<FormularioListPage> {
                 ),
               ],
             ),
-            floatingActionButton: FloatingActionButton.extended(
-              onPressed: () => _navegarACrear(context),
-              icon: const Icon(Icons.add),
-              label: const Text('Nuevo Formulario'),
-              backgroundColor: Theme.of(context).primaryColor,
-              foregroundColor: Colors.white,
+            floatingActionButton: Container(
+              height: 56,
+              margin: const EdgeInsets.only(bottom: 16, right: 16),
+              child: ElevatedButton.icon(
+                onPressed: () => _navegarACrear(context),
+                icon: const Icon(Icons.add, color: Colors.white),
+                label: const Text(
+                  'Nuevo Formulario',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFDE1327),
+                  foregroundColor: Colors.white,
+                  elevation: 4,
+                  shadowColor: const Color(0xFFDE1327).withOpacity(0.3),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                ),
+              ),
             ),
           );
   }
@@ -148,6 +184,128 @@ class _FormularioListPageState extends ConsumerState<FormularioListPage> {
     );
   }
 
+  Widget _buildModernSearchBar(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          bottom: BorderSide(
+            color: Color(0xFFE0E0E0),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Campo de búsqueda moderno
+          Expanded(
+            child: Container(
+              height: 48,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8F9FA),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFFE0E0E0),
+                  width: 1.5,
+                ),
+              ),
+              child: TextField(
+                controller: _searchController,
+                style: const TextStyle(
+                  fontSize: 15,
+                  color: Color(0xFF1C2120),
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Buscar formularios...',
+                  hintStyle: TextStyle(
+                    color: Colors.grey[500],
+                    fontSize: 15,
+                  ),
+                  prefixIcon: Icon(
+                    Icons.search_rounded,
+                    color: Colors.grey[600],
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                ),
+                onChanged: (value) {
+                  ref.read(formulariosProvider.notifier).buscar(value);
+                },
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          
+          // Filtro por estado moderno
+          Container(
+            height: 48,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8F9FA),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFFE0E0E0),
+                width: 1.5,
+              ),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: DropdownButton<bool?>(
+              value: ref.watch(formulariosProvider).filtroActivo,
+              hint: Text(
+                'Todos los estados',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 15,
+                ),
+              ),
+              style: const TextStyle(
+                color: Color(0xFF1C2120),
+                fontSize: 15,
+              ),
+              underline: const SizedBox(),
+              icon: Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: Colors.grey[600],
+              ),
+              items: const [
+                DropdownMenuItem(
+                  value: null,
+                  child: Text('Todos los estados'),
+                ),
+                DropdownMenuItem(
+                  value: true,
+                  child: Row(
+                    children: [
+                      Icon(Icons.check_circle, color: Colors.green, size: 18),
+                      SizedBox(width: 8),
+                      Text('Activos'),
+                    ],
+                  ),
+                ),
+                DropdownMenuItem(
+                  value: false,
+                  child: Row(
+                    children: [
+                      Icon(Icons.cancel, color: Colors.red, size: 18),
+                      SizedBox(width: 8),
+                      Text('Inactivos'),
+                    ],
+                  ),
+                ),
+              ],
+              onChanged: (value) {
+                ref.read(formulariosProvider.notifier).filtrarPorEstado(value);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDataTable(BuildContext context, FormulariosState state) {
     final formularios = state.formularios;
     
@@ -166,6 +324,45 @@ class _FormularioListPageState extends ConsumerState<FormularioListPage> {
             Text(
               'Crea tu primer formulario para comenzar',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Ordenar datos
+    final formulariosSorted = List<Map<String, dynamic>>.from(formularios);
+    _sortData(formulariosSorted);
+
+    return ModernDataTable(
+      formularios: formulariosSorted,
+      sortColumnIndex: _sortColumnIndex,
+      sortAscending: _sortAscending,
+      onSort: (columnIndex, ascending) {
+        setState(() {
+          _sortColumnIndex = columnIndex;
+          _sortAscending = ascending;
+        });
+      },
+      onEdit: _navegarAEditar,
+      onDuplicate: _mostrarDialogoVersion,
+      onDelete: _confirmarEliminar,
+    );
+  }
+
+  Widget _buildDataTableOld(BuildContext context, FormulariosState state) {
+    final formularios = state.formularios;
+    
+    if (formularios.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.folder_open, size: 64, color: Colors.grey[300]),
+            const SizedBox(height: 16),
+            const Text(
+              'No hay formularios disponibles',
+              style: TextStyle(fontSize: 16, color: Colors.grey),
             ),
           ],
         ),
@@ -322,6 +519,13 @@ class _FormularioListPageState extends ConsumerState<FormularioListPage> {
     final date = DateTime.tryParse(fecha);
     if (date == null) return fecha;
     return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _formatHora(String? fecha) {
+    if (fecha == null) return '';
+    final date = DateTime.tryParse(fecha);
+    if (date == null) return '';
+    return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 
   void _navegarACrear(BuildContext context) async {
