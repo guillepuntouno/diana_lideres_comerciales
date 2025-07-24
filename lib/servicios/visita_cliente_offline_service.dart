@@ -1,7 +1,7 @@
-import '../modelos/visita_cliente_modelo.dart';
-import '../modelos/hive/visita_cliente_hive.dart';
-import '../servicios/hive_service.dart';
-import '../servicios/sesion_servicio.dart';
+import 'package:diana_lc_front/shared/modelos/visita_cliente_modelo.dart';
+import 'package:diana_lc_front/shared/modelos/hive/visita_cliente_hive.dart';
+import 'package:diana_lc_front/shared/servicios/hive_service.dart';
+import 'package:diana_lc_front/shared/servicios/sesion_servicio.dart';
 import 'package:uuid/uuid.dart';
 
 class VisitaClienteOfflineService {

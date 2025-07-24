@@ -1,7 +1,7 @@
 import 'package:hive/hive.dart';
-import '../modelos/hive/cliente_hive.dart';
-import '../modelos/lider_comercial_modelo.dart';
-import './hive_service.dart';
+import 'package:diana_lc_front/shared/modelos/hive/cliente_hive.dart';
+import 'package:diana_lc_front/shared/modelos/lider_comercial_modelo.dart';
+import 'package:diana_lc_front/shared/servicios/hive_service.dart';
 
 class ClientesLocalesService {
   static const String _boxName = 'clientes'; // Usar el nombre correcto de la caja

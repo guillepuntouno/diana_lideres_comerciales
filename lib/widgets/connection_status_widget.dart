@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../servicios/offline_sync_manager.dart';
+import 'package:diana_lc_front/shared/servicios/offline_sync_manager.dart';
 
 class ConnectionStatusWidget extends StatefulWidget {
   const ConnectionStatusWidget({super.key});

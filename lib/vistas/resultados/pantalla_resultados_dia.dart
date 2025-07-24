@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import '../../modelos/hive/plan_trabajo_unificado_hive.dart';
-import '../../servicios/resultados_dia_service.dart';
-import '../../servicios/sesion_servicio.dart';
-import '../../servicios/hive_service.dart';
+import 'package:diana_lc_front/shared/modelos/hive/plan_trabajo_unificado_hive.dart';
+import 'package:diana_lc_front/shared/servicios/resultados_dia_service.dart';
+import 'package:diana_lc_front/shared/servicios/sesion_servicio.dart';
+import 'package:diana_lc_front/shared/servicios/hive_service.dart';
 import 'widgets/kpi_cards.dart';
 import 'widgets/cliente_resultado_tile.dart';
 

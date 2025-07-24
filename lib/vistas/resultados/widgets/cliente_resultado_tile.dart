@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../modelos/hive/plan_trabajo_unificado_hive.dart';
-import '../../../servicios/resultados_dia_service.dart';
+import 'package:diana_lc_front/shared/modelos/hive/plan_trabajo_unificado_hive.dart';
+import 'package:diana_lc_front/shared/servicios/resultados_dia_service.dart';
 
 /// Tile para mostrar el resumen de una visita
 class ClienteResultadoTile extends StatelessWidget {

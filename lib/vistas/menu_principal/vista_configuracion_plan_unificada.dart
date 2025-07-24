@@ -5,11 +5,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:intl/intl.dart';
-import '../../modelos/hive/plan_trabajo_unificado_hive.dart';
-import '../../servicios/plan_trabajo_unificado_service.dart';
-import '../../servicios/sesion_servicio.dart';
-import '../../modelos/lider_comercial_modelo.dart';
-import '../../widgets/connection_status_widget.dart';
+import 'package:diana_lc_front/shared/modelos/hive/plan_trabajo_unificado_hive.dart';
+import 'package:diana_lc_front/shared/servicios/plan_trabajo_unificado_service.dart';
+import 'package:diana_lc_front/shared/servicios/sesion_servicio.dart';
+import 'package:diana_lc_front/shared/modelos/lider_comercial_modelo.dart';
+import 'package:diana_lc_front/widgets/connection_status_widget.dart';
 
 class VistaProgramacionSemanaUnificada extends StatefulWidget {
   const VistaProgramacionSemanaUnificada({super.key});

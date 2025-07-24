@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../servicios/simple_login_service.dart';
-import '../servicios/sesion_servicio.dart';
-import '../repositorios/lider_comercial_repository.dart';
-import '../modelos/hive/lider_comercial_hive.dart';
-import '../servicios/offline_sync_manager.dart';
+import 'package:diana_lc_front/shared/servicios/simple_login_service.dart';
+import 'package:diana_lc_front/shared/servicios/sesion_servicio.dart';
+import 'package:diana_lc_front/shared/repositorios/lider_comercial_repository.dart';
+import 'package:diana_lc_front/shared/modelos/hive/lider_comercial_hive.dart';
+import 'package:diana_lc_front/shared/servicios/offline_sync_manager.dart';
 
 class LoginViewModelSimple extends ChangeNotifier {
   final TextEditingController emailController = TextEditingController();

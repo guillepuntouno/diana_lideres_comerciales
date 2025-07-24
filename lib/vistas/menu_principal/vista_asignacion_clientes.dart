@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:convert';
-import '../../modelos/plan_trabajo_modelo.dart';
-import '../../servicios/plan_trabajo_offline_service.dart';
-import '../../servicios/sesion_servicio.dart';
-import '../../modelos/lider_comercial_modelo.dart';
-import '../../servicios/clientes_servicio.dart';
-import '../../servicios/rutas_servicio.dart';
-import '../../servicios/clientes_locales_service.dart';
+import 'package:diana_lc_front/shared/modelos/plan_trabajo_modelo.dart';
+import 'package:diana_lc_front/shared/servicios/plan_trabajo_offline_service.dart';
+import 'package:diana_lc_front/shared/servicios/sesion_servicio.dart';
+import 'package:diana_lc_front/shared/modelos/lider_comercial_modelo.dart';
+import 'package:diana_lc_front/shared/servicios/clientes_servicio.dart';
+import 'package:diana_lc_front/shared/servicios/rutas_servicio.dart';
+import 'package:diana_lc_front/servicios/clientes_locales_service.dart';
 
 class VistaAsignacionClientes extends StatefulWidget {
   const VistaAsignacionClientes({super.key});

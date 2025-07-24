@@ -1,8 +1,8 @@
 import 'dart:convert';
-import '../modelos/hive/plan_trabajo_unificado_hive.dart';
-import '../modelos/visita_cliente_modelo.dart';
-import '../repositorios/plan_trabajo_unificado_repository.dart';
-import '../servicios/sesion_servicio.dart';
+import 'package:diana_lc_front/shared/modelos/hive/plan_trabajo_unificado_hive.dart';
+import 'package:diana_lc_front/shared/modelos/visita_cliente_modelo.dart';
+import 'package:diana_lc_front/shared/repositorios/plan_trabajo_unificado_repository.dart';
+import 'package:diana_lc_front/shared/servicios/sesion_servicio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class VisitaClienteUnificadoService {

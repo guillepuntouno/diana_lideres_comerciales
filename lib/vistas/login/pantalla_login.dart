@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import '../../viewmodels/login_viewmodel.dart';
-import '../../widgets/footer_clipper.dart';
+import 'package:diana_lc_front/viewmodels/login_viewmodel.dart';
+import 'package:diana_lc_front/widgets/footer_clipper.dart';
 import 'package:diana_lc_front/platform/platform_bridge.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 

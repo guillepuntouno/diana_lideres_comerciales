@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../widgets/encabezado_inicio.dart';
-import '../../widgets/connection_status_widget.dart';
-import '../../servicios/sesion_servicio.dart';
-import '../../modelos/lider_comercial_modelo.dart';
+import 'package:diana_lc_front/widgets/encabezado_inicio.dart';
+import 'package:diana_lc_front/widgets/connection_status_widget.dart';
+import 'package:diana_lc_front/shared/servicios/sesion_servicio.dart';
+import 'package:diana_lc_front/shared/modelos/lider_comercial_modelo.dart';
 
 class VistaInicio extends StatefulWidget {
   const VistaInicio({super.key});

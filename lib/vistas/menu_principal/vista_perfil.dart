@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../servicios/sesion_servicio.dart';
+import 'package:diana_lc_front/shared/servicios/sesion_servicio.dart';
 
 class VistaPerfil extends StatefulWidget {
   const VistaPerfil({super.key});

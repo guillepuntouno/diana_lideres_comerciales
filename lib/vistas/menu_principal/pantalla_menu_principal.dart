@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import '../../widgets/encabezado_inicio.dart';
-import '../../widgets/connection_status_widget.dart';
-import '../../servicios/sesion_servicio.dart';
-import '../../modelos/lider_comercial_modelo.dart';
+import 'package:diana_lc_front/widgets/encabezado_inicio.dart';
+import 'package:diana_lc_front/widgets/connection_status_widget.dart';
+import 'package:diana_lc_front/shared/servicios/sesion_servicio.dart';
+import 'package:diana_lc_front/shared/modelos/lider_comercial_modelo.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../configuracion/ambiente_config.dart';
-import '../../servicios/hive_service.dart';
+import 'package:diana_lc_front/shared/configuracion/ambiente_config.dart';
+import 'package:diana_lc_front/shared/servicios/hive_service.dart';
 
 class PantallaMenuPrincipal extends StatefulWidget {
   const PantallaMenuPrincipal({super.key});
@@ -111,7 +111,9 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
                 ),
                 TextButton(
                   onPressed: () async {
-                    Navigator.of(context).pop(true);
+                    // Primero cerrar el diálogo
+                    Navigator.of(context).pop(false);
+                    // Luego cerrar sesión y navegar al login
                     await SesionServicio.cerrarSesion(context);
                     if (context.mounted) {
                       Navigator.pushReplacementNamed(context, '/login');
@@ -495,7 +497,7 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
                       _MenuItem(
                         icon: Icons.admin_panel_settings_outlined,
                         title: 'Administración',
-                        onTap: null,
+                        onTap: () => Navigator.pushNamed(context, '/administracion'),
                       ),
                     ],
                     crossAxisCount: crossAxisCount,
@@ -545,8 +547,8 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
                 if (!AmbienteConfig
                     .esProduccion) // Mostrar solo en ambientes no productivos
                   ListTile(
-                    leading: const Icon(Icons.bug_report, color: Colors.blue),
-                    title: const Text('Debug - Datos Hive'),
+                    leading: const Icon(Icons.storage, color: Colors.blue),
+                    title: const Text('Gestión de Datos Maestros'),
                     subtitle: Text(
                       'Ambiente: ${AmbienteConfig.nombreAmbiente}',
                       style: const TextStyle(fontSize: 12),

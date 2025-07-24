@@ -2,25 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import '../../servicios/hive_service.dart';
-import '../../modelos/hive/plan_trabajo_semanal_hive.dart';
-import '../../modelos/hive/dia_trabajo_hive.dart';
-import '../../modelos/hive/plan_trabajo_unificado_hive.dart';
-import '../../modelos/hive/cliente_hive.dart';
-import '../../modelos/hive/objetivo_hive.dart';
-import '../../modelos/hive/visita_cliente_hive.dart';
-import '../../modelos/hive/user_hive.dart';
-import '../../modelos/hive/lider_comercial_hive.dart';
+import 'package:diana_lc_front/shared/servicios/hive_service.dart';
+import 'package:diana_lc_front/shared/modelos/hive/plan_trabajo_semanal_hive.dart';
+import 'package:diana_lc_front/shared/modelos/hive/dia_trabajo_hive.dart';
+import 'package:diana_lc_front/shared/modelos/hive/plan_trabajo_unificado_hive.dart';
+import 'package:diana_lc_front/shared/modelos/hive/cliente_hive.dart';
+import 'package:diana_lc_front/shared/modelos/hive/objetivo_hive.dart';
+import 'package:diana_lc_front/shared/modelos/hive/visita_cliente_hive.dart';
+import 'package:diana_lc_front/shared/modelos/hive/user_hive.dart';
+import 'package:diana_lc_front/shared/modelos/hive/lider_comercial_hive.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../../configuracion/ambiente_config.dart';
-import '../../servicios/sesion_servicio.dart';
+import 'package:diana_lc_front/shared/configuracion/ambiente_config.dart';
+import 'package:diana_lc_front/shared/servicios/sesion_servicio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../servicios/clientes_locales_service.dart';
-import '../../modelos/formulario_dto.dart';
-import '../../servicios/plantilla_service_impl.dart';
-import '../../servicios/captura_formulario_service_impl.dart';
-import '../../servicios/formulario_helper.dart';
+import 'package:diana_lc_front/servicios/clientes_locales_service.dart';
+import 'package:diana_lc_front/shared/modelos/formulario_dto.dart';
+import 'package:diana_lc_front/shared/servicios/plantilla_service_impl.dart';
+import 'package:diana_lc_front/shared/servicios/captura_formulario_service_impl.dart';
+import 'package:diana_lc_front/shared/servicios/formulario_helper.dart';
 
 class PantallaDebugHive extends StatefulWidget {
   const PantallaDebugHive({super.key});
@@ -54,7 +54,7 @@ class _PantallaDebugHiveState extends State<PantallaDebugHive> {
       appBar: AppBar(
         backgroundColor: const Color(0xFFDE1327),
         title: Text(
-          'Debug - Datos Hive',
+          'Gestión de Datos Maestros',
           style: GoogleFonts.poppins(
             color: Colors.white,
             fontWeight: FontWeight.bold,

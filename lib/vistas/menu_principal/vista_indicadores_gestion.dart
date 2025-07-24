@@ -3,10 +3,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:convert';
-import '../../modelos/indicador_gestion_modelo.dart';
-import '../../modelos/plan_trabajo_modelo.dart';
-import '../../servicios/indicadores_gestion_servicio.dart';
-import '../../servicios/sesion_servicio.dart';
+import 'package:diana_lc_front/shared/modelos/indicador_gestion_modelo.dart';
+import 'package:diana_lc_front/shared/modelos/plan_trabajo_modelo.dart';
+import 'package:diana_lc_front/shared/servicios/indicadores_gestion_servicio.dart';
+import 'package:diana_lc_front/shared/servicios/sesion_servicio.dart';
 
 class VistaIndicadoresGestion extends StatefulWidget {
   const VistaIndicadoresGestion({super.key});

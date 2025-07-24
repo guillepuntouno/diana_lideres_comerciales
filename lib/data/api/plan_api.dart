@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:diana_lc_front/configuracion/ambiente_config.dart';
+import 'package:diana_lc_front/shared/configuracion/ambiente_config.dart';
 
 class PlanApi {
   //static const _base = 'https://ln6rw4qcj7.execute-api.us-east-1.amazonaws.com/dev';

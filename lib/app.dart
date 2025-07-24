@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'rutas/rutas.dart';
-import 'temas/tema_diana.dart';
-import 'servicios/hive_service.dart';
-import 'servicios/auth_guard.dart';
+import 'shared/temas/tema_diana.dart';
+import 'shared/servicios/hive_service.dart';
+import 'shared/servicios/auth_guard.dart';
 import 'dart:io' show Platform;
 import 'package:app_links/app_links.dart';
 import 'dart:async';

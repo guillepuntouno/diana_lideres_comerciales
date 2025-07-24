@@ -2,8 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import '../../modelos/notificacion_modelo.dart';
-import '../../servicios/notificaciones_servicio.dart';
+import 'package:diana_lc_front/shared/modelos/notificacion_modelo.dart';
+import 'package:diana_lc_front/shared/servicios/notificaciones_servicio.dart';
 
 class AppColors {
   static const Color dianaRed = Color(0xFFDE1327);

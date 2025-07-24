@@ -4,20 +4,20 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'package:google_fonts/google_fonts.dart';
-import '../../modelos/activity_model.dart';
-import '../../servicios/plan_trabajo_offline_service.dart';
-import '../../servicios/sesion_servicio.dart';
-import '../../servicios/visita_cliente_servicio.dart';
-import '../../modelos/lider_comercial_modelo.dart';
-import '../../modelos/plan_trabajo_modelo.dart';
-import '../../modelos/visita_cliente_modelo.dart';
-import '../../configuracion/ambiente_config.dart';
-import '../../servicios/clientes_servicio.dart';
-import '../../servicios/plan_trabajo_unificado_service.dart';
-import '../../modelos/hive/plan_trabajo_unificado_hive.dart';
-import '../../servicios/visita_cliente_unificado_service.dart';
-import '../../servicios/clientes_locales_service.dart';
-import '../../modelos/hive/cliente_hive.dart';
+import 'package:diana_lc_front/shared/modelos/activity_model.dart';
+import 'package:diana_lc_front/shared/servicios/plan_trabajo_offline_service.dart';
+import 'package:diana_lc_front/shared/servicios/sesion_servicio.dart';
+import 'package:diana_lc_front/servicios/visita_cliente_servicio.dart';
+import 'package:diana_lc_front/shared/modelos/lider_comercial_modelo.dart';
+import 'package:diana_lc_front/shared/modelos/plan_trabajo_modelo.dart';
+import 'package:diana_lc_front/shared/modelos/visita_cliente_modelo.dart';
+import 'package:diana_lc_front/shared/configuracion/ambiente_config.dart';
+import 'package:diana_lc_front/shared/servicios/clientes_servicio.dart';
+import 'package:diana_lc_front/shared/servicios/plan_trabajo_unificado_service.dart';
+import 'package:diana_lc_front/shared/modelos/hive/plan_trabajo_unificado_hive.dart';
+import 'package:diana_lc_front/servicios/visita_cliente_unificado_service.dart';
+import 'package:diana_lc_front/servicios/clientes_locales_service.dart';
+import 'package:diana_lc_front/shared/modelos/hive/cliente_hive.dart';
 
 // -----------------------------------------------------------------------------
 // COLORES CORPORATIVOS DIANA

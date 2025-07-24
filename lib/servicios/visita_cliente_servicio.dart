@@ -1,10 +1,10 @@
 // lib/servicios/visita_cliente_servicio.dart
 import 'dart:convert';
 import 'package:hive/hive.dart';
-import '../modelos/visita_cliente_modelo.dart';
-import '../modelos/hive/visita_cliente_hive.dart';
-import 'sesion_servicio.dart';
-import '../configuracion/ambiente_config.dart';
+import 'package:diana_lc_front/shared/modelos/visita_cliente_modelo.dart';
+import 'package:diana_lc_front/shared/modelos/hive/visita_cliente_hive.dart';
+import 'package:diana_lc_front/shared/servicios/sesion_servicio.dart';
+import 'package:diana_lc_front/shared/configuracion/ambiente_config.dart';
 
 class VisitaClienteServicio {
   static final VisitaClienteServicio _instance =

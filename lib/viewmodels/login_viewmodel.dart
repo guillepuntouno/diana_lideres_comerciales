@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import '../servicios/lider_comercial_servicio.dart';
-import '../servicios/sesion_servicio.dart';
-import '../modelos/lider_comercial_modelo.dart';
-import '../repositorios/lider_comercial_repository.dart';
-import '../modelos/hive/lider_comercial_hive.dart';
-import '../servicios/offline_sync_manager.dart';
-import '../servicios/plan_trabajo_offline_service.dart';
+import 'package:diana_lc_front/shared/servicios/lider_comercial_servicio.dart';
+import 'package:diana_lc_front/shared/servicios/sesion_servicio.dart';
+import 'package:diana_lc_front/shared/modelos/lider_comercial_modelo.dart';
+import 'package:diana_lc_front/shared/repositorios/lider_comercial_repository.dart';
+import 'package:diana_lc_front/shared/modelos/hive/lider_comercial_hive.dart';
+import 'package:diana_lc_front/shared/servicios/offline_sync_manager.dart';
+import 'package:diana_lc_front/shared/servicios/plan_trabajo_offline_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../servicios/auth_guard.dart';
+import 'package:diana_lc_front/shared/servicios/auth_guard.dart';
 
 class LoginViewModel extends ChangeNotifier {
   final TextEditingController emailController = TextEditingController();

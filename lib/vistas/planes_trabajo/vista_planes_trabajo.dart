@@ -5,13 +5,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
-import '../../modelos/plan_trabajo_modelo.dart';
-import '../../modelos/hive/plan_trabajo_unificado_hive.dart';
-import '../../servicios/plan_trabajo_servicio.dart';
-import '../../servicios/sesion_servicio.dart';
-import '../../servicios/hive_service.dart';
-import '../../modelos/lider_comercial_modelo.dart';
-import '../../configuracion/ambiente_config.dart';
+import 'package:diana_lc_front/shared/modelos/plan_trabajo_modelo.dart';
+import 'package:diana_lc_front/shared/modelos/hive/plan_trabajo_unificado_hive.dart';
+import 'package:diana_lc_front/shared/servicios/plan_trabajo_servicio.dart';
+import 'package:diana_lc_front/shared/servicios/sesion_servicio.dart';
+import 'package:diana_lc_front/shared/servicios/hive_service.dart';
+import 'package:diana_lc_front/shared/modelos/lider_comercial_modelo.dart';
+import 'package:diana_lc_front/shared/configuracion/ambiente_config.dart';
 import 'package:intl/intl.dart';
 
 class VistaPlanesTrabajo extends StatefulWidget {
