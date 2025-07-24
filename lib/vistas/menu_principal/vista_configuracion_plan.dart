@@ -57,6 +57,9 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
   
   // Para hacer sticky el selector
   final ScrollController _scrollController = ScrollController();
+  
+  // Control para evitar mostrar el diálogo múltiples veces
+  bool _dialogoMostrado = false;
 
   @override
   void initState() {
@@ -78,7 +81,7 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
     if (state == AppLifecycleState.resumed) {
       // Refrescar cuando la app vuelve a primer plano
       print('App resumed - refrescando plan');
-      _cargarPlanDesdeServidor();
+      _cargarPlanDesdeServidor(mostrarDialogo: false);
     }
   }
 
@@ -393,6 +396,7 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
 
     setState(() {
       _semanaSeleccionada = nuevaSemana;
+      _dialogoMostrado = false; // Resetear la bandera al cambiar de semana
     });
 
     // Solo consultar servidor cuando el usuario cambie de semana
@@ -400,7 +404,7 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
   }
 
   /// Cargar plan cuando el usuario cambia de semana (offline-first)
-  Future<void> _cargarPlanDesdeServidor() async {
+  Future<void> _cargarPlanDesdeServidor({bool mostrarDialogo = true}) async {
     if (_liderActual == null || _semanaSeleccionada == null) return;
 
     setState(() => _cargando = true);
@@ -417,10 +421,13 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
         (s) => s.codigo == _semanaSeleccionada,
       );
 
-      // Verificar restricciones para semana actual
-      if (semanaSeleccionada.esActual &&
+      // Verificar restricciones para semana actual solo si debe mostrar diálogo
+      if (mostrarDialogo &&
+          !_dialogoMostrado &&
+          semanaSeleccionada.esActual &&
           planCargado.estatus == 'enviado' &&
           DateTime.now().weekday < 5) {
+        _dialogoMostrado = true;
         _mostrarDialogoPlanBloqueado();
       }
 
