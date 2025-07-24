@@ -31,7 +31,27 @@ class _MetadatosFormState extends State<MetadatosForm> {
     _nombreController = TextEditingController(text: widget.formulario['nombre'] ?? '');
     _versionController = TextEditingController(text: widget.formulario['version'] ?? 'v1.0');
     _descripcionController = TextEditingController(text: widget.formulario['descripcion'] ?? '');
-    _tipoSeleccionado = widget.formulario['tipo'] ?? 'detalle';
+    // Mapear tipos antiguos a los nuevos
+    final tipoOriginal = widget.formulario['tipo']?.toString().toLowerCase() ?? '';
+    switch (tipoOriginal) {
+      case 'evaluacion':
+      case 'evaluación':
+      case 'encuesta':
+      case 'checklist':
+      case 'auditoria':
+      case 'detalle':
+        _tipoSeleccionado = 'detalle';
+        break;
+      case 'mayoreo':
+        _tipoSeleccionado = 'mayoreo';
+        break;
+      case 'programa_excelencia':
+      case 'programa de excelencia':
+        _tipoSeleccionado = 'programa_excelencia';
+        break;
+      default:
+        _tipoSeleccionado = 'detalle';
+    }
     _activa = widget.formulario['activa'] ?? true;
     
     // Agregar listeners después de inicializar los controllers

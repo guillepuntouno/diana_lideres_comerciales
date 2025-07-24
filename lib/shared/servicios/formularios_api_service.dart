@@ -264,9 +264,23 @@ class FormulariosApiService {
       formulario['nombre'] = formulario['name'];
     }
     
-    // Mapear tipo si no existe o está en formato diferente
-    if (!formulario.containsKey('tipo') || formulario['tipo'] == 'Evaluación') {
-      formulario['tipo'] = 'evaluacion';
+    // Mapear tipo a los valores permitidos
+    final tipoActual = formulario['tipo']?.toString().toLowerCase() ?? '';
+    switch (tipoActual) {
+      case 'evaluacion':
+      case 'evaluación':
+      case 'detalle':
+        formulario['tipo'] = 'detalle';
+        break;
+      case 'mayoreo':
+        formulario['tipo'] = 'mayoreo';
+        break;
+      case 'programa_excelencia':
+      case 'programa de excelencia':
+        formulario['tipo'] = 'programa_excelencia';
+        break;
+      default:
+        formulario['tipo'] = 'detalle'; // Valor por defecto
     }
     
     // Asegurar que tenga los campos requeridos
