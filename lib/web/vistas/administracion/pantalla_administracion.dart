@@ -5,7 +5,10 @@ import 'package:diana_lc_front/shared/servicios/sesion_servicio.dart';
 import 'package:diana_lc_front/shared/modelos/user_dto.dart';
 import 'package:diana_lc_front/web/vistas/gestion_datos/formulario/formulario_list_page.dart';
 import 'package:diana_lc_front/web/vistas/evaluacion_desempeno/pantalla_evaluacion_desempeno.dart';
+import 'package:diana_lc_front/web/vistas/evaluacion_desempeno/pantalla_resumen_evaluacion.dart';
 import 'package:diana_lc_front/shared/servicios/formularios_api_service.dart';
+import 'package:diana_lc_front/shared/servicios/hive_service.dart';
+import 'package:diana_lc_front/shared/modelos/hive/resultado_excelencia_hive.dart';
 
 class PantallaAdministracion extends StatefulWidget {
   const PantallaAdministracion({Key? key}) : super(key: key);
@@ -17,6 +20,7 @@ class PantallaAdministracion extends StatefulWidget {
 class _PantallaAdministracionState extends State<PantallaAdministracion> {
   final SesionServicio _sesionServicio = SesionServicio();
   final FormulariosApiService _formulariosApiService = FormulariosApiService();
+  final HiveService _hiveService = HiveService();
   
   String _vistaSeleccionada = 'dashboard';
   List<UsuarioDto> _usuarios = [];
@@ -35,6 +39,9 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
   List<Map<String, dynamic>> _formulariosProgramaExcelencia = [];
   String? _selectedFormulario;
   bool _isLoadingFormularios = false;
+  
+  // Variables para evaluaciones realizadas (mockup para HIVE)
+  List<Map<String, dynamic>> _evaluacionesRealizadas = [];
   
   // Datos hardcoded para los filtros en cascada
   final List<Map<String, dynamic>> _paisesData = [
@@ -72,6 +79,80 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
   void initState() {
     super.initState();
     _cargarDatos();
+    _cargarEvaluacionesMockup();
+  }
+  
+  // Método para cargar evaluaciones desde HIVE
+  void _cargarEvaluacionesMockup() {
+    _cargarEvaluacionesDesdeHive();
+  }
+  
+  void _cargarEvaluacionesDesdeHive() {
+    try {
+      final box = _hiveService.resultadosExcelenciaBox;
+      final evaluaciones = box.values.toList();
+      
+      print('📦 Total evaluaciones en Hive: ${evaluaciones.length}');
+      
+      // Filtrar evaluaciones según la ruta seleccionada si aplica
+      List<ResultadoExcelenciaHive> evaluacionesFiltradas;
+      if (_selectedRutaData != null) {
+        evaluacionesFiltradas = evaluaciones.where((e) => 
+          e.ruta == _selectedRutaData!['nombre'] &&
+          e.liderClave == _selectedRutaData!['lider']['id']
+        ).toList();
+        print('🔍 Evaluaciones filtradas para ruta ${_selectedRutaData!['nombre']}: ${evaluacionesFiltradas.length}');
+      } else {
+        evaluacionesFiltradas = evaluaciones;
+      }
+      
+      // Convertir a formato esperado por la UI
+      _evaluacionesRealizadas = evaluacionesFiltradas.map((e) {
+        dynamic puntuacionMaxima = 10; // Valor por defecto
+        
+        // Intentar obtener puntuación máxima del formulario
+        try {
+          if (e.formularioMaestro.containsKey('resultadoKPI')) {
+            puntuacionMaxima = e.formularioMaestro['resultadoKPI']['puntuacionMaxima'] ?? 10;
+          }
+        } catch (err) {
+          print('⚠️ Error obteniendo puntuación máxima: $err');
+        }
+        
+        return {
+          'id': e.id,
+          'fecha': e.fechaCaptura,
+          'evaluador': 'Administrador', // Por ahora hardcoded
+          'lider': e.liderNombre,
+          'formulario': e.tipoFormulario,
+          'puntuacion': e.ponderacionFinal,
+          'puntuacionMaxima': puntuacionMaxima is int ? puntuacionMaxima.toDouble() : puntuacionMaxima,
+          'estado': e.estatus,
+          'enviada': e.syncStatus == 'synced',
+          'pais': e.pais,
+          'centroDistribucion': e.centroDistribucion,
+          'ruta': e.ruta,
+          'datosCompletos': e, // Guardamos el objeto completo para poder acceder después
+        };
+      }).toList();
+      
+      // Ordenar por fecha más reciente
+      _evaluacionesRealizadas.sort((a, b) => 
+        (b['fecha'] as DateTime).compareTo(a['fecha'] as DateTime));
+      
+      setState(() {});
+      
+      print('📊 Evaluaciones cargadas desde Hive: ${_evaluacionesRealizadas.length}');
+      if (_evaluacionesRealizadas.isNotEmpty) {
+        print('📌 Primera evaluación: ${_evaluacionesRealizadas.first['formulario']} - ${_evaluacionesRealizadas.first['puntuacion']}/${_evaluacionesRealizadas.first['puntuacionMaxima']}');
+      }
+    } catch (e) {
+      print('❌ Error al cargar evaluaciones desde Hive: $e');
+      print('Stack trace: ${StackTrace.current}');
+      setState(() {
+        _evaluacionesRealizadas = [];
+      });
+    }
   }
 
   Future<void> _cargarDatos() async {
@@ -1344,7 +1425,7 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
   }
   
   Widget _buildProgramaExcelenciaView() {
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1460,6 +1541,8 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
                                   _selectedRutaData = _rutasDisponibles.firstWhere((r) => r['id'] == value);
                                   // Cargar formularios cuando se selecciona una ruta
                                   _cargarFormulariosProgramaExcelencia();
+                                  // Recargar evaluaciones para la ruta seleccionada
+                                  _cargarEvaluacionesDesdeHive();
                                 } else {
                                   _selectedFormulario = null;
                                   _formulariosProgramaExcelencia = [];
@@ -1628,8 +1711,9 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
           
           const SizedBox(height: 24),
           
-          // Área de resultados
-          Expanded(
+          // Sección de Evaluaciones Realizadas
+          Container(
+            height: 600, // Altura fija para el contenedor
             child: Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
@@ -1649,13 +1733,13 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
-                            Icons.assessment,
+                            Icons.filter_list,
                             size: 80,
                             color: Colors.grey[300],
                           ),
                           const SizedBox(height: 20),
                           Text(
-                            'Seleccione los filtros para ver resultados',
+                            'Seleccione los filtros para ver las evaluaciones',
                             style: GoogleFonts.poppins(
                               fontSize: 20,
                               fontWeight: FontWeight.w600,
@@ -1664,7 +1748,7 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Los datos del programa de excelencia se mostrarán aquí',
+                            'Elija país, centro de distribución y ruta',
                             style: GoogleFonts.poppins(
                               fontSize: 16,
                               color: Colors.grey[500],
@@ -1673,83 +1757,139 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
                         ],
                       ),
                     )
-                  : Center(
-                      child: Container(
-                        padding: const EdgeInsets.all(32),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey.shade200),
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Icon(
-                              Icons.check_circle_outline,
-                              size: 64,
-                              color: const Color(0xFF38A169),
-                            ),
-                            const SizedBox(height: 24),
-                            Text(
-                              'Líder Seleccionado',
-                              style: GoogleFonts.poppins(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xFF1C2120),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              _selectedRutaData!['lider']['nombre'],
-                              style: GoogleFonts.poppins(
-                                fontSize: 18,
-                                color: const Color(0xFF8F8E8E),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            if (_selectedFormulario != null)
-                              Text(
-                                'Formulario: ${_formulariosProgramaExcelencia.firstWhere((f) => f['id'] == _selectedFormulario)['nombre']}',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 16,
-                                  color: const Color(0xFF8F8E8E),
-                                ),
-                              ),
-                            const SizedBox(height: 32),
-                            ElevatedButton.icon(
-                              onPressed: _selectedFormulario != null ? () => _navegarAEvaluacion() : null,
-                              icon: const Icon(Icons.assignment),
-                              label: Text(
-                                'Evaluar Desempeño',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFDE1327),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                            ),
-                            if (_selectedFormulario == null)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: Text(
-                                  'Seleccione un formulario para continuar',
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Evaluaciones Realizadas',
                                   style: GoogleFonts.poppins(
-                                    fontSize: 14,
-                                    color: Colors.orange,
-                                    fontStyle: FontStyle.italic,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: const Color(0xFF1C2120),
                                   ),
                                 ),
-                              ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Líder: ${_selectedRutaData!['lider']['nombre']}',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    color: const Color(0xFF8F8E8E),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Row(
+                              children: [
+                                if (_selectedFormulario != null)
+                                  ElevatedButton.icon(
+                                    onPressed: () => _navegarAEvaluacion(),
+                                    icon: const Icon(Icons.add),
+                                    label: Text(
+                                      'Nueva Evaluación',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFFDE1327),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                  ),
+                                const SizedBox(width: 12),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFDE1327).withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    '${_evaluacionesRealizadas.length} evaluaciones',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFFDE1327),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ],
                         ),
-                      ),
+                        const SizedBox(height: 20),
+                        
+                        // Lista de evaluaciones o mensaje vacío
+                        Expanded(
+                          child: _evaluacionesRealizadas.isEmpty
+                              ? Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.assignment_outlined,
+                                        size: 64,
+                                        color: Colors.grey[300],
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        'No hay evaluaciones realizadas',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'Las evaluaciones completadas aparecerán aquí',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 14,
+                                          color: Colors.grey[500],
+                                        ),
+                                      ),
+                                      if (_selectedFormulario != null) ...[
+                                        const SizedBox(height: 24),
+                                        ElevatedButton.icon(
+                                          onPressed: () => _navegarAEvaluacion(),
+                                          icon: const Icon(Icons.assignment),
+                                          label: Text(
+                                            'Realizar Primera Evaluación',
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(0xFFDE1327),
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                )
+                              : ListView.builder(
+                                  itemCount: _evaluacionesRealizadas.length,
+                                  itemBuilder: (context, index) {
+                                    return _buildEvaluacionCard(_evaluacionesRealizadas[index]);
+                                  },
+                                ),
+                        ),
+                      ],
                     ),
             ),
           ),
@@ -1892,7 +2032,230 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
     );
   }
   
-  void _navegarAEvaluacion() {
+  Widget _buildEvaluacionCard(Map<String, dynamic> evaluacion) {
+    final fecha = evaluacion['fecha'] as DateTime;
+    final puntuacion = evaluacion['puntuacion'] ?? 0;
+    final puntuacionMaxima = evaluacion['puntuacionMaxima'] ?? 10;
+    final porcentaje = puntuacionMaxima > 0 ? (puntuacion / puntuacionMaxima) * 100 : 0;
+    final enviada = evaluacion['enviada'] ?? false;
+    
+    // Determinar color según puntuación
+    Color colorPuntuacion;
+    if (porcentaje >= 90) {
+      colorPuntuacion = const Color(0xFF38A169);
+    } else if (porcentaje >= 60) {
+      colorPuntuacion = const Color(0xFFF6C343);
+    } else {
+      colorPuntuacion = const Color(0xFFE53E3E);
+    }
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () {
+            // Navegar a la pantalla de resumen
+            final datosCompletos = evaluacion['datosCompletos'] as ResultadoExcelenciaHive?;
+            if (datosCompletos != null) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => PantallaResumenEvaluacion(
+                    evaluacion: datosCompletos,
+                  ),
+                ),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Error al cargar los datos de la evaluación'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                // Indicador de puntuación
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: colorPuntuacion.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        puntuacion.toString(),
+                        style: GoogleFonts.poppins(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: colorPuntuacion,
+                        ),
+                      ),
+                      Text(
+                        '/$puntuacionMaxima',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                
+                // Información de la evaluación
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              evaluacion['formulario'],
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF1C2120),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          if (enviada)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF38A169).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.check_circle,
+                                    size: 12,
+                                    color: const Color(0xFF38A169),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Enviada',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFF38A169),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.pending,
+                                    size: 12,
+                                    color: Colors.orange,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Pendiente',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.orange,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(Icons.person_outline, size: 14, color: Colors.grey[600]),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Evaluador: ${evaluacion['evaluador']}',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Icon(Icons.calendar_today, size: 14, color: Colors.grey[600]),
+                          const SizedBox(width: 4),
+                          Text(
+                            _formatearFechaCompleta(fecha),
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Flecha de navegación
+                Icon(
+                  Icons.chevron_right,
+                  color: Colors.grey[400],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+  
+  String _formatearFechaCompleta(DateTime fecha) {
+    final ahora = DateTime.now();
+    final diferencia = ahora.difference(fecha);
+    
+    if (diferencia.inDays == 0) {
+      return 'Hoy ${fecha.hour}:${fecha.minute.toString().padLeft(2, '0')}';
+    } else if (diferencia.inDays == 1) {
+      return 'Ayer';
+    } else if (diferencia.inDays < 7) {
+      return 'Hace ${diferencia.inDays} días';
+    } else {
+      return '${fecha.day}/${fecha.month}/${fecha.year}';
+    }
+  }
+  
+  void _navegarAEvaluacion() async {
     if (_selectedFormulario == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1912,7 +2275,7 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
     rutaDataConFormulario['formularioId'] = _selectedFormulario;
     rutaDataConFormulario['formularioData'] = formularioSeleccionado;
     
-    Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => PantallaEvaluacionDesempeno(
@@ -1923,5 +2286,8 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
         ),
       ),
     );
+    
+    // Recargar evaluaciones al regresar
+    _cargarEvaluacionesDesdeHive();
   }
 }

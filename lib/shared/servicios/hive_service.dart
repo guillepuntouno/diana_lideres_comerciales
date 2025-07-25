@@ -9,6 +9,7 @@ import 'package:diana_lc_front/shared/modelos/hive/cliente_hive.dart';
 import 'package:diana_lc_front/shared/modelos/hive/plan_trabajo_semanal_hive.dart';
 import 'package:diana_lc_front/shared/modelos/hive/dia_trabajo_hive.dart';
 import 'package:diana_lc_front/shared/modelos/hive/plan_trabajo_unificado_hive.dart';
+import 'package:diana_lc_front/shared/modelos/hive/resultado_excelencia_hive.dart';
 
 class HiveService {
   static final HiveService _instance = HiveService._internal();
@@ -30,6 +31,7 @@ class HiveService {
   static const String planTrabajoSemanalBox = 'planes_trabajo_semanal';
   static const String planTrabajoUnificadoBox = 'planes_trabajo_unificado';
   static const String formulariosPlantillasBox = 'formularios_plantillas';
+  static const String resultadoExcelenciaBox = 'resultados_excelencia';
 
   /// Inicializa Hive y registra todos los adaptadores
   Future<void> initialize() async {
@@ -128,6 +130,13 @@ class HiveService {
     if (!Hive.isAdapterRegistered(40)) {
       Hive.registerAdapter(FormularioDiaHiveAdapter());
     }
+    // Registrar adaptadores del modelo resultado excelencia
+    if (!Hive.isAdapterRegistered(50)) {
+      Hive.registerAdapter(ResultadoExcelenciaHiveAdapter());
+    }
+    if (!Hive.isAdapterRegistered(51)) {
+      Hive.registerAdapter(RespuestaEvaluacionHiveAdapter());
+    }
   }
 
   /// Abre todas las cajas necesarias con tipos específicos
@@ -192,6 +201,11 @@ class HiveService {
       await Hive.openBox(formulariosPlantillasBox);
       print('📦 Caja "$formulariosPlantillasBox" abierta correctamente');
     }
+    
+    if (!Hive.isBoxOpen(resultadoExcelenciaBox)) {
+      await Hive.openBox<ResultadoExcelenciaHive>(resultadoExcelenciaBox);
+      print('📦 Caja "$resultadoExcelenciaBox" abierta correctamente');
+    }
   }
 
   /// Obtiene una caja específica
@@ -233,6 +247,9 @@ class HiveService {
   
   /// Obtiene la caja de planes de trabajo unificados
   Box<PlanTrabajoUnificadoHive> get planesTrabajoUnificadosBox => getBox<PlanTrabajoUnificadoHive>(planTrabajoUnificadoBox);
+  
+  /// Obtiene la caja de resultados de excelencia
+  Box<ResultadoExcelenciaHive> get resultadosExcelenciaBox => getBox<ResultadoExcelenciaHive>(resultadoExcelenciaBox);
 
   /// Limpia todas las cajas (útil para logout o reset)
   Future<void> clearAllBoxes() async {
@@ -249,6 +266,7 @@ class HiveService {
         clienteBox,
         planTrabajoSemanalBox,
         planTrabajoUnificadoBox,
+        resultadoExcelenciaBox,
       ];
 
       for (String boxName in boxes) {

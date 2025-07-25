@@ -6,89 +6,6 @@ part of 'formulario_dto.dart';
 // TypeAdapterGenerator
 // **************************************************************************
 
-class CanalTypeAdapter extends TypeAdapter<CanalType> {
-  @override
-  final int typeId = 30;
-
-  @override
-  CanalType read(BinaryReader reader) {
-    switch (reader.readByte()) {
-      case 0:
-        return CanalType.DETALLE;
-      case 1:
-        return CanalType.MAYOREO;
-      case 2:
-        return CanalType.EXCELENCIA;
-      default:
-        return CanalType.DETALLE;
-    }
-  }
-
-  @override
-  void write(BinaryWriter writer, CanalType obj) {
-    switch (obj) {
-      case CanalType.DETALLE:
-        writer.writeByte(0);
-        break;
-      case CanalType.MAYOREO:
-        writer.writeByte(1);
-        break;
-      case CanalType.EXCELENCIA:
-        writer.writeByte(2);
-        break;
-    }
-  }
-
-  @override
-  int get hashCode => typeId.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is CanalTypeAdapter &&
-          runtimeType == other.runtimeType &&
-          typeId == other.typeId;
-}
-
-class FormStatusAdapter extends TypeAdapter<FormStatus> {
-  @override
-  final int typeId = 31;
-
-  @override
-  FormStatus read(BinaryReader reader) {
-    switch (reader.readByte()) {
-      case 0:
-        return FormStatus.ACTIVO;
-      case 1:
-        return FormStatus.INACTIVO;
-      default:
-        return FormStatus.ACTIVO;
-    }
-  }
-
-  @override
-  void write(BinaryWriter writer, FormStatus obj) {
-    switch (obj) {
-      case FormStatus.ACTIVO:
-        writer.writeByte(0);
-        break;
-      case FormStatus.INACTIVO:
-        writer.writeByte(1);
-        break;
-    }
-  }
-
-  @override
-  int get hashCode => typeId.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is FormStatusAdapter &&
-          runtimeType == other.runtimeType &&
-          typeId == other.typeId;
-}
-
 class OpcionDTOAdapter extends TypeAdapter<OpcionDTO> {
   @override
   final int typeId = 32;
@@ -145,8 +62,8 @@ class PreguntaDTOAdapter extends TypeAdapter<PreguntaDTO> {
       orden: fields[2] as int,
       section: fields[3] as String,
       opciones: (fields[4] as List).cast<OpcionDTO>(),
-      value: fields[5] as dynamic,
       etiqueta: fields[6] as String,
+      value: fields[5] as dynamic,
     );
   }
 
@@ -181,7 +98,8 @@ class PreguntaDTOAdapter extends TypeAdapter<PreguntaDTO> {
           typeId == other.typeId;
 }
 
-class FormularioPlantillaDTOAdapter extends TypeAdapter<FormularioPlantillaDTO> {
+class FormularioPlantillaDTOAdapter
+    extends TypeAdapter<FormularioPlantillaDTO> {
   @override
   final int typeId = 34;
 
@@ -276,7 +194,8 @@ class RespuestaPreguntaDTOAdapter extends TypeAdapter<RespuestaPreguntaDTO> {
           typeId == other.typeId;
 }
 
-class FormularioRespuestaDTOAdapter extends TypeAdapter<FormularioRespuestaDTO> {
+class FormularioRespuestaDTOAdapter
+    extends TypeAdapter<FormularioRespuestaDTO> {
   @override
   final int typeId = 36;
 
@@ -336,6 +255,89 @@ class FormularioRespuestaDTOAdapter extends TypeAdapter<FormularioRespuestaDTO> 
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is FormularioRespuestaDTOAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
+class CanalTypeAdapter extends TypeAdapter<CanalType> {
+  @override
+  final int typeId = 30;
+
+  @override
+  CanalType read(BinaryReader reader) {
+    switch (reader.readByte()) {
+      case 0:
+        return CanalType.DETALLE;
+      case 1:
+        return CanalType.MAYOREO;
+      case 2:
+        return CanalType.EXCELENCIA;
+      default:
+        return CanalType.DETALLE;
+    }
+  }
+
+  @override
+  void write(BinaryWriter writer, CanalType obj) {
+    switch (obj) {
+      case CanalType.DETALLE:
+        writer.writeByte(0);
+        break;
+      case CanalType.MAYOREO:
+        writer.writeByte(1);
+        break;
+      case CanalType.EXCELENCIA:
+        writer.writeByte(2);
+        break;
+    }
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CanalTypeAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
+class FormStatusAdapter extends TypeAdapter<FormStatus> {
+  @override
+  final int typeId = 31;
+
+  @override
+  FormStatus read(BinaryReader reader) {
+    switch (reader.readByte()) {
+      case 0:
+        return FormStatus.ACTIVO;
+      case 1:
+        return FormStatus.INACTIVO;
+      default:
+        return FormStatus.ACTIVO;
+    }
+  }
+
+  @override
+  void write(BinaryWriter writer, FormStatus obj) {
+    switch (obj) {
+      case FormStatus.ACTIVO:
+        writer.writeByte(0);
+        break;
+      case FormStatus.INACTIVO:
+        writer.writeByte(1);
+        break;
+    }
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is FormStatusAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }

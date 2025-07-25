@@ -1,6 +1,9 @@
 // lib/web/vistas/evaluacion_desempeno/pantalla_evaluacion_desempeno.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:diana_lc_front/shared/servicios/hive_service.dart';
+import 'package:diana_lc_front/shared/modelos/hive/resultado_excelencia_hive.dart';
+import 'package:uuid/uuid.dart';
 
 class PantallaEvaluacionDesempeno extends StatefulWidget {
   final Map<String, dynamic> liderData;
@@ -26,6 +29,10 @@ class _PantallaEvaluacionDesempenoState extends State<PantallaEvaluacionDesempen
   bool _isLoading = false;
   double _puntuacionTotal = 0;
   bool _mostrarResultado = false;
+  bool _evaluacionGuardada = false;
+  final HiveService _hiveService = HiveService();
+  final _uuid = const Uuid();
+  DateTime _fechaHoraInicio = DateTime.now();
   
   @override
   void initState() {
@@ -250,8 +257,8 @@ class _PantallaEvaluacionDesempenoState extends State<PantallaEvaluacionDesempen
                 const SizedBox(height: 32),
               ],
               
-              // Mostrar las preguntas del formulario agrupadas por sección
-              if (_formulario.containsKey('preguntas') && (_formulario['preguntas'] as List).isNotEmpty) ...[
+              // Mostrar las preguntas del formulario agrupadas por sección (ocultar si ya se guardó)
+              if (!_evaluacionGuardada && _formulario.containsKey('preguntas') && (_formulario['preguntas'] as List).isNotEmpty) ...[
                 Text(
                   'Preguntas de Evaluación',
                   style: GoogleFonts.poppins(
@@ -262,7 +269,7 @@ class _PantallaEvaluacionDesempenoState extends State<PantallaEvaluacionDesempen
                 ),
                 const SizedBox(height: 20),
                 ..._buildPreguntasPorSeccion(),
-              ] else ...[
+              ] else if (!_evaluacionGuardada) ...[
                 Center(
                   child: Padding(
                     padding: const EdgeInsets.all(40),
@@ -292,7 +299,7 @@ class _PantallaEvaluacionDesempenoState extends State<PantallaEvaluacionDesempen
               
               // Botón GUARDAR EVALUACIÓN o FINALIZAR
               if (_formulario.containsKey('preguntas') && (_formulario['preguntas'] as List).isNotEmpty) ...[
-                if (!_mostrarResultado)
+                if (!_evaluacionGuardada)
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -327,31 +334,43 @@ class _PantallaEvaluacionDesempenoState extends State<PantallaEvaluacionDesempen
                             ),
                     ),
                   ),
-                if (_mostrarResultado) ...[
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            side: const BorderSide(color: Color(0xFFDE1327)),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: Text(
-                            'FINALIZAR',
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.5,
-                              color: const Color(0xFFDE1327),
-                            ),
-                          ),
+                if (_evaluacionGuardada) ...[
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _enviarALider(),
+                      icon: const Icon(Icons.send),
+                      label: Text(
+                        'ENVIAR A LÍDER',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.5,
                         ),
                       ),
-                    ],
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF38A169),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        elevation: 2,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text(
+                      'Volver sin enviar',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
                   ),
                 ],
               ],
@@ -604,22 +623,18 @@ class _PantallaEvaluacionDesempenoState extends State<PantallaEvaluacionDesempen
         _puntuacionTotal = _calcularPuntuacion();
       }
       
-      // Aquí se implementaría el guardado de la evaluación
-      await Future.delayed(const Duration(seconds: 2)); // Simulación
+      // Guardar en HIVE
+      await _guardarEnHive();
       
       if (mounted) {
         setState(() {
           _mostrarResultado = true;
+          _evaluacionGuardada = true;
           _isLoading = false;
         });
         
-        // Hacer scroll al inicio para mostrar el resultado
-        await Future.delayed(const Duration(milliseconds: 300));
-        Scrollable.ensureVisible(
-          context,
-          duration: const Duration(milliseconds: 500),
-          curve: Curves.easeInOut,
-        );
+        // Mostrar mensaje antes de hacer cualquier otra operación
+        if (!mounted) return;
         
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -796,5 +811,237 @@ class _PantallaEvaluacionDesempenoState extends State<PantallaEvaluacionDesempen
         ],
       ),
     );
+  }
+  
+  // Método para enviar evaluación al líder
+  void _enviarALider() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.send, color: const Color(0xFF38A169)),
+            const SizedBox(width: 12),
+            Text(
+              'Confirmar envío',
+              style: GoogleFonts.poppins(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '¿Está seguro de enviar esta evaluación al líder?',
+              style: GoogleFonts.poppins(fontSize: 16),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildInfoRow('Líder:', widget.liderData['nombre']),
+                  const SizedBox(height: 4),
+                  _buildInfoRow('Correo:', widget.liderData['correo']),
+                  if (_formulario.containsKey('resultadoKPI')) ...[
+                    const SizedBox(height: 4),
+                    _buildInfoRow('Puntuación:', '${_puntuacionTotal.toStringAsFixed(0)}/${(_formulario['resultadoKPI']['puntuacionMaxima'] ?? 0).toStringAsFixed(0)}'),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Esta acción no se puede deshacer.',
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                color: Colors.orange,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'Cancelar',
+              style: GoogleFonts.poppins(color: Colors.grey[600]),
+            ),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              Navigator.of(context).pop(); // Cerrar diálogo
+              
+              // Mostrar loading
+              setState(() => _isLoading = true);
+              
+              try {
+                // Aquí iría la lógica para enviar al líder
+                await Future.delayed(const Duration(seconds: 2)); // Simulación
+                
+                if (mounted) {
+                  // Primero mostrar el mensaje
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Row(
+                        children: [
+                          const Icon(Icons.check_circle, color: Colors.white),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Evaluación enviada exitosamente',
+                            style: GoogleFonts.poppins(),
+                          ),
+                        ],
+                      ),
+                      backgroundColor: const Color(0xFF38A169),
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+                  
+                  // Esperar un poco antes de navegar para que el mensaje se muestre
+                  await Future.delayed(const Duration(milliseconds: 100));
+                  
+                  // Verificar nuevamente si el widget está montado antes de navegar
+                  if (mounted) {
+                    Navigator.of(context).pop();
+                  }
+                }
+              } catch (e) {
+                if (mounted) {
+                  setState(() => _isLoading = false);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Error al enviar evaluación: $e',
+                        style: GoogleFonts.poppins(),
+                      ),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            icon: const Icon(Icons.send, size: 18),
+            label: Text(
+              'Enviar',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF38A169),
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildInfoRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey[700],
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            value,
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: Colors.grey[800],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+  
+  Future<void> _guardarEnHive() async {
+    try {
+      // Crear lista de respuestas con información completa
+      List<RespuestaEvaluacionHive> respuestasHive = [];
+      
+      if (_formulario.containsKey('preguntas')) {
+        for (var pregunta in _formulario['preguntas']) {
+          final respuesta = _respuestas[pregunta['name']];
+          if (respuesta != null && respuesta.toString().isNotEmpty) {
+            // Calcular ponderación para esta respuesta
+            double? ponderacion;
+            if (pregunta['type'] == 'select' || pregunta['type'] == 'radio') {
+              final opciones = pregunta['opciones'] as List<dynamic>? ?? [];
+              for (var opcion in opciones) {
+                if (opcion['valor'] == respuesta) {
+                  ponderacion = (opcion['puntuacion'] ?? 0).toDouble();
+                  break;
+                }
+              }
+            }
+            
+            respuestasHive.add(RespuestaEvaluacionHive(
+              preguntaId: pregunta['name'] ?? '',
+              preguntaTitulo: pregunta['etiqueta'] ?? pregunta['name'] ?? '',
+              categoria: pregunta['section'] ?? 'General',
+              tipoPregunta: pregunta['type'] ?? 'text',
+              respuesta: respuesta,
+              ponderacion: ponderacion,
+              timestampRespuesta: DateTime.now(),
+              configuracionPregunta: pregunta,
+            ));
+          }
+        }
+      }
+      
+      // Crear el objeto ResultadoExcelenciaHive
+      final resultadoExcelencia = ResultadoExcelenciaHive(
+        id: _uuid.v4(),
+        liderClave: widget.liderData['id'] ?? '',
+        liderNombre: widget.liderData['nombre'] ?? '',
+        liderCorreo: widget.liderData['correo'] ?? '',
+        pais: widget.pais,
+        ruta: widget.rutaData['nombre'] ?? '',
+        centroDistribucion: widget.centroDistribucion,
+        tipoFormulario: _formulario['nombre'] ?? 'Evaluación de Desempeño',
+        formularioMaestro: _formulario,
+        respuestas: respuestasHive,
+        ponderacionFinal: _puntuacionTotal,
+        fechaCaptura: DateTime.now(),
+        fechaHoraInicio: _fechaHoraInicio,
+        fechaHoraFin: DateTime.now(),
+        estatus: 'completada',
+        observaciones: null,
+        metadatos: {
+          'canalVenta': widget.rutaData['canalVenta'],
+          'subcanalVenta': widget.rutaData['subcanalVenta'],
+          'formularioId': widget.rutaData['formularioId'],
+        },
+      );
+      
+      // Guardar en Hive
+      final box = _hiveService.resultadosExcelenciaBox;
+      await box.put(resultadoExcelencia.id, resultadoExcelencia);
+      
+      print('✅ Evaluación guardada en Hive con ID: ${resultadoExcelencia.id}');
+      
+    } catch (e) {
+      print('❌ Error al guardar en Hive: $e');
+      rethrow;
+    }
   }
 }
