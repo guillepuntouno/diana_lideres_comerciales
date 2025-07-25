@@ -213,7 +213,7 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
 
   Widget _buildSidebar() {
     return Container(
-      width: 250,
+      width: 280,
       color: Colors.white,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -266,12 +266,15 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
               color: isActive ? const Color(0xFFDE1327) : const Color(0xFF8F8E8E),
             ),
             const SizedBox(width: 12),
-            Text(
-              label,
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                color: isActive ? const Color(0xFFDE1327) : const Color(0xFF8F8E8E),
+            Expanded(
+              child: Text(
+                label,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                  color: isActive ? const Color(0xFFDE1327) : const Color(0xFF8F8E8E),
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
