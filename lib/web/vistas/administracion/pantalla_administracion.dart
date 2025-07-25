@@ -9,6 +9,36 @@ import 'package:diana_lc_front/web/vistas/evaluacion_desempeno/pantalla_resumen_
 import 'package:diana_lc_front/shared/servicios/formularios_api_service.dart';
 import 'package:diana_lc_front/shared/servicios/hive_service.dart';
 import 'package:diana_lc_front/shared/modelos/hive/resultado_excelencia_hive.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:diana_lc_front/shared/modelos/hive/plan_trabajo_unificado_hive.dart';
+import 'package:diana_lc_front/shared/modelos/hive/visita_cliente_hive.dart';
+import 'package:diana_lc_front/shared/servicios/resultados_dia_service.dart';
+import 'package:diana_lc_front/shared/servicios/offline_sync_manager.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:intl/intl.dart';
+
+/// Colores corporativos
+class AppColors {
+  static const Color dianaRed = Color(0xFFDE1327);
+  static const Color dianaGreen = Color(0xFF38A169);
+  static const Color dianaYellow = Color(0xFFF6C343);
+  static const Color lightGray = Color(0xFFF5F5F5);
+  static const Color darkGray = Color(0xFF1C2120);
+  static const Color mediumGray = Color(0xFF8F8E8E);
+}
+
+/// Enum para las plantillas/rutinas disponibles
+enum TipoRutina {
+  todas('Todas las actividades', 'todas'),
+  visitasClientes('Visitas a Clientes', 'visitas'),
+  administrativas('Actividades Administrativas', 'administrativas'),
+  formularios('Formularios Capturados', 'formularios');
+
+  final String titulo;
+  final String plantillaId;
+  
+  const TipoRutina(this.titulo, this.plantillaId);
+}
 
 class PantallaAdministracion extends StatefulWidget {
   const PantallaAdministracion({Key? key}) : super(key: key);
@@ -21,6 +51,7 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
   final SesionServicio _sesionServicio = SesionServicio();
   final FormulariosApiService _formulariosApiService = FormulariosApiService();
   final HiveService _hiveService = HiveService();
+  final ResultadosDiaService _resultadosService = ResultadosDiaService();
   
   String _vistaSeleccionada = 'dashboard';
   List<UsuarioDto> _usuarios = [];
@@ -28,6 +59,22 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
   List<Map<String, dynamic>> _permisos = [];
   bool _isLoading = false;
   String _busqueda = '';
+  
+  // Variables para el dashboard de rutinas
+  String? _liderClave;
+  String _diaSeleccionado = '';
+  TipoRutina _rutinaSeleccionada = TipoRutina.todas;
+  String? _rutaFiltro;
+  String? _clienteFiltro;
+  
+  List<PlanTrabajoUnificadoHive> _planesDisponibles = [];
+  PlanTrabajoUnificadoHive? _planSeleccionado;
+  DiaPlanHive? _diaPlan;
+  Map<String, dynamic> _kpis = {};
+  
+  bool _cargandoRutinas = true;
+  bool _isOffline = false;
+  String? _errorRutinas;
   
   // Variables para filtros del Programa de Excelencia
   String? _selectedPais;
@@ -80,6 +127,8 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
     super.initState();
     _cargarDatos();
     _cargarEvaluacionesMockup();
+    _inicializarRutinas();
+    _checkConnectivity();
   }
   
   // Método para cargar evaluaciones desde HIVE
@@ -179,6 +228,378 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
     } finally {
       setState(() => _isLoading = false);
     }
+  }
+  
+  // Métodos para el dashboard de rutinas
+  Future<void> _inicializarRutinas() async {
+    try {
+      print('🚀 Iniciando dashboard de rutinas...');
+      
+      // Obtener líder actual
+      final lider = await SesionServicio.obtenerLiderComercial();
+      print('👤 Líder obtenido: ${lider?.nombre} - ${lider?.clave}');
+      
+      if (lider == null) {
+        setState(() {
+          _errorRutinas = 'No hay sesión activa';
+          _cargandoRutinas = false;
+        });
+        return;
+      }
+      
+      _liderClave = lider.clave;
+      
+      // Seleccionar día actual por defecto
+      _diaSeleccionado = _resultadosService.obtenerNombreDia(DateTime.now());
+      print('📅 Día seleccionado: $_diaSeleccionado');
+      
+      // Cargar datos
+      await _cargarDatosRutinas();
+    } catch (e) {
+      print('❌ Error al inicializar rutinas: $e');
+      setState(() {
+        _errorRutinas = 'Error al inicializar: $e';
+        _cargandoRutinas = false;
+      });
+    }
+  }
+
+  Future<void> _checkConnectivity() async {
+    final connectivityResult = await Connectivity().checkConnectivity();
+    setState(() {
+      _isOffline = connectivityResult == ConnectivityResult.none;
+    });
+    
+    // Listener para cambios de conectividad
+    Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) {
+      setState(() {
+        _isOffline = results.contains(ConnectivityResult.none) || results.isEmpty;
+      });
+    });
+  }
+
+  Future<void> _cargarDatosRutinas() async {
+    if (_liderClave == null) return;
+    
+    setState(() => _cargandoRutinas = true);
+    
+    try {
+      print('📦 Cargando datos de rutinas...');
+      
+      // Si hay conexión, sincronizar primero
+      if (!_isOffline) {
+        print('🔄 Sincronizando datos...');
+        final syncManager = OfflineSyncManager();
+        await syncManager.performFullSync();
+      }
+      
+      // Cargar todos los planes del líder
+      print('📂 Abriendo box de planes_trabajo_unificado...');
+      final box = await Hive.openBox<PlanTrabajoUnificadoHive>('planes_trabajo_unificado');
+      print('📊 Total planes en box: ${box.values.length}');
+      
+      _planesDisponibles = box.values
+          .where((plan) => plan.liderClave == _liderClave)
+          .toList()
+          ..sort((a, b) => b.numeroSemana.compareTo(a.numeroSemana));
+      
+      print('📋 Planes del líder $_liderClave: ${_planesDisponibles.length}');
+      for (var plan in _planesDisponibles) {
+        print('  - ${plan.semana} (Semana ${plan.numeroSemana}) - ${plan.estatus}');
+      }
+      
+      if (_planesDisponibles.isEmpty) {
+        setState(() {
+          _errorRutinas = 'No Existen Datos Disponibles para el líder $_liderClave';
+          _cargandoRutinas = false;
+        });
+        return;
+      }
+      
+      // Si no hay plan seleccionado, usar el más reciente
+      if (_planSeleccionado == null) {
+        _planSeleccionado = _planesDisponibles.first;
+      }
+      
+      // Si hay un día seleccionado, cargar su información
+      if (_diaSeleccionado.isNotEmpty && _planSeleccionado!.dias.containsKey(_diaSeleccionado)) {
+        _diaPlan = _planSeleccionado!.dias[_diaSeleccionado];
+      } else {
+        // Seleccionar el primer día con actividades
+        final diasConActividades = _planSeleccionado!.dias.entries
+            .where((entry) => entry.value.configurado)
+            .toList();
+        if (diasConActividades.isNotEmpty) {
+          _diaSeleccionado = diasConActividades.first.key;
+          _diaPlan = diasConActividades.first.value;
+        }
+      }
+      
+      // Sincronizar estados de visitas reales con el plan
+      await _sincronizarEstadosVisitas();
+      
+      _kpis = _calcularKPIsRutina();
+      
+      setState(() {
+        _cargandoRutinas = false;
+        _errorRutinas = null;
+      });
+    } catch (e) {
+      setState(() {
+        _errorRutinas = 'Error al cargar datos: $e';
+        _cargandoRutinas = false;
+      });
+    }
+  }
+
+  Future<void> _sincronizarEstadosVisitas() async {
+    if (_diaPlan == null || _diaPlan!.tipo != 'gestion_cliente' || _liderClave == null) return;
+    
+    try {
+      // Abrir el box de visitas
+      final visitasBox = await Hive.openBox<VisitaClienteHive>('visitas_clientes');
+      
+      // Obtener la fecha del día seleccionado
+      final fechaDia = _obtenerFechaDelDia(_diaSeleccionado);
+      
+      // Iterar sobre cada cliente del día
+      for (var cliente in _diaPlan!.clientes) {
+        // Buscar visitas de este cliente en la fecha específica
+        for (var visita in visitasBox.values) {
+          if (visita.clienteId == cliente.clienteId && 
+              visita.liderClave == _liderClave &&
+              visita.fechaCreacion.year == fechaDia.year &&
+              visita.fechaCreacion.month == fechaDia.month &&
+              visita.fechaCreacion.day == fechaDia.day) {
+            
+            // Actualizar el estado del cliente en el plan
+            if (visita.estatus == 'completada' || visita.checkOut != null) {
+              cliente.estatus = 'completada';
+              cliente.horaInicio = visita.checkIn.timestamp.toIso8601String();
+              if (visita.checkOut != null) {
+                cliente.horaFin = visita.checkOut!.timestamp.toIso8601String();
+              }
+              cliente.comentarioInicio = visita.checkIn.comentarios;
+            } else if (visita.estatus == 'en_proceso') {
+              cliente.estatus = 'en_proceso';
+              cliente.horaInicio = visita.checkIn.timestamp.toIso8601String();
+              cliente.comentarioInicio = visita.checkIn.comentarios;
+            }
+            
+            // Sincronizar formularios capturados
+            if (visita.formularios.isNotEmpty) {
+              for (var formularioEntry in visita.formularios.entries) {
+                final formularioId = formularioEntry.key;
+                final formularioData = formularioEntry.value;
+                
+                // Verificar si ya existe el formulario en el día del plan
+                bool formularioExiste = _diaPlan!.formularios.any((f) => 
+                  f.clienteId == cliente.clienteId && 
+                  f.formularioId == formularioId
+                );
+                
+                if (!formularioExiste) {
+                  // Crear un formulario del día para agregarlo al plan
+                  final nuevoFormulario = FormularioDiaHive(
+                    formularioId: formularioId,
+                    clienteId: cliente.clienteId,
+                    respuestas: formularioData is Map<String, dynamic> ? formularioData : {},
+                    fechaCaptura: visita.fechaCreacion,
+                  );
+                  
+                  _diaPlan!.formularios.add(nuevoFormulario);
+                }
+              }
+            }
+            
+            break;
+          }
+        }
+      }
+    } catch (e) {
+      print('❌ Error al sincronizar estados de visitas: $e');
+    }
+  }
+  
+  DateTime _obtenerFechaDelDia(String nombreDia) {
+    final ahora = DateTime.now();
+    final diasSemana = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+    final diaIndex = diasSemana.indexOf(nombreDia.toLowerCase());
+    final diaActualIndex = ahora.weekday - 1;
+    
+    var diferenciaDias = diaIndex - diaActualIndex;
+    
+    // Ajustar a la misma semana
+    if (diferenciaDias < -3) {
+      diferenciaDias += 7;
+    } else if (diferenciaDias > 3) {
+      diferenciaDias -= 7;
+    }
+    
+    return ahora.add(Duration(days: diferenciaDias));
+  }
+
+  Map<String, dynamic> _calcularKPIsRutina() {
+    if (_diaPlan == null || _diaPlan!.tipo != 'gestion_cliente') {
+      return {
+        'clientesPlanificados': 0,
+        'visitados': 0,
+        'porcentajeCumplimiento': 0,
+        'duracionPromedio': 0,
+      };
+    }
+    
+    // Filtrar actividades según la rutina seleccionada
+    final actividadesFiltradas = _obtenerActividadesFiltradas();
+    
+    final clientesPlanificados = actividadesFiltradas.length;
+    final visitados = actividadesFiltradas.where((v) {
+      // Verificar si tiene el formulario correspondiente
+      if (_rutinaSeleccionada == TipoRutina.todas) {
+        return v.estatus == 'completada';
+      }
+      
+      // Para otras rutinas, verificar si tiene el formulario correspondiente
+      final tieneFormulario = _tieneFormularioRutina(v);
+      return tieneFormulario;
+    }).length;
+    
+    final porcentajeCumplimiento = clientesPlanificados > 0 
+        ? (visitados / clientesPlanificados * 100).round() 
+        : 0;
+    
+    // Calcular duración promedio
+    final duraciones = <int>[];
+    for (final visita in actividadesFiltradas) {
+      if (visita.horaInicio != null && visita.horaFin != null) {
+        try {
+          final inicio = DateTime.parse(visita.horaInicio!);
+          final fin = DateTime.parse(visita.horaFin!);
+          final duracion = fin.difference(inicio).inMinutes;
+          if (duracion > 0) duraciones.add(duracion);
+        } catch (_) {}
+      }
+    }
+    
+    final duracionPromedio = duraciones.isNotEmpty
+        ? (duraciones.reduce((a, b) => a + b) / duraciones.length).round()
+        : 0;
+    
+    return {
+      'clientesPlanificados': clientesPlanificados,
+      'visitados': visitados,
+      'porcentajeCumplimiento': porcentajeCumplimiento,
+      'duracionPromedio': duracionPromedio,
+    };
+  }
+
+  List<VisitaClienteUnificadaHive> _obtenerActividadesFiltradas() {
+    if (_diaPlan == null) return [];
+    
+    // Si es día administrativo - COMENTADO TEMPORALMENTE
+    // if (_diaPlan!.tipo == 'administrativo' && 
+    //     (_rutinaSeleccionada == TipoRutina.administrativas || 
+    //      _rutinaSeleccionada == TipoRutina.todas)) {
+    //   return []; // Las actividades administrativas se muestran diferente
+    // }
+    
+    var actividades = _diaPlan!.clientes;
+    
+    // Filtrar por tipo de rutina seleccionada
+    switch (_rutinaSeleccionada) {
+      case TipoRutina.visitasClientes:
+        // Mostrar todas las visitas programadas
+        break;
+      case TipoRutina.formularios:
+        // Solo mostrar clientes con formularios capturados
+        actividades = actividades.where((a) => 
+          _diaPlan!.formularios.any((f) => f.clienteId == a.clienteId)
+        ).toList();
+        break;
+      case TipoRutina.administrativas:
+        // No mostrar clientes en vista administrativa
+        return [];
+      case TipoRutina.todas:
+        // Mostrar todos
+        break;
+    }
+    
+    // Filtrar por ruta si está seleccionada
+    if (_rutaFiltro != null && _rutaFiltro!.isNotEmpty) {
+      // TODO: Implementar filtro por ruta cuando tengamos esa información
+    }
+    
+    // Filtrar por cliente si está seleccionado
+    if (_clienteFiltro != null && _clienteFiltro!.isNotEmpty) {
+      actividades = actividades.where((a) => a.clienteId == _clienteFiltro).toList();
+    }
+    
+    return actividades;
+  }
+
+  bool _tieneFormularioRutina(VisitaClienteUnificadaHive visita) {
+    // Buscar en los formularios del día si existe uno para este cliente
+    final formularios = _diaPlan?.formularios ?? [];
+    return formularios.any((f) => f.clienteId == visita.clienteId);
+  }
+
+  void _cambiarDia(String nuevoDia) async {
+    setState(() {
+      _diaSeleccionado = nuevoDia;
+      _cargandoRutinas = true;
+    });
+    
+    // Actualizar el día del plan
+    if (_planSeleccionado != null && _planSeleccionado!.dias.containsKey(nuevoDia)) {
+      _diaPlan = _planSeleccionado!.dias[nuevoDia];
+      
+      // Sincronizar estados de visitas para el nuevo día
+      await _sincronizarEstadosVisitas();
+      
+      // Recalcular KPIs
+      _kpis = _calcularKPIsRutina();
+      
+      setState(() {
+        _cargandoRutinas = false;
+      });
+    } else {
+      await _cargarDatosRutinas();
+    }
+  }
+
+  void _cambiarRutina(TipoRutina nuevaRutina) {
+    setState(() {
+      _rutinaSeleccionada = nuevaRutina;
+      _kpis = _calcularKPIsRutina();
+    });
+  }
+
+  void _cambiarPlan(PlanTrabajoUnificadoHive nuevoPlan) {
+    setState(() {
+      _planSeleccionado = nuevoPlan;
+      _diaSeleccionado = ''; // Resetear día seleccionado
+      _diaPlan = null;
+      _rutaFiltro = null;
+      _clienteFiltro = null;
+    });
+    
+    // Seleccionar el primer día con actividades
+    final diasConActividades = nuevoPlan.dias.entries
+        .where((entry) => entry.value.configurado)
+        .toList();
+    if (diasConActividades.isNotEmpty) {
+      setState(() {
+        _diaSeleccionado = diasConActividades.first.key;
+        _diaPlan = diasConActividades.first.value;
+        _kpis = _calcularKPIsRutina();
+      });
+    }
+  }
+
+  Color _obtenerColorSemaforo(int porcentaje) {
+    if (porcentaje >= 80) return AppColors.dianaGreen;
+    if (porcentaje >= 60) return AppColors.dianaYellow;
+    return AppColors.dianaRed;
   }
 
   @override
@@ -1186,147 +1607,1090 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
   }
   
   Widget _buildDashboardView() {
-    return Padding(
-      padding: const EdgeInsets.all(24),
+    if (_cargandoRutinas) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(color: AppColors.dianaRed),
+            const SizedBox(height: 16),
+            Text(
+              'Cargando dashboard de rutinas...',
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                color: AppColors.mediumGray,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    if (_errorRutinas != null) {
+      return _buildErrorRutinas();
+    }
+    
+    return SingleChildScrollView(
+      child: Container(
+        constraints: BoxConstraints(
+          maxWidth: 1400, // Limitar ancho máximo para mejor lectura
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header con título y filtros principales
+            _buildDashboardHeader(),
+            
+            const SizedBox(height: 24),
+            
+            // Offline banner si aplica
+            if (_isOffline) _buildOfflineBanner(),
+            
+            // Tabs de rutinas si hay plan seleccionado
+            if (_planSeleccionado != null && _tieneActividadesParaMostrar()) ...[
+              _buildTabsRutinas(),
+              const SizedBox(height: 24),
+            ],
+            
+            // Contenido principal o mensaje de sin datos
+            if (_planSeleccionado == null || _planesDisponibles.isEmpty)
+              _buildSinDatosMessage()
+            else ...[
+              // Selector de día
+              _buildSelectorDia(),
+              
+              const SizedBox(height: 32),
+              
+              // KPIs
+              _buildKPIsRutinas(),
+              
+              const SizedBox(height: 32),
+              
+              // Lista de actividades
+              _buildListaActividades(),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildErrorRutinas() {
+    final bool noHayDatos = _errorRutinas == 'No Existen Datos Disponibles';
+    
+    return Center(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Título principal
+          Icon(
+            noHayDatos ? Icons.inbox : Icons.error_outline,
+            size: 64,
+            color: noHayDatos ? Colors.grey.shade300 : Colors.red.shade300,
+          ),
+          const SizedBox(height: 16),
           Text(
-            'Métricas y estadísticas',
+            noHayDatos ? 'Sin Datos' : 'Error',
             style: GoogleFonts.poppins(
-              fontSize: 32,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: const Color(0xFF1C2120),
-              letterSpacing: -0.5,
+              color: AppColors.darkGray,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Text(
+              _errorRutinas ?? 'Ha ocurrido un error',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: AppColors.mediumGray,
+              ),
+              textAlign: TextAlign.center,
             ),
           ),
           const SizedBox(height: 24),
-          
-          // Grid de métricas
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final crossAxisCount = constraints.maxWidth > 1200 ? 4 : 
-                                      constraints.maxWidth > 900 ? 3 : 
-                                      constraints.maxWidth > 600 ? 2 : 1;
-                
-                return GridView.count(
-                  crossAxisCount: crossAxisCount,
-                  crossAxisSpacing: 24,
-                  mainAxisSpacing: 24,
-                  childAspectRatio: 1.3,
-                  children: [
-                    _buildMetricCard(
-                      'Total de Usuarios',
-                      '0',
-                      Icons.people_outline,
-                      const Color(0xFF1976D2),
-                      '+0%',
-                    ),
-                    _buildMetricCard(
-                      'Formularios Activos',
-                      '0',
-                      Icons.assignment_turned_in,
-                      const Color(0xFF388E3C),
-                      '+0%',
-                    ),
-                    _buildMetricCard(
-                      'Capturas del Mes',
-                      '0',
-                      Icons.edit_document,
-                      const Color(0xFF7B1FA2),
-                      '+0%',
-                    ),
-                    _buildMetricCard(
-                      'Visitas Realizadas',
-                      '0',
-                      Icons.location_on,
-                      const Color(0xFFE64A19),
-                      '+0%',
-                    ),
-                    _buildMetricCard(
-                      'Clientes Activos',
-                      '0',
-                      Icons.business,
-                      const Color(0xFF00796B),
-                      '+0%',
-                    ),
-                    _buildMetricCard(
-                      'Tasa de Completitud',
-                      '0%',
-                      Icons.analytics,
-                      const Color(0xFFF57C00),
-                      '+0%',
-                    ),
-                    _buildMetricCard(
-                      'Sesiones Activas',
-                      '0',
-                      Icons.online_prediction,
-                      const Color(0xFF303F9F),
-                      'En línea',
-                    ),
-                    _buildMetricCard(
-                      'Reportes Generados',
-                      '0',
-                      Icons.assessment,
-                      const Color(0xFF5D4037),
-                      '+0%',
-                    ),
-                  ],
-                );
-              },
+          ElevatedButton(
+            onPressed: _cargarDatosRutinas,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.dianaRed,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
-          ),
-          
-          const SizedBox(height: 32),
-          
-          // Sección de gráficos
-          Container(
-            height: 350,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.show_chart,
-                    size: 80,
-                    color: Colors.grey[300],
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'Área de Gráficos',
-                    style: GoogleFonts.poppins(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Los gráficos y tendencias se mostrarán aquí',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      color: Colors.grey[500],
-                    ),
-                  ),
-                ],
+            child: Text(
+              'Reintentar',
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildSinPlanRutinas() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.event_busy,
+            size: 64,
+            color: Colors.orange.shade300,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Sin Plan de Trabajo',
+            style: GoogleFonts.poppins(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: AppColors.darkGray,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Text(
+              'No hay un plan de trabajo programado para esta semana.',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: AppColors.mediumGray,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDashboardHeader() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.dashboard_customize, color: AppColors.dianaRed, size: 32),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Dashboard de Rutinas',
+                      style: GoogleFonts.poppins(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.darkGray,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Gestión y seguimiento de actividades comerciales',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: AppColors.mediumGray,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Botón de sincronizar
+              if (!_isOffline)
+                IconButton(
+                  onPressed: _cargarDatosRutinas,
+                  icon: Icon(Icons.sync, color: AppColors.dianaRed),
+                  tooltip: 'Sincronizar datos',
+                ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          // Filtros principales
+          Row(
+            children: [
+              // Selector de semana
+              Expanded(
+                flex: 2,
+                child: _buildSelectorSemana(),
+              ),
+              const SizedBox(width: 16),
+              // Selector de año
+              Expanded(
+                child: _buildSelectorAnio(),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectorSemana() {
+    if (_planesDisponibles.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(8),
+          color: Colors.grey.shade50,
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.calendar_today, color: AppColors.mediumGray, size: 20),
+            const SizedBox(width: 12),
+            Text(
+              'Sin planes disponibles',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: AppColors.mediumGray,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(8),
+        color: Colors.white,
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.calendar_month, color: AppColors.dianaRed, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<PlanTrabajoUnificadoHive>(
+                value: _planSeleccionado,
+                isExpanded: true,
+                hint: Text(
+                  'Seleccionar semana',
+                  style: GoogleFonts.poppins(fontSize: 14, color: AppColors.mediumGray),
+                ),
+                items: _planesDisponibles.map((plan) {
+                  return DropdownMenuItem(
+                    value: plan,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          plan.semana,
+                          style: GoogleFonts.poppins(fontSize: 14),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: plan.estatus == 'enviado' 
+                              ? AppColors.dianaGreen.withOpacity(0.1)
+                              : Colors.orange.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            plan.estatus.toUpperCase(),
+                            style: GoogleFonts.poppins(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: plan.estatus == 'enviado' 
+                                ? AppColors.dianaGreen
+                                : Colors.orange,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+                onChanged: (plan) {
+                  if (plan != null) _cambiarPlan(plan);
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectorAnio() {
+    final aniosDisponibles = _planesDisponibles
+        .map((p) => p.anio)
+        .toSet()
+        .toList()
+        ..sort((a, b) => b.compareTo(a));
+
+    if (aniosDisponibles.isEmpty) {
+      return Container();
+    }
+
+    final anioActual = _planSeleccionado?.anio ?? aniosDisponibles.first;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(8),
+        color: Colors.white,
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.event, color: AppColors.dianaRed, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<int>(
+                value: anioActual,
+                isExpanded: true,
+                items: aniosDisponibles.map((anio) {
+                  return DropdownMenuItem(
+                    value: anio,
+                    child: Text(
+                      'Año $anio',
+                      style: GoogleFonts.poppins(fontSize: 14),
+                    ),
+                  );
+                }).toList(),
+                onChanged: (anio) {
+                  if (anio != null) {
+                    // Filtrar planes por año y seleccionar el primero
+                    final planesPorAnio = _planesDisponibles
+                        .where((p) => p.anio == anio)
+                        .toList();
+                    if (planesPorAnio.isNotEmpty) {
+                      _cambiarPlan(planesPorAnio.first);
+                    }
+                  }
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSinDatosMessage() {
+    return Container(
+      height: 400,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.event_busy,
+              size: 80,
+              color: Colors.grey.shade300,
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'No hay planes de trabajo disponibles',
+              style: GoogleFonts.poppins(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppColors.darkGray,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'No se encontraron planes para el líder actual',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: AppColors.mediumGray,
+              ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _cargarDatosRutinas,
+              icon: const Icon(Icons.refresh),
+              label: Text(
+                'Actualizar',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.dianaRed,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOfflineBanner() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.orange.shade200),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.wifi_off, color: Colors.orange.shade700, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Modo sin conexión - Los cambios se sincronizarán cuando se restablezca la conexión',
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                color: Colors.orange.shade700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+  Widget _buildTabsRutinas() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: TipoRutina.values.map((rutina) {
+          final isSelected = _rutinaSeleccionada == rutina;
+          return Expanded(
+            child: InkWell(
+              onTap: () => _cambiarRutina(rutina),
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                decoration: BoxDecoration(
+                  color: isSelected ? AppColors.dianaRed : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  rutina.titulo,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    color: isSelected ? Colors.white : AppColors.mediumGray,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildSelectorDia() {
+    if (_planSeleccionado == null) return const SizedBox.shrink();
+    
+    final diasConfigurados = _planSeleccionado!.dias.entries
+        .where((entry) => entry.value.configurado)
+        .map((entry) => entry.key)
+        .toList();
+    
+    if (diasConfigurados.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.orange.shade50,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.info_outline, color: Colors.orange.shade700),
+            const SizedBox(width: 8),
+            Text(
+              'No hay días configurados en este plan',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: Colors.orange.shade700,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Selecciona un día',
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: AppColors.darkGray,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          height: 100,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: diasConfigurados.length,
+            itemBuilder: (context, index) {
+              final dia = diasConfigurados[index];
+              final diaPlan = _planSeleccionado!.dias[dia]!;
+              final isSelected = dia == _diaSeleccionado;
+              
+              final totalClientes = diaPlan.clientes.length;
+              final clientesCompletados = diaPlan.clientes
+                  .where((c) => c.estatus == 'completada')
+                  .length;
+              
+              return Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: InkWell(
+                  onTap: () => _cambiarDia(dia),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    width: 140,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isSelected ? AppColors.dianaRed : Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isSelected ? AppColors.dianaRed : Colors.grey.shade300,
+                        width: isSelected ? 2 : 1,
+                      ),
+                      boxShadow: isSelected ? [
+                        BoxShadow(
+                          color: AppColors.dianaRed.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ] : null,
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          dia.substring(0, 3).toUpperCase(),
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: isSelected ? Colors.white : AppColors.darkGray,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        if (diaPlan.tipo == 'gestion_cliente') ...[
+                          Text(
+                            '$clientesCompletados/$totalClientes',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              color: isSelected ? Colors.white : AppColors.mediumGray,
+                            ),
+                          ),
+                        ] else if (diaPlan.tipo == 'administrativo') ...[
+                          Icon(
+                            Icons.business_center,
+                            size: 20,
+                            color: isSelected ? Colors.white : AppColors.mediumGray,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildKPIsRutinas() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.analytics, color: AppColors.dianaRed, size: 28),
+              const SizedBox(width: 12),
+              Text(
+                'Indicadores de ${_rutinaSeleccionada.titulo}',
+                style: GoogleFonts.poppins(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.darkGray,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              // Hacer los KPIs responsivos
+              if (constraints.maxWidth < 600) {
+                // Vista móvil: 2 columnas
+                return Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildKPICard(
+                            'Planificados',
+                            _kpis['clientesPlanificados'] ?? 0,
+                            AppColors.darkGray,
+                            Icons.assignment,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildKPICard(
+                            'Visitados',
+                            _kpis['visitados'] ?? 0,
+                            AppColors.dianaGreen,
+                            Icons.check_circle,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildKPICard(
+                            'Cumplimiento',
+                            _kpis['porcentajeCumplimiento'] ?? 0,
+                            _obtenerColorSemaforo(_kpis['porcentajeCumplimiento'] ?? 0),
+                            Icons.trending_up,
+                            esPorcentaje: true,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildKPICard(
+                            'Duración Prom.',
+                            _kpis['duracionPromedio'] ?? 0,
+                            AppColors.dianaYellow,
+                            Icons.timer,
+                            sufijo: ' min',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              } else {
+                // Vista desktop: 4 columnas
+                return Row(
+                  children: [
+                    Expanded(
+                      child: _buildKPICard(
+                        'Planificados',
+                        _kpis['clientesPlanificados'] ?? 0,
+                        AppColors.darkGray,
+                        Icons.assignment,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildKPICard(
+                        'Visitados',
+                        _kpis['visitados'] ?? 0,
+                        AppColors.dianaGreen,
+                        Icons.check_circle,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildKPICard(
+                        'Cumplimiento',
+                        _kpis['porcentajeCumplimiento'] ?? 0,
+                        _obtenerColorSemaforo(_kpis['porcentajeCumplimiento'] ?? 0),
+                        Icons.trending_up,
+                        esPorcentaje: true,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildKPICard(
+                        'Duración Prom.',
+                        _kpis['duracionPromedio'] ?? 0,
+                        AppColors.dianaYellow,
+                        Icons.timer,
+                        sufijo: ' min',
+                      ),
+                    ),
+                  ],
+                );
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildKPICard(String titulo, int valor, Color color, IconData icono, {bool esPorcentaje = false, String? sufijo}) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            color.withOpacity(0.1),
+            color.withOpacity(0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: color.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icono, color: color, size: 24),
+                ),
+                Icon(
+                  Icons.trending_up,
+                  color: color.withOpacity(0.5),
+                  size: 20,
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  titulo,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.mediumGray,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$valor${esPorcentaje ? '%' : ''}${sufijo ?? ''}',
+                  style: GoogleFonts.poppins(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                    height: 1.2,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildListaActividades() {
+    if (_diaPlan == null) return const SizedBox.shrink();
+    
+    // Si es día administrativo - COMENTADO TEMPORALMENTE
+    // if (_diaPlan!.tipo == 'administrativo' && 
+    //     (_rutinaSeleccionada == TipoRutina.administrativas || 
+    //      _rutinaSeleccionada == TipoRutina.todas)) {
+    //   return _buildActividadAdministrativa();
+    // }
+    
+    final actividades = _obtenerActividadesFiltradas();
+    
+    if (actividades.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Center(
+          child: Column(
+            children: [
+              Icon(
+                Icons.filter_alt_off,
+                size: 48,
+                color: Colors.grey.shade300,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'No hay actividades con los filtros aplicados',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  color: AppColors.mediumGray,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Actividades del día',
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppColors.darkGray,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ...actividades.map((actividad) => _buildClienteTile(actividad)),
+        ],
+      ),
+    );
+  }
+
+  // MÉTODO COMENTADO TEMPORALMENTE - Actividad Administrativa no se muestra correctamente
+  // Widget _buildActividadAdministrativa() {
+  //   String tipoActividad = _diaPlan!.tipoActividadAdministrativa ?? 'Sin especificar';
+  //   
+  //   return Container(
+  //     padding: const EdgeInsets.all(20),
+  //     decoration: BoxDecoration(
+  //       color: Colors.white,
+  //       borderRadius: BorderRadius.circular(12),
+  //       boxShadow: [
+  //         BoxShadow(
+  //           color: Colors.black.withOpacity(0.05),
+  //           blurRadius: 8,
+  //           offset: const Offset(0, 2),
+  //         ),
+  //       ],
+  //     ),
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         Text(
+  //           'Actividad Administrativa',
+  //           style: GoogleFonts.poppins(
+  //             fontSize: 18,
+  //             fontWeight: FontWeight.bold,
+  //             color: AppColors.darkGray,
+  //           ),
+  //         ),
+  //         const SizedBox(height: 16),
+  //         Container(
+  //           padding: const EdgeInsets.all(16),
+  //           decoration: BoxDecoration(
+  //             color: Colors.blue.shade50,
+  //             borderRadius: BorderRadius.circular(8),
+  //             border: Border.all(color: Colors.blue.shade200),
+  //           ),
+  //           child: Row(
+  //             children: [
+  //               Icon(Icons.business_center, color: Colors.blue.shade700, size: 32),
+  //               const SizedBox(width: 16),
+  //               Expanded(
+  //                 child: Column(
+  //                   crossAxisAlignment: CrossAxisAlignment.start,
+  //                   children: [
+  //                     Text(
+  //                       tipoActividad,
+  //                       style: GoogleFonts.poppins(
+  //                         fontSize: 16,
+  //                         fontWeight: FontWeight.w600,
+  //                         color: AppColors.darkGray,
+  //                       ),
+  //                     ),
+  //                     if (_diaPlan!.objetivoNombre != null) ...[
+  //                       const SizedBox(height: 4),
+  //                       Text(
+  //                         'Objetivo: ${_diaPlan!.objetivoNombre}',
+  //                         style: GoogleFonts.poppins(
+  //                           fontSize: 14,
+  //                           color: AppColors.mediumGray,
+  //                         ),
+  //                       ),
+  //                     ],
+  //                   ],
+  //                 ),
+  //               ),
+  //             ],
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
+
+  Widget _buildClienteTile(VisitaClienteUnificadaHive visita) {
+    Color estadoColor;
+    IconData estadoIcon;
+    String estadoTexto;
+    
+    switch (visita.estatus) {
+      case 'completada':
+        estadoColor = AppColors.dianaGreen;
+        estadoIcon = Icons.check_circle;
+        estadoTexto = 'Completada';
+        break;
+      case 'en_proceso':
+        estadoColor = AppColors.dianaYellow;
+        estadoIcon = Icons.timelapse;
+        estadoTexto = 'En proceso';
+        break;
+      default:
+        estadoColor = AppColors.mediumGray;
+        estadoIcon = Icons.pending;
+        estadoTexto = 'Pendiente';
+    }
+    
+    final tieneFormularios = _diaPlan!.formularios.any((f) => f.clienteId == visita.clienteId);
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: estadoColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(estadoIcon, color: estadoColor, size: 24),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Cliente ${visita.clienteId}',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.darkGray,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Text(
+                      estadoTexto,
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: estadoColor,
+                      ),
+                    ),
+                    if (visita.horaInicio != null) ...[
+                      const SizedBox(width: 12),
+                      Icon(Icons.access_time, size: 12, color: AppColors.mediumGray),
+                      const SizedBox(width: 4),
+                      Text(
+                        visita.horaInicio!,
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: AppColors.mediumGray,
+                        ),
+                      ),
+                    ],
+                    if (tieneFormularios) ...[
+                      const SizedBox(width: 12),
+                      Icon(Icons.assignment_turned_in, size: 12, color: AppColors.dianaGreen),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Icon(Icons.chevron_right, color: AppColors.mediumGray),
+        ],
+      ),
+    );
+  }
+
+  bool _tieneActividadesParaMostrar() {
+    if (_planSeleccionado == null) return false;
+    
+    return _planSeleccionado!.dias.values.any((dia) => 
+      dia.configurado && (dia.clientes.isNotEmpty || dia.tipo == 'administrativo')
     );
   }
   
