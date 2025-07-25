@@ -38,8 +38,10 @@ class PantallaDetalleEvaluacion extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Detalle de Evaluación'),
-        backgroundColor: const Color(0xFFDE1327),
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF1C2120),
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Color(0xFF1C2120)),
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -50,9 +52,9 @@ class PantallaDetalleEvaluacion extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: Colors.grey.shade50,
                 border: Border(
-                  bottom: BorderSide(color: color.withOpacity(0.3), width: 2),
+                  bottom: BorderSide(color: Colors.grey.shade200),
                 ),
               ),
               child: Column(
@@ -121,18 +123,26 @@ class PantallaDetalleEvaluacion extends StatelessWidget {
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.grey.shade50,
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade300),
+                border: Border.all(color: Colors.grey.shade200),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Información de la Evaluación',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
+                      color: const Color(0xFF1C2120),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -155,11 +165,12 @@ class PantallaDetalleEvaluacion extends StatelessWidget {
             // Respuestas por categoría
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 16),
-              child: const Text(
+              child: Text(
                 'Detalle de Respuestas',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
+                  color: const Color(0xFF1C2120),
                 ),
               ),
             ),

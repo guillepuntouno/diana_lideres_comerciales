@@ -46,9 +46,9 @@ class _EvaluacionCardState extends State<EvaluacionCard>
   }
 
   Color _getColorPorPonderacion(double ponderacion) {
-    if (ponderacion >= 8.0) return Theme.of(context).colorScheme.primary;
-    if (ponderacion >= 6.0) return Colors.orange;
-    return Theme.of(context).colorScheme.error;
+    if (ponderacion >= 8.0) return const Color(0xFF38A169); // Verde
+    if (ponderacion >= 6.0) return const Color(0xFFF6C343); // Amarillo
+    return const Color(0xFFE53E3E); // Rojo
   }
 
   String _getTextoEstatus(double ponderacion) {
@@ -111,35 +111,32 @@ class _EvaluacionCardState extends State<EvaluacionCard>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Badge de puntuación compacto
-                      Hero(
-                        tag: 'score-${evaluacion.id}',
-                        child: Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: color.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                evaluacion.ponderacionFinal.toStringAsFixed(1),
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: color,
-                                ),
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: color.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              evaluacion.ponderacionFinal.toStringAsFixed(1),
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: color,
                               ),
-                              Text(
-                                'pts',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: color.withOpacity(0.8),
-                                ),
+                            ),
+                            Text(
+                              'pts',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: color.withOpacity(0.8),
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -327,14 +324,15 @@ class _EvaluacionCardState extends State<EvaluacionCard>
                                 Text(
                                   _isExpanded ? 'Ver menos' : 'Ver más',
                                   style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.primary,
+                                    color: const Color(0xFF1C2120),
                                     fontSize: 11,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                                 Icon(
                                   _isExpanded ? Icons.expand_less : Icons.expand_more,
                                   size: 16,
-                                  color: theme.colorScheme.primary,
+                                  color: const Color(0xFF1C2120),
                                 ),
                               ],
                             ),

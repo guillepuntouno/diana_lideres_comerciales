@@ -199,9 +199,10 @@ class _PantallaEvaluacionesLiderV2State extends State<PantallaEvaluacionesLiderV
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
         title: const Text('Evaluaciones de Desempeño'),
-        backgroundColor: theme.colorScheme.primary,
-        foregroundColor: theme.colorScheme.onPrimary,
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF1C2120),
         elevation: 0,
+        iconTheme: const IconThemeData(color: Color(0xFF1C2120)),
       ),
       body: Column(
         children: [
@@ -210,10 +211,9 @@ class _PantallaEvaluacionesLiderV2State extends State<PantallaEvaluacionesLiderV
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: theme.colorScheme.primary,
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(24),
-                bottomRight: Radius.circular(24),
+              color: Colors.grey.shade50,
+              border: Border(
+                bottom: BorderSide(color: Colors.grey.shade200),
               ),
             ),
             child: SingleChildScrollView(
@@ -272,19 +272,19 @@ class _PantallaEvaluacionesLiderV2State extends State<PantallaEvaluacionesLiderV
           });
           HapticFeedback.lightImpact();
         },
-        selectedColor: theme.colorScheme.surface,
-        backgroundColor: theme.colorScheme.primary.withOpacity(0.3),
-        checkmarkColor: theme.colorScheme.primary,
+        selectedColor: const Color(0xFFDE1327).withOpacity(0.1),
+        backgroundColor: Colors.white,
+        checkmarkColor: const Color(0xFFDE1327),
         labelStyle: TextStyle(
           color: isSelected 
-              ? theme.colorScheme.primary 
-              : theme.colorScheme.onPrimary,
+              ? const Color(0xFFDE1327) 
+              : const Color(0xFF1C2120),
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
         ),
         side: BorderSide(
           color: isSelected 
-              ? theme.colorScheme.surface 
-              : theme.colorScheme.primary.withOpacity(0.3),
+              ? const Color(0xFFDE1327) 
+              : Colors.grey.shade300,
         ),
         materialTapTargetSize: MaterialTapTargetSize.padded,
       ),
@@ -318,30 +318,24 @@ class _PantallaEvaluacionesLiderV2State extends State<PantallaEvaluacionesLiderV
             ),
             content: Column(
               children: evaluaciones.map((evaluacion) {
-                return Hero(
-                  tag: 'card-${evaluacion.id}',
-                  child: Material(
-                    type: MaterialType.transparency,
-                    child: EvaluacionCard(
-                      evaluacion: evaluacion,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          PageRouteBuilder(
-                            pageBuilder: (context, animation, secondaryAnimation) => 
-                                PantallaDetalleEvaluacion(evaluacion: evaluacion),
-                            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                              return FadeTransition(
-                                opacity: animation,
-                                child: child,
-                              );
-                            },
-                            transitionDuration: const Duration(milliseconds: 300),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
+                return EvaluacionCard(
+                  evaluacion: evaluacion,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      PageRouteBuilder(
+                        pageBuilder: (context, animation, secondaryAnimation) => 
+                            PantallaDetalleEvaluacion(evaluacion: evaluacion),
+                        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                          return FadeTransition(
+                            opacity: animation,
+                            child: child,
+                          );
+                        },
+                        transitionDuration: const Duration(milliseconds: 300),
+                      ),
+                    );
+                  },
                 );
               }).toList(),
             ),
