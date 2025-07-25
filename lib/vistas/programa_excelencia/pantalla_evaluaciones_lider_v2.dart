@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:diana_lc_front/shared/modelos/hive/resultado_excelencia_hive.dart';
-import 'package:diana_lc_front/vistas/programa_excelencia/pantalla_detalle_evaluacion.dart';
+import 'package:diana_lc_front/vistas/programa_excelencia/pantalla_detalle_evaluacion_v2.dart';
 import 'package:diana_lc_front/vistas/programa_excelencia/widgets/evaluacion_card.dart';
 import 'package:sticky_headers/sticky_headers.dart';
 
@@ -325,7 +325,7 @@ class _PantallaEvaluacionesLiderV2State extends State<PantallaEvaluacionesLiderV
                       context,
                       PageRouteBuilder(
                         pageBuilder: (context, animation, secondaryAnimation) => 
-                            PantallaDetalleEvaluacion(evaluacion: evaluacion),
+                            PantallaDetalleEvaluacionV2(evaluacion: evaluacion),
                         transitionsBuilder: (context, animation, secondaryAnimation, child) {
                           return FadeTransition(
                             opacity: animation,
