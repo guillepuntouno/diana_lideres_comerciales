@@ -5,6 +5,7 @@ import 'package:diana_lc_front/shared/servicios/sesion_servicio.dart';
 import 'package:diana_lc_front/shared/modelos/user_dto.dart';
 import 'package:diana_lc_front/web/vistas/gestion_datos/formulario/formulario_list_page.dart';
 import 'package:diana_lc_front/web/vistas/evaluacion_desempeno/pantalla_evaluacion_desempeno.dart';
+import 'package:diana_lc_front/shared/servicios/formularios_api_service.dart';
 
 class PantallaAdministracion extends StatefulWidget {
   const PantallaAdministracion({Key? key}) : super(key: key);
@@ -15,6 +16,7 @@ class PantallaAdministracion extends StatefulWidget {
 
 class _PantallaAdministracionState extends State<PantallaAdministracion> {
   final SesionServicio _sesionServicio = SesionServicio();
+  final FormulariosApiService _formulariosApiService = FormulariosApiService();
   
   String _vistaSeleccionada = 'dashboard';
   List<UsuarioDto> _usuarios = [];
@@ -28,6 +30,11 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
   String? _selectedCentro;
   String? _selectedRuta;
   Map<String, dynamic>? _selectedRutaData;
+  
+  // Variables para formularios
+  List<Map<String, dynamic>> _formulariosProgramaExcelencia = [];
+  String? _selectedFormulario;
+  bool _isLoadingFormularios = false;
   
   // Datos hardcoded para los filtros en cascada
   final List<Map<String, dynamic>> _paisesData = [
@@ -1451,6 +1458,11 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
                                 _selectedRuta = value;
                                 if (value != null) {
                                   _selectedRutaData = _rutasDisponibles.firstWhere((r) => r['id'] == value);
+                                  // Cargar formularios cuando se selecciona una ruta
+                                  _cargarFormulariosProgramaExcelencia();
+                                } else {
+                                  _selectedFormulario = null;
+                                  _formulariosProgramaExcelencia = [];
                                 }
                               });
                             }
@@ -1521,9 +1533,51 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
                             const SizedBox(height: 20),
                             Divider(color: Colors.grey.shade300),
                             const SizedBox(height: 16),
+                            Text(
+                              'Seleccionar Formulario',
+                              style: GoogleFonts.poppins(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF1C2120),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            _isLoadingFormularios
+                                ? const Center(
+                                    child: Padding(
+                                      padding: EdgeInsets.all(20),
+                                      child: CircularProgressIndicator(),
+                                    ),
+                                  )
+                                : _buildFilterDropdown(
+                                    'Formulario de Evaluación',
+                                    _selectedFormulario,
+                                    _formulariosProgramaExcelencia.map((f) => {
+                                      'id': f['id'] as String,
+                                      'nombre': f['nombre'] as String,
+                                    }).toList(),
+                                    _formulariosProgramaExcelencia.isEmpty ? null : (value) {
+                                      setState(() {
+                                        _selectedFormulario = value;
+                                      });
+                                    },
+                                  ),
+                            if (_formulariosProgramaExcelencia.isEmpty && !_isLoadingFormularios)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text(
+                                  'No hay formularios de programa de excelencia disponibles',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 12,
+                                    color: Colors.orange,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ),
+                            const SizedBox(height: 20),
                             Center(
                               child: ElevatedButton.icon(
-                                onPressed: () => _navegarAEvaluacion(),
+                                onPressed: _selectedFormulario != null ? () => _navegarAEvaluacion() : null,
                                 icon: const Icon(Icons.assignment),
                                 label: Text(
                                   'Evaluar Desempeño',
@@ -1652,9 +1706,18 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
                                 color: const Color(0xFF8F8E8E),
                               ),
                             ),
+                            const SizedBox(height: 16),
+                            if (_selectedFormulario != null)
+                              Text(
+                                'Formulario: ${_formulariosProgramaExcelencia.firstWhere((f) => f['id'] == _selectedFormulario)['nombre']}',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  color: const Color(0xFF8F8E8E),
+                                ),
+                              ),
                             const SizedBox(height: 32),
                             ElevatedButton.icon(
-                              onPressed: () => _navegarAEvaluacion(),
+                              onPressed: _selectedFormulario != null ? () => _navegarAEvaluacion() : null,
                               icon: const Icon(Icons.assignment),
                               label: Text(
                                 'Evaluar Desempeño',
@@ -1672,6 +1735,18 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
                                 ),
                               ),
                             ),
+                            if (_selectedFormulario == null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text(
+                                  'Seleccione un formulario para continuar',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    color: Colors.orange,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ),
                           ],
                         ),
                       ),
@@ -1765,9 +1840,43 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
       _selectedCentro = null;
       _selectedRuta = null;
       _selectedRutaData = null;
+      _selectedFormulario = null;
       _centrosDisponibles = [];
       _rutasDisponibles = [];
+      _formulariosProgramaExcelencia = [];
     });
+  }
+  
+  Future<void> _cargarFormulariosProgramaExcelencia() async {
+    setState(() => _isLoadingFormularios = true);
+    
+    try {
+      // Obtener todos los formularios
+      final formularios = await _formulariosApiService.obtenerFormularios();
+      
+      // Filtrar solo los de tipo programa_excelencia que estén activos
+      _formulariosProgramaExcelencia = formularios.where((formulario) {
+        final tipo = formulario['tipo']?.toString().toLowerCase();
+        final activa = formulario['activa'] ?? false;
+        return (tipo == 'programa_excelencia' || tipo == 'programa de excelencia') && activa;
+      }).toList();
+      
+      print('📋 Formularios programa excelencia encontrados: ${_formulariosProgramaExcelencia.length}');
+      
+      setState(() => _isLoadingFormularios = false);
+    } catch (e) {
+      print('❌ Error al cargar formularios: $e');
+      setState(() => _isLoadingFormularios = false);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al cargar formularios: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
   
   void _aplicarFiltros() {
@@ -1784,12 +1893,31 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
   }
   
   void _navegarAEvaluacion() {
+    if (_selectedFormulario == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Por favor seleccione un formulario de evaluación'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    
+    final formularioSeleccionado = _formulariosProgramaExcelencia.firstWhere(
+      (f) => f['id'] == _selectedFormulario,
+    );
+    
+    // Agregar la información del formulario a rutaData para pasarla
+    final rutaDataConFormulario = Map<String, dynamic>.from(_selectedRutaData!);
+    rutaDataConFormulario['formularioId'] = _selectedFormulario;
+    rutaDataConFormulario['formularioData'] = formularioSeleccionado;
+    
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => PantallaEvaluacionDesempeno(
           liderData: _selectedRutaData!['lider'],
-          rutaData: _selectedRutaData!,
+          rutaData: rutaDataConFormulario,
           pais: _paisesData.firstWhere((p) => p['id'] == _selectedPais)['nombre'],
           centroDistribucion: _centrosDisponibles.firstWhere((c) => c['id'] == _selectedCentro)['nombre'],
         ),
