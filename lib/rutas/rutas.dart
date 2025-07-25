@@ -17,7 +17,7 @@ import 'package:diana_lc_front/vistas/debug/pantalla_debug_hive.dart';
 import 'package:diana_lc_front/vistas/resultados/pantalla_resultados_dia.dart';
 import 'package:diana_lc_front/mobile/vistas/rutinas/pantalla_rutinas_resultados.dart';
 import 'package:diana_lc_front/web/vistas/administracion/pantalla_administracion.dart';
-import 'package:diana_lc_front/vistas/programa_excelencia/pantalla_evaluaciones_lider.dart';
+import 'package:diana_lc_front/vistas/programa_excelencia/pantalla_evaluaciones_lider_v2.dart';
 
 final Map<String, WidgetBuilder> rutas = {
   '/': (BuildContext context) => const PantallaLogin(),
@@ -35,7 +35,7 @@ final Map<String, WidgetBuilder> rutas = {
   '/notificaciones': (context) => const PantallaNotificaciones(),
   '/resultados_dia': (context) => const PantallaResultadosDia(),
   '/rutinas_resultados': (context) => const PantallaRutinasResultados(),
-  '/programa_excelencia': (context) => const PantallaEvaluacionesLider(),
+  '/programa_excelencia': (context) => const PantallaEvaluacionesLiderV2(),
   
   // Rutas administrativas web
   '/administracion': (context) => const PantallaAdministracion(),

@@ -31,6 +31,27 @@ class _PantallaEvaluacionesLiderState extends State<PantallaEvaluacionesLider> {
       
       List<ResultadoExcelenciaHive> evaluaciones = box.values.toList();
       
+      // Debug: imprimir las respuestas de la primera evaluación
+      if (evaluaciones.isNotEmpty) {
+        print('=== DEBUG: Primera evaluación ===');
+        print('Total evaluaciones: ${evaluaciones.length}');
+        final primeraEval = evaluaciones.first;
+        print('ID: ${primeraEval.id}');
+        print('Líder: ${primeraEval.liderNombre}');
+        print('Total respuestas: ${primeraEval.respuestas.length}');
+        
+        for (var i = 0; i < primeraEval.respuestas.length && i < 5; i++) {
+          final resp = primeraEval.respuestas[i];
+          print('Respuesta $i:');
+          print('  - Pregunta: ${resp.preguntaTitulo}');
+          print('  - Tipo: ${resp.tipoPregunta}');
+          print('  - Respuesta: ${resp.respuesta}');
+          print('  - Tipo de respuesta: ${resp.respuesta.runtimeType}');
+          print('  - Ponderación: ${resp.ponderacion}');
+        }
+        print('=== FIN DEBUG ===');
+      }
+      
       // Ordenar por fecha más reciente
       evaluaciones.sort((a, b) => b.fechaCaptura.compareTo(a.fechaCaptura));
       

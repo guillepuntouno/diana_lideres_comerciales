@@ -168,10 +168,28 @@ class PantallaDetalleEvaluacion extends StatelessWidget {
             ...respuestasPorCategoria.entries.map((entry) {
               final categoria = entry.key;
               final respuestas = entry.value;
-              final puntajeCategoria = respuestas
-                  .where((r) => r.ponderacion != null)
-                  .fold(0.0, (sum, r) => sum + r.ponderacion!);
-              final maxPuntajeCategoria = respuestas.length * 3.0; // Asumiendo máximo 3 puntos por pregunta
+              // Calcular el puntaje real obtenido y el máximo posible
+              double puntajeCategoria = 0;
+              double maxPuntajeCategoria = 0;
+              
+              for (var respuesta in respuestas) {
+                if (respuesta.ponderacion != null) {
+                  puntajeCategoria += respuesta.ponderacion!;
+                }
+                
+                // Calcular el máximo posible de esta pregunta
+                if (respuesta.configuracionPregunta != null) {
+                  final opciones = respuesta.configuracionPregunta!['opciones'] as List<dynamic>? ?? [];
+                  double maxPuntajePregunta = 0;
+                  for (var opcion in opciones) {
+                    final puntuacion = (opcion['puntuacion'] ?? 0).toDouble();
+                    if (puntuacion > maxPuntajePregunta) {
+                      maxPuntajePregunta = puntuacion;
+                    }
+                  }
+                  maxPuntajeCategoria += maxPuntajePregunta;
+                }
+              }
 
               return Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -196,25 +214,30 @@ class PantallaDetalleEvaluacion extends StatelessWidget {
                             ),
                           ),
                         ),
+                        // Comentado temporalmente - cálculo de puntos por sección
+                        /*
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                           decoration: BoxDecoration(
                             color: _getColorPorPonderacion(
-                              (puntajeCategoria / maxPuntajeCategoria) * 10,
+                              maxPuntajeCategoria > 0 ? (puntajeCategoria / maxPuntajeCategoria) * 10 : 0,
                             ).withOpacity(0.2),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
-                            '${puntajeCategoria.toStringAsFixed(1)} pts',
+                            maxPuntajeCategoria > 0 
+                                ? '${puntajeCategoria.toStringAsFixed(1)}/${maxPuntajeCategoria.toStringAsFixed(1)} pts'
+                                : '0 pts',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
                               color: _getColorPorPonderacion(
-                                (puntajeCategoria / maxPuntajeCategoria) * 10,
+                                maxPuntajeCategoria > 0 ? (puntajeCategoria / maxPuntajeCategoria) * 10 : 0,
                               ),
                             ),
                           ),
                         ),
+                        */
                       ],
                     ),
                     children: respuestas.map((respuesta) {
@@ -240,9 +263,9 @@ class PantallaDetalleEvaluacion extends StatelessWidget {
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
-                                tienePuntaje ? Icons.check : Icons.close,
-                                size: 16,
-                                color: tienePuntaje ? Colors.green : Colors.grey,
+                                tienePuntaje ? Icons.check : Icons.circle,
+                                size: tienePuntaje ? 16 : 8,
+                                color: tienePuntaje ? Colors.green : Colors.grey.shade400,
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -262,10 +285,17 @@ class PantallaDetalleEvaluacion extends StatelessWidget {
                                     children: [
                                       Expanded(
                                         child: Text(
-                                          respuesta.respuesta?.toString() ?? 'Sin respuesta',
+                                          respuesta.respuesta != null 
+                                              ? respuesta.respuesta.toString()
+                                              : 'Sin respuesta',
                                           style: TextStyle(
                                             fontSize: 13,
-                                            color: Colors.grey.shade700,
+                                            color: respuesta.respuesta != null 
+                                                ? Colors.grey.shade700
+                                                : Colors.red.shade400,
+                                            fontWeight: respuesta.respuesta != null 
+                                                ? FontWeight.normal 
+                                                : FontWeight.w500,
                                           ),
                                         ),
                                       ),
@@ -277,9 +307,9 @@ class PantallaDetalleEvaluacion extends StatelessWidget {
                                             vertical: 2,
                                           ),
                                           decoration: BoxDecoration(
-                                            color: _getColorPorPonderacion(
-                                              (respuesta.ponderacion! / 3) * 10,
-                                            ).withOpacity(0.2),
+                                            color: respuesta.ponderacion! > 0 
+                                                ? Colors.green.withOpacity(0.2)
+                                                : Colors.grey.withOpacity(0.2),
                                             borderRadius: BorderRadius.circular(8),
                                           ),
                                           child: Text(
@@ -287,9 +317,9 @@ class PantallaDetalleEvaluacion extends StatelessWidget {
                                             style: TextStyle(
                                               fontSize: 11,
                                               fontWeight: FontWeight.bold,
-                                              color: _getColorPorPonderacion(
-                                                (respuesta.ponderacion! / 3) * 10,
-                                              ),
+                                              color: respuesta.ponderacion! > 0 
+                                                  ? Colors.green.shade700
+                                                  : Colors.grey.shade600,
                                             ),
                                           ),
                                         ),

@@ -29,6 +29,8 @@ dependencies:
   app_links: ^6.1.1
   diacritic: ^0.1.5
   flutter_riverpod: ^2.5.1
+  sticky_headers: ^0.3.0+2
+  shimmer: ^3.0.0
 
 dev_dependencies:
   flutter_test:

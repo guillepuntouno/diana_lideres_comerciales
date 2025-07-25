@@ -979,11 +979,18 @@ class _PantallaEvaluacionDesempenoState extends State<PantallaEvaluacionDesempen
       List<RespuestaEvaluacionHive> respuestasHive = [];
       
       if (_formulario.containsKey('preguntas')) {
+        print('=== DEBUG GUARDADO ===');
+        print('Total preguntas: ${_formulario['preguntas'].length}');
+        print('Respuestas guardadas: ${_respuestas.length}');
+        
         for (var pregunta in _formulario['preguntas']) {
-          final respuesta = _respuestas[pregunta['name']];
+          final nombre = pregunta['name'];
+          final respuesta = _respuestas[nombre];
+          print('Pregunta: $nombre - Respuesta: $respuesta');
+          
+          // Calcular ponderación para esta respuesta
+          double? ponderacion;
           if (respuesta != null && respuesta.toString().isNotEmpty) {
-            // Calcular ponderación para esta respuesta
-            double? ponderacion;
             if (pregunta['type'] == 'select' || pregunta['type'] == 'radio') {
               final opciones = pregunta['opciones'] as List<dynamic>? ?? [];
               for (var opcion in opciones) {
@@ -993,18 +1000,19 @@ class _PantallaEvaluacionDesempenoState extends State<PantallaEvaluacionDesempen
                 }
               }
             }
-            
-            respuestasHive.add(RespuestaEvaluacionHive(
-              preguntaId: pregunta['name'] ?? '',
-              preguntaTitulo: pregunta['etiqueta'] ?? pregunta['name'] ?? '',
-              categoria: pregunta['section'] ?? 'General',
-              tipoPregunta: pregunta['type'] ?? 'text',
-              respuesta: respuesta,
-              ponderacion: ponderacion,
-              timestampRespuesta: DateTime.now(),
-              configuracionPregunta: pregunta,
-            ));
           }
+          
+          // Guardar TODAS las preguntas, incluso las no respondidas
+          respuestasHive.add(RespuestaEvaluacionHive(
+            preguntaId: pregunta['name'] ?? '',
+            preguntaTitulo: pregunta['etiqueta'] ?? pregunta['name'] ?? '',
+            categoria: pregunta['section'] ?? 'General',
+            tipoPregunta: pregunta['type'] ?? 'text',
+            respuesta: respuesta, // Puede ser null si no se respondió
+            ponderacion: ponderacion,
+            timestampRespuesta: DateTime.now(),
+            configuracionPregunta: pregunta,
+          ));
         }
       }
       
