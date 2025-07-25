@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:diana_lc_front/shared/servicios/sesion_servicio.dart';
 import 'package:diana_lc_front/shared/modelos/user_dto.dart';
 import 'package:diana_lc_front/web/vistas/gestion_datos/formulario/formulario_list_page.dart';
+import 'package:diana_lc_front/web/vistas/evaluacion_desempeno/pantalla_evaluacion_desempeno.dart';
 
 class PantallaAdministracion extends StatefulWidget {
   const PantallaAdministracion({Key? key}) : super(key: key);
@@ -21,6 +22,44 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
   List<Map<String, dynamic>> _permisos = [];
   bool _isLoading = false;
   String _busqueda = '';
+  
+  // Variables para filtros del Programa de Excelencia
+  String? _selectedPais;
+  String? _selectedCentro;
+  String? _selectedRuta;
+  Map<String, dynamic>? _selectedRutaData;
+  
+  // Datos hardcoded para los filtros en cascada
+  final List<Map<String, dynamic>> _paisesData = [
+    {
+      "id": "ssv01",
+      "nombre": "El Salvador",
+      "centrosDistribucion": [
+        {
+          "id": "CD01",
+          "nombre": "Centro de Servicio",
+          "rutas": [
+            {
+              "id": "MORD10",
+              "nombre": "MORD10",
+              "canalVenta": "Tradicional",
+              "subcanalVenta": "Detalle",
+              "estadoRuta": "Activo",
+              "lider": {
+                "id": "230",
+                "nombre": "LIDER MER03 - GRUPO 3",
+                "correo": "felix.hernandez@diana.com.sv"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ];
+  
+  // Listas dinámicas que se actualizan según la selección
+  List<Map<String, dynamic>> _centrosDisponibles = [];
+  List<Map<String, dynamic>> _rutasDisponibles = [];
   
   @override
   void initState() {
@@ -94,7 +133,7 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
           Padding(
             padding: const EdgeInsets.all(20),
             child: Text(
-              'Administración',
+              'Dashboard',
               style: GoogleFonts.poppins(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -179,7 +218,7 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
           const Spacer(),
           
           // Search bar
-          if (_vistaSeleccionada != 'configuracion') ...[
+          if (_vistaSeleccionada != 'configuracion' && _vistaSeleccionada != 'dashboard' && _vistaSeleccionada != 'formularios') ...[
             SizedBox(
               width: 300,
               child: TextField(
@@ -201,8 +240,7 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
           // Actions
           if (_vistaSeleccionada == 'usuarios' || 
               _vistaSeleccionada == 'roles' || 
-              _vistaSeleccionada == 'permisos' ||
-              _vistaSeleccionada == 'formularios') ...[
+              _vistaSeleccionada == 'permisos') ...[
             ElevatedButton.icon(
               onPressed: _vistaSeleccionada == 'formularios' ? _navegarAFormularios : _agregarNuevo,
               icon: const Icon(Icons.add),
@@ -1064,7 +1102,7 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
         children: [
           // Título principal
           Text(
-            'Dashboard de Administración',
+            'Métricas y estadísticas',
             style: GoogleFonts.poppins(
               fontSize: 32,
               fontWeight: FontWeight.bold,
@@ -1072,15 +1110,7 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
               letterSpacing: -0.5,
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Métricas y estadísticas principales del sistema',
-            style: GoogleFonts.poppins(
-              fontSize: 18,
-              color: const Color(0xFF8F8E8E),
-            ),
-          ),
-          const SizedBox(height: 40),
+          const SizedBox(height: 24),
           
           // Grid de métricas
           Expanded(
@@ -1307,23 +1337,11 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
   }
   
   Widget _buildProgramaExcelenciaView() {
-    return Center(
+    return Padding(
+      padding: const EdgeInsets.all(24),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFC107).withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.star,
-              size: 80,
-              color: const Color(0xFFFFC107),
-            ),
-          ),
-          const SizedBox(height: 24),
           Text(
             'Programa de Excelencia',
             style: GoogleFonts.poppins(
@@ -1340,9 +1358,11 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
               color: const Color(0xFF8F8E8E),
             ),
           ),
-          const SizedBox(height: 48),
+          const SizedBox(height: 32),
+          
+          // Filtros en cascada
           Container(
-            padding: const EdgeInsets.all(32),
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
@@ -1355,33 +1375,424 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
               ],
             ),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  Icons.construction,
-                  size: 64,
-                  color: Colors.grey[400],
-                ),
-                const SizedBox(height: 16),
                 Text(
-                  'Módulo en construcción',
+                  'Filtros de búsqueda',
                   style: GoogleFonts.poppins(
                     fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey[600],
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF1C2120),
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Esta funcionalidad estará disponible próximamente',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    color: Colors.grey[500],
-                  ),
+                const SizedBox(height: 24),
+                
+                // Grid de filtros
+                Column(
+                  children: [
+                    // Primera fila de filtros
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildFilterDropdown(
+                            'País', 
+                            _selectedPais, 
+                            _paisesData.map((p) => {'id': p['id'] as String, 'nombre': p['nombre'] as String}).toList(),
+                            (value) {
+                              setState(() {
+                                _selectedPais = value;
+                                _selectedCentro = null;
+                                _selectedRuta = null;
+                                _selectedRutaData = null;
+                                
+                                // Actualizar centros disponibles
+                                if (value != null) {
+                                  final pais = _paisesData.firstWhere((p) => p['id'] == value);
+                                  _centrosDisponibles = List<Map<String, dynamic>>.from(pais['centrosDistribucion']);
+                                } else {
+                                  _centrosDisponibles = [];
+                                }
+                                _rutasDisponibles = [];
+                              });
+                            }
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildFilterDropdown(
+                            'Centro de Distribución', 
+                            _selectedCentro, 
+                            _centrosDisponibles.map((c) => {'id': c['id'] as String, 'nombre': c['nombre'] as String}).toList(),
+                            _selectedPais == null ? null : (value) {
+                              setState(() {
+                                _selectedCentro = value;
+                                _selectedRuta = null;
+                                _selectedRutaData = null;
+                                
+                                // Actualizar rutas disponibles
+                                if (value != null) {
+                                  final centro = _centrosDisponibles.firstWhere((c) => c['id'] == value);
+                                  _rutasDisponibles = List<Map<String, dynamic>>.from(centro['rutas']);
+                                } else {
+                                  _rutasDisponibles = [];
+                                }
+                              });
+                            }
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildFilterDropdown(
+                            'Ruta', 
+                            _selectedRuta, 
+                            _rutasDisponibles.map((r) => {'id': r['id'] as String, 'nombre': r['nombre'] as String}).toList(),
+                            _selectedCentro == null ? null : (value) {
+                              setState(() {
+                                _selectedRuta = value;
+                                if (value != null) {
+                                  _selectedRutaData = _rutasDisponibles.firstWhere((r) => r['id'] == value);
+                                }
+                              });
+                            }
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 24),
+                    
+                    // Información de la ruta seleccionada
+                    if (_selectedRutaData != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Información de la Ruta',
+                              style: GoogleFonts.poppins(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF1C2120),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildInfoItem('Canal de Venta', _selectedRutaData!['canalVenta']),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _buildInfoItem('Subcanal de Venta', _selectedRutaData!['subcanalVenta']),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _buildInfoItem('Estado', _selectedRutaData!['estadoRuta']),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Información del Líder',
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF1C2120),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildInfoItem('Nombre', _selectedRutaData!['lider']['nombre']),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _buildInfoItem('Correo', _selectedRutaData!['lider']['correo']),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+                            Divider(color: Colors.grey.shade300),
+                            const SizedBox(height: 16),
+                            Center(
+                              child: ElevatedButton.icon(
+                                onPressed: () => _navegarAEvaluacion(),
+                                icon: const Icon(Icons.assignment),
+                                label: Text(
+                                  'Evaluar Desempeño',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFDE1327),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                
+                const SizedBox(height: 24),
+                
+                // Botones de acción
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton.icon(
+                      onPressed: _limpiarFiltros,
+                      icon: const Icon(Icons.clear),
+                      label: Text(
+                        'Limpiar filtros',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
+          
+          const SizedBox(height: 24),
+          
+          // Área de resultados
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: _selectedRutaData == null
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.assessment,
+                            size: 80,
+                            color: Colors.grey[300],
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            'Seleccione los filtros para ver resultados',
+                            style: GoogleFonts.poppins(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Los datos del programa de excelencia se mostrarán aquí',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              color: Colors.grey[500],
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : Center(
+                      child: Container(
+                        padding: const EdgeInsets.all(32),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.check_circle_outline,
+                              size: 64,
+                              color: const Color(0xFF38A169),
+                            ),
+                            const SizedBox(height: 24),
+                            Text(
+                              'Líder Seleccionado',
+                              style: GoogleFonts.poppins(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF1C2120),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _selectedRutaData!['lider']['nombre'],
+                              style: GoogleFonts.poppins(
+                                fontSize: 18,
+                                color: const Color(0xFF8F8E8E),
+                              ),
+                            ),
+                            const SizedBox(height: 32),
+                            ElevatedButton.icon(
+                              onPressed: () => _navegarAEvaluacion(),
+                              icon: const Icon(Icons.assignment),
+                              label: Text(
+                                'Evaluar Desempeño',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFDE1327),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+  
+  Widget _buildFilterDropdown(String label, String? value, List<Map<String, String>> items, Function(String?)? onChanged) {
+    final isEnabled = onChanged != null;
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: isEnabled ? const Color(0xFF8F8E8E) : Colors.grey.shade400,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: isEnabled ? Colors.grey.shade300 : Colors.grey.shade200),
+            borderRadius: BorderRadius.circular(8),
+            color: isEnabled ? Colors.white : Colors.grey.shade50,
+          ),
+          child: DropdownButtonFormField<String>(
+            value: value,
+            decoration: const InputDecoration(
+              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              border: InputBorder.none,
+            ),
+            hint: Text(
+              isEnabled ? 'Seleccionar' : 'Seleccione primero ${label == 'Centro de Distribución' ? 'un país' : 'un centro'}',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: Colors.grey.shade600,
+              ),
+            ),
+            icon: Icon(Icons.arrow_drop_down, color: isEnabled ? null : Colors.grey.shade400),
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              color: const Color(0xFF1C2120),
+            ),
+            onChanged: onChanged,
+            items: items.map((item) {
+              return DropdownMenuItem<String>(
+                value: item['id'],
+                child: Text(item['nombre'] ?? ''),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildInfoItem(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            color: const Color(0xFF8F8E8E),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: const Color(0xFF1C2120),
+          ),
+        ),
+      ],
+    );
+  }
+  
+  void _limpiarFiltros() {
+    setState(() {
+      _selectedPais = null;
+      _selectedCentro = null;
+      _selectedRuta = null;
+      _selectedRutaData = null;
+      _centrosDisponibles = [];
+      _rutasDisponibles = [];
+    });
+  }
+  
+  void _aplicarFiltros() {
+    // Aquí se implementaría la lógica para aplicar los filtros
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Filtros aplicados: País: ${_selectedPais ?? "Todos"}, Centro: ${_selectedCentro ?? "Todos"}, Ruta: ${_selectedRuta ?? "Todos"}',
+          style: GoogleFonts.poppins(),
+        ),
+        backgroundColor: const Color(0xFFDE1327),
+      ),
+    );
+  }
+  
+  void _navegarAEvaluacion() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PantallaEvaluacionDesempeno(
+          liderData: _selectedRutaData!['lider'],
+          rutaData: _selectedRutaData!,
+          pais: _paisesData.firstWhere((p) => p['id'] == _selectedPais)['nombre'],
+          centroDistribucion: _centrosDisponibles.firstWhere((c) => c['id'] == _selectedCentro)['nombre'],
+        ),
       ),
     );
   }
