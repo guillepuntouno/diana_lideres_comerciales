@@ -466,7 +466,7 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
                       _MenuItem(
                         icon: Icons.assignment_turned_in_outlined,
                         title: 'Programa de excelencia',
-                        onTap: null,
+                        onTap: () => Navigator.pushNamed(context, '/programa_excelencia'),
                       ),
                     ],
                     crossAxisCount: crossAxisCount,
