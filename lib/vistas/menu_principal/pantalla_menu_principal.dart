@@ -485,7 +485,7 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
                       _MenuItem(
                         icon: Icons.insert_chart_outlined_rounded,
                         title: 'Reporte de acuerdos',
-                        onTap: null,
+                        onTap: () => Navigator.pushNamed(context, '/reporte_acuerdos'),
                       ),
                     ],
                     crossAxisCount: crossAxisCount,
