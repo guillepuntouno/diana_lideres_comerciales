@@ -32,6 +32,7 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
   late String liderNombre;
   late String codigoDiaVisita;
   late DateTime fechaReal;
+  String asesorRecibido = ''; // Asesor recibido desde programar_dia
   bool esEdicion = false;
 
   // Datos precargados
@@ -60,6 +61,7 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
     liderNombre = args['liderNombre'] ?? '';
     codigoDiaVisita = args['codigoDiaVisita'] ?? '';
     fechaReal = args['fecha'] ?? DateTime.now();
+    asesorRecibido = args['asesor'] ?? ''; // Recibir el nombre del asesor
     esEdicion = args['esEdicion'] ?? false;
 
     _cargarDatos();
@@ -69,23 +71,41 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
     setState(() => _cargando = true);
 
     try {
+      // Debug: Verificar datos recibidos
+      print('🔍 Datos recibidos en AsignacionClientes:');
+      print('   - Asesor recibido: "$asesorRecibido"');
+      print('   - Ruta seleccionada: "$rutaSeleccionada"');
+      print('   - Líder ID: "$liderId"');
+      
       // Cargar datos del líder comercial
       _liderComercial = await SesionServicio.obtenerLiderComercial();
 
       if (_liderComercial != null) {
+        print('📋 Buscando ruta en ${_liderComercial!.rutas.length} rutas disponibles');
+        
         // Encontrar la ruta seleccionada
         _rutaActual = _liderComercial!.rutas.firstWhere(
-          (ruta) => ruta.nombre == rutaSeleccionada,
-          orElse:
-              () => Ruta(
-                asesor: 'Asesor no encontrado',
-                nombre: rutaSeleccionada,
-                negocios: [],
-              ),
+          (ruta) {
+            print('   Comparando: "${ruta.nombre}" vs "$rutaSeleccionada"');
+            return ruta.nombre == rutaSeleccionada;
+          },
+          orElse: () {
+            print('⚠️ Ruta no encontrada, usando valores por defecto');
+            return Ruta(
+              asesor: asesorRecibido.isNotEmpty ? asesorRecibido : 'Asesor no encontrado',
+              nombre: rutaSeleccionada,
+              negocios: [],
+            );
+          },
         );
 
-        // Precargar asesor
-        _asesorAsignado = _rutaActual!.asesor;
+        print('✅ Ruta encontrada:');
+        print('   - Nombre: ${_rutaActual!.nombre}');
+        print('   - Asesor en ruta: ${_rutaActual!.asesor}');
+        
+        // Usar el asesor recibido si está disponible, de lo contrario usar el de la ruta
+        _asesorAsignado = asesorRecibido.isNotEmpty ? asesorRecibido : _rutaActual!.asesor;
+        print('   - Asesor asignado final: $_asesorAsignado');
 
         // Cargar clientes desde el servicio AWS
         await _cargarClientesDeRuta();
@@ -178,8 +198,9 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
         }
 
         // Actualizar la ruta en memoria para mantener los datos
+        // IMPORTANTE: Preservar el asesor recibido si está disponible
         _rutaActual = Ruta(
-          asesor: _rutaActual!.asesor,
+          asesor: _asesorAsignado, // Usar el asesor ya asignado que incluye el recibido
           nombre: _rutaActual!.nombre,
           negocios: _clientesDisponibles,
         );

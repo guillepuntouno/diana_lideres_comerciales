@@ -1326,6 +1326,42 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                                 ? args['datosExistentes']['clientesAsignados'] as List<dynamic>
                                 : [];
                             
+                            // Obtener el nombre del asesor de la ruta seleccionada
+                            String nombreAsesor = '';
+                            if (_rutaSeleccionada != null && _rutasDisponibles.isNotEmpty) {
+                              print('🔍 Extrayendo asesor de la ruta seleccionada:');
+                              print('   - Ruta seleccionada: "$_rutaSeleccionada"');
+                              print('   - Total rutas disponibles: ${_rutasDisponibles.length}');
+                              
+                              // Mostrar todas las rutas disponibles para debug
+                              for (var i = 0; i < _rutasDisponibles.length; i++) {
+                                final ruta = _rutasDisponibles[i];
+                                print('   - Ruta[$i]: nombre="${ruta.nombre}", asesor="${ruta.asesor}"');
+                              }
+                              
+                              final rutaEncontrada = _rutasDisponibles.firstWhere(
+                                (ruta) => ruta.nombre == _rutaSeleccionada,
+                                orElse: () {
+                                  print('⚠️ No se encontró la ruta "$_rutaSeleccionada" en las rutas disponibles');
+                                  print('⚠️ Usando valor por defecto');
+                                  return Ruta(
+                                    asesor: 'Asesor no disponible',
+                                    nombre: _rutaSeleccionada!,
+                                    negocios: [],
+                                  );
+                                },
+                              );
+                              
+                              nombreAsesor = rutaEncontrada.asesor;
+                              print('✅ Asesor encontrado: "$nombreAsesor"');
+                              print('✅ Ruta encontrada: "${rutaEncontrada.nombre}"');
+                            } else {
+                              print('⚠️ Condiciones no cumplidas:');
+                              print('   - _rutaSeleccionada: $_rutaSeleccionada');
+                              print('   - _rutasDisponibles.isNotEmpty: ${_rutasDisponibles.isNotEmpty}');
+                              nombreAsesor = 'Asesor no disponible';
+                            }
+                            
                             final resultado = await Navigator.pushNamed(
                               context,
                               '/asignacion_clientes',
@@ -1336,6 +1372,7 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                                 'semana': semana,
                                 'liderId': liderId,
                                 'liderNombre': _liderComercial?.nombre ?? '', // Agregar nombre del líder
+                                'asesor': nombreAsesor, // Pasar el nombre del asesor
                                 'esEdicion': esEdicion,
                                 'codigoDiaVisita': _codigoDiaVisita, // Pasar código del día
                                 'fecha': _fechaReal, // Pasar la fecha también
