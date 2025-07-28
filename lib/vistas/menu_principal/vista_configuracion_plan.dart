@@ -2548,6 +2548,8 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                                             _mostrarResumenDia(dia, _planActual!.dias[dia]!);
                                           } else if (value == 'editar') {
                                             _navegarAEditarDia(dia, fechaDia, indice);
+                                          } else if (value == 'eliminar') {
+                                            _confirmarEliminarDia(dia);
                                           }
                                         },
                                         itemBuilder: (BuildContext context) => [
@@ -2561,7 +2563,7 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                                               ],
                                             ),
                                           ),
-                                          if (esEditable)
+                                          if (esEditable) ...[
                                             PopupMenuItem<String>(
                                               value: 'editar',
                                               child: Row(
@@ -2572,6 +2574,17 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                                                 ],
                                               ),
                                             ),
+                                            PopupMenuItem<String>(
+                                              value: 'eliminar',
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                                                  SizedBox(width: 8),
+                                                  Text('Eliminar', style: TextStyle(color: Colors.red)),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
                                         ],
                                       )
                                     else
@@ -2919,6 +2932,9 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
       return;
     }
     
+    // Si hay datos existentes del día, incluirlos en los argumentos
+    final diaExistente = _planActual!.dias[dia];
+    
     final resultado = await Navigator.pushNamed(
       context,
       '/programar_dia',
@@ -2927,7 +2943,19 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
         'semana': _planActual!.semana,
         'liderId': _planActual!.liderId,
         'fecha': fechaDia,
-        'esEdicion': _planActual!.estatus == 'enviado',
+        'esEdicion': true, // Siempre true cuando se navega desde editar
+        // Pasar los datos existentes si los hay
+        if (diaExistente != null) ...{
+          'datosExistentes': {
+            'objetivo': diaExistente.objetivo,
+            'tipoActividad': diaExistente.tipoActividad,
+            'rutaId': diaExistente.rutaId,
+            'rutaNombre': diaExistente.rutaNombre,
+            'comentario': diaExistente.comentario,
+            'codigoDiaVisita': diaExistente.codigoDiaVisita,
+            'clientesAsignados': diaExistente.clientesAsignados.map((c) => c.toJson()).toList(),
+          },
+        },
       },
     );
 
@@ -2965,6 +2993,214 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
         print('Error al recargar plan: $e');
         if (mounted) {
           setState(() => _cargando = false);
+        }
+      }
+    }
+  }
+  
+  Future<void> _confirmarEliminarDia(String dia) async {
+    final diaData = _planActual!.dias[dia];
+    if (diaData == null) return;
+    
+    final confirmado = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red.shade100,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.delete_outline,
+                color: Colors.red.shade700,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Eliminar configuración',
+              style: GoogleFonts.poppins(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF1C2120),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '¿Está seguro de eliminar la configuración del día $dia?',
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                color: Colors.grey.shade700,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.warning_amber, color: Colors.orange.shade700, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Esta acción no se puede deshacer',
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        color: Colors.orange.shade700,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Mostrar resumen de lo que se eliminará
+            if (diaData.objetivo != null) ...[
+              Text(
+                'Se eliminará:',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF1C2120),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '• Objetivo: ${diaData.objetivo}',
+                      style: GoogleFonts.poppins(fontSize: 13),
+                    ),
+                    if (diaData.rutaNombre != null)
+                      Text(
+                        '• Ruta: ${diaData.rutaNombre}',
+                        style: GoogleFonts.poppins(fontSize: 13),
+                      ),
+                    if (diaData.clientesAsignados.isNotEmpty)
+                      Text(
+                        '• ${diaData.clientesAsignados.length} clientes asignados',
+                        style: GoogleFonts.poppins(fontSize: 13),
+                      ),
+                    if (diaData.tipoActividad != null)
+                      Text(
+                        '• Tipo: ${diaData.tipoActividad}',
+                        style: GoogleFonts.poppins(fontSize: 13),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Cancelar',
+              style: GoogleFonts.poppins(
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Text(
+              'Eliminar',
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirmado == true) {
+      try {
+        // Mostrar loading
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: CircularProgressIndicator(
+              color: Color(0xFFDE1327),
+            ),
+          ),
+        );
+        
+        // Eliminar el día del plan
+        await _planOfflineService.eliminarConfiguracionDia(
+          _planActual!.semana,
+          _planActual!.liderId,
+          dia,
+        );
+        
+        // Cerrar loading
+        if (mounted) Navigator.of(context).pop();
+        
+        // Recargar el plan
+        await _cargarPlanDesdeServidor();
+        
+        // Mostrar mensaje de éxito
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Text('Configuración del $dia eliminada'),
+                ],
+              ),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      } catch (e) {
+        // Cerrar loading si está abierto
+        if (mounted) Navigator.of(context).pop();
+        
+        // Mostrar error
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error al eliminar: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
         }
       }
     }

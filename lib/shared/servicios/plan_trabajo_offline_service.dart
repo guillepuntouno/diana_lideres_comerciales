@@ -188,8 +188,9 @@ class PlanTrabajoOfflineService {
   Future<void> guardarConfiguracionDia(
     String semana,
     String liderClave,
-    DiaTrabajoModelo dia,
-  ) async {
+    DiaTrabajoModelo dia, {
+    bool esEdicion = false,
+  }) async {
     await initialize();
 
     // Obtener el plan existente para verificar si ya hay datos del día
@@ -201,7 +202,37 @@ class PlanTrabajoOfflineService {
 
     // Si es una actividad administrativa
     if (dia.objetivo == 'Actividad administrativa') {
-      if (diaExistente != null && diaExistente.configurado) {
+      if (esEdicion && diaExistente != null && diaExistente.configurado) {
+        // EN MODO EDICIÓN: Reemplazar completamente la configuración
+        print('🔄 Modo edición: Reemplazando actividad administrativa');
+        
+        // Crear nueva actividad
+        final nuevaActividad = jsonEncode([{
+          'tipo': dia.tipoActividad ?? '',
+          'objetivo': 'Actividad administrativa',
+          'estatus': 'pendiente',
+          'fechaCompletado': null
+        }]);
+        
+        // Actualizar el día existente
+        diaExistente.objetivoId = dia.objetivo;
+        diaExistente.objetivoNombre = dia.objetivo;
+        diaExistente.tipo = 'administrativo';
+        diaExistente.tipoActividadAdministrativa = nuevaActividad;
+        diaExistente.fechaModificacion = DateTime.now();
+        
+        // Limpiar datos de gestión de cliente si los había
+        diaExistente.clienteIds = [];
+        diaExistente.rutaId = null;
+        diaExistente.rutaNombre = null;
+        diaExistente.objetivoAbordaje = null;
+        
+        await _planRepository!.actualizarDia(liderClave, semana, diaExistente);
+        
+      } else if (!esEdicion && diaExistente != null && diaExistente.configurado) {
+        // MODO AGREGAR: Mantener lógica actual de agregar múltiples actividades
+        print('➕ Modo agregar: Añadiendo actividad administrativa');
+        
         // Parsear actividades administrativas existentes
         List<Map<String, dynamic>> actividadesExistentes = [];
         
@@ -273,7 +304,31 @@ class PlanTrabajoOfflineService {
       }
       
     } else if (dia.objetivo == 'Gestión de cliente') {
-      if (diaExistente != null && diaExistente.configurado) {
+      if (esEdicion && diaExistente != null && diaExistente.configurado) {
+        // EN MODO EDICIÓN: Reemplazar completamente la configuración
+        print('🔄 Modo edición: Reemplazando gestión de cliente');
+        
+        final clienteIds = dia.clientesAsignados.map((c) => c.clienteId).toList();
+        
+        // Actualizar el día existente
+        diaExistente.objetivoId = dia.objetivo;
+        diaExistente.objetivoNombre = dia.objetivo;
+        diaExistente.tipo = 'gestion_cliente';
+        diaExistente.clienteIds = clienteIds;
+        diaExistente.rutaId = dia.rutaId;
+        diaExistente.rutaNombre = dia.rutaNombre;
+        diaExistente.objetivoAbordaje = dia.comentario;
+        diaExistente.fechaModificacion = DateTime.now();
+        
+        // Limpiar datos administrativos si los había
+        diaExistente.tipoActividadAdministrativa = null;
+        
+        await _planRepository!.actualizarDia(liderClave, semana, diaExistente);
+        
+      } else if (!esEdicion && diaExistente != null && diaExistente.configurado) {
+        // MODO AGREGAR: Mantener lógica actual de combinar
+        print('➕ Modo agregar: Añadiendo gestión de cliente');
+        
         // Combinar IDs de clientes
         final clienteIdsExistentes = Set<String>.from(diaExistente.clienteIds);
         final clienteIdsNuevos = dia.clientesAsignados.map((c) => c.clienteId).toSet();
@@ -329,6 +384,46 @@ class PlanTrabajoOfflineService {
     // Sincronizar con el plan unificado después de actualizar el día
     await sincronizarConPlanUnificado(semana, liderClave);
     print('✅ Día sincronizado con plan unificado');
+  }
+
+  /// Elimina la configuración de un día
+  Future<void> eliminarConfiguracionDia(
+    String semana,
+    String liderClave,
+    String dia,
+  ) async {
+    await initialize();
+
+    final planHive = _planRepository!.obtenerPlanPorSemana(liderClave, semana);
+    if (planHive == null) {
+      throw Exception('Plan no encontrado');
+    }
+
+    if (!planHive.dias.containsKey(dia)) {
+      throw Exception('El día $dia no existe en el plan');
+    }
+
+    // Crear un nuevo día vacío
+    final diaVacio = DiaTrabajoHive(
+      dia: dia,
+      configurado: false,
+      objetivoId: null,
+      objetivoNombre: null,
+      tipo: null,
+      clienteIds: [],
+      rutaId: null,
+      rutaNombre: null,
+      tipoActividadAdministrativa: null,
+      objetivoAbordaje: null,
+    );
+
+    // Actualizar el día en el plan
+    await _planRepository!.actualizarDia(liderClave, semana, diaVacio);
+
+    // Sincronizar con el plan unificado
+    await sincronizarConPlanUnificado(semana, liderClave);
+    
+    print('✅ Configuración del día $dia eliminada');
   }
 
   /// Envía el plan (cambia estatus y marca para sincronización)

@@ -37,6 +37,7 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
   bool esEdicion = false; // Nuevo: detectar si es edición
   String? _tipoObjetivoExistente; // Para rastrear el tipo de objetivo ya guardado
   bool _cargandoRutas = false; // Estado de carga de rutas
+  bool _tieneMultiplesActividades = false; // Indicar si hay múltiples actividades administrativas
 
   String? _objetivoSeleccionado;
   String? _rutaSeleccionada;
@@ -100,6 +101,71 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
       print('  - Día: $diaSeleccionado');
       print('  - Fecha: $_fechaReal');
       print('  - Semana: $semana');
+      print('  - Es edición: $esEdicion');
+      
+      // Cargar datos existentes si vienen en los argumentos
+      if (args.containsKey('datosExistentes')) {
+        final datosExistentes = args['datosExistentes'] as Map<String, dynamic>;
+        print('📋 Datos existentes recibidos: $datosExistentes');
+        
+        // Precargar los valores en los campos
+        _objetivoSeleccionado = datosExistentes['objetivo'];
+        
+        // Manejar el tipo de actividad administrativa
+        if (datosExistentes['tipoActividad'] != null) {
+          final tipoActividad = datosExistentes['tipoActividad'];
+          try {
+            // Verificar si es un JSON (múltiples actividades)
+            if (tipoActividad is String && tipoActividad.startsWith('[')) {
+              final actividades = jsonDecode(tipoActividad) as List;
+              if (actividades.isNotEmpty) {
+                // Por ahora, tomar solo la primera actividad para el dropdown
+                final primeraActividad = actividades.first;
+                _tipoActividadAdministrativa = primeraActividad['tipo'];
+                _tieneMultiplesActividades = actividades.length > 1;
+                print('⚠️ Múltiples actividades detectadas (${actividades.length}), mostrando solo la primera: $_tipoActividadAdministrativa');
+              }
+            } else {
+              // Es un valor simple
+              _tipoActividadAdministrativa = tipoActividad;
+            }
+          } catch (e) {
+            print('Error procesando tipo de actividad: $e');
+            _tipoActividadAdministrativa = null;
+          }
+        }
+        
+        _rutaSeleccionada = datosExistentes['rutaId'];
+        _comentarioAdicional = datosExistentes['comentario'];
+        _codigoDiaVisita = datosExistentes['codigoDiaVisita'];
+        
+        // Procesar comentario/objetivos de abordaje
+        if (datosExistentes['comentario'] != null) {
+          try {
+            // Intentar parsear como JSON
+            final comentarioData = jsonDecode(datosExistentes['comentario']);
+            if (comentarioData is Map && comentarioData.containsKey('objetivos')) {
+              _objetivosAbordajeSeleccionados = List<String>.from(comentarioData['objetivos']);
+              _comentarioAdicional = comentarioData['comentario'] ?? '';
+            }
+          } catch (e) {
+            // Si no es JSON, es un objetivo único
+            if (_objetivosAbordaje.contains(datosExistentes['comentario'])) {
+              _objetivosAbordajeSeleccionados = [datosExistentes['comentario']];
+              _objetivoAbordajeSeleccionado = datosExistentes['comentario'];
+            }
+          }
+        }
+        
+        // Cargar clientes asignados si existen
+        if (datosExistentes['clientesAsignados'] != null) {
+          final clientesJson = datosExistentes['clientesAsignados'] as List<dynamic>;
+          print('📋 Clientes a precargar: ${clientesJson.length}');
+          // Los clientes se cargarán cuando se navegue a la pantalla de asignación
+        }
+        
+        print('✅ Datos precargados correctamente');
+      }
 
       _datosInicializados = true;
       
@@ -113,8 +179,14 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
     // Cargar datos del líder comercial desde sesión
     await _cargarDatosLider();
 
-    // Cargar datos existentes si los hay
-    await _cargarDatosExistentes();
+    // Si ya tenemos un objetivo de gestión de cliente precargado, cargar las rutas
+    if (_objetivoSeleccionado == 'Gestión de cliente' && _codigoDiaVisita != null) {
+      await _cargarRutasDelDia();
+    }
+
+    // Cargar datos existentes si los hay (desde el servicio)
+    // Comentado porque ahora los datos vienen en los argumentos
+    // await _cargarDatosExistentes();
   }
 
   Future<void> _cargarCatalogoDelDia() async {
@@ -467,11 +539,12 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
         codigoDiaVisita: _codigoDiaVisita,
       );
 
-      // Guardar usando el servicio offline
+      // Guardar usando el servicio offline, indicando si es edición
       await _planOfflineService.guardarConfiguracionDia(
         semana,
         liderId,
         diaTrabajo,
+        esEdicion: esEdicion,
       );
 
       print('💾 Configuración guardada offline para $diaSeleccionado');
@@ -775,6 +848,37 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                   // Campos para Actividad administrativa
                   if (_objetivoSeleccionado == 'Actividad administrativa') ...[
                     const SizedBox(height: 20),
+                    // Mostrar advertencia si hay múltiples actividades
+                    if (_tieneMultiplesActividades && esEdicion) ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.amber.shade300),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.warning_amber,
+                              color: Colors.amber.shade700,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Este día tiene múltiples actividades administrativas. Solo se puede editar la primera actividad.',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  color: Colors.amber.shade800,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     Text(
                       'Tipo de actividad:',
                       style: GoogleFonts.poppins(
@@ -1056,6 +1160,7 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                     ),
                     const SizedBox(height: 8),
                     TextFormField(
+                      initialValue: _comentarioAdicional,
                       onChanged: (value) {
                         _comentarioAdicional = value;
                       },
@@ -1215,6 +1320,12 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
 
                           if (_objetivoSeleccionado == 'Gestión de cliente') {
                             // Navegar a asignación de clientes
+                            final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+                            final clientesExistentes = args.containsKey('datosExistentes') && 
+                                args['datosExistentes']['clientesAsignados'] != null
+                                ? args['datosExistentes']['clientesAsignados'] as List<dynamic>
+                                : [];
+                            
                             final resultado = await Navigator.pushNamed(
                               context,
                               '/asignacion_clientes',
@@ -1228,6 +1339,7 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                                 'esEdicion': esEdicion,
                                 'codigoDiaVisita': _codigoDiaVisita, // Pasar código del día
                                 'fecha': _fechaReal, // Pasar la fecha también
+                                'clientesExistentes': clientesExistentes, // Pasar clientes existentes
                               },
                             );
 
