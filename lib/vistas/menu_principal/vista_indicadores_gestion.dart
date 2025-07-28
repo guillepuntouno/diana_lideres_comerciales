@@ -1,12 +1,85 @@
 // lib/vistas/menu_principal/vista_indicadores_gestion.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:convert';
 import 'package:diana_lc_front/shared/modelos/indicador_gestion_modelo.dart';
 import 'package:diana_lc_front/shared/modelos/plan_trabajo_modelo.dart';
 import 'package:diana_lc_front/shared/servicios/indicadores_gestion_servicio.dart';
 import 'package:diana_lc_front/shared/servicios/sesion_servicio.dart';
+
+// Formatter personalizado para números con máximo 2 dígitos enteros y 2 decimales
+class DecimalInputFormatter extends TextInputFormatter {
+  final int maxIntegerDigits;
+  final int maxDecimalDigits;
+  final bool allowNegative;
+
+  DecimalInputFormatter({
+    this.maxIntegerDigits = 2,
+    this.maxDecimalDigits = 2,
+    this.allowNegative = false,
+  });
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    // Permitir campo vacío
+    if (newValue.text.isEmpty) {
+      return newValue;
+    }
+
+    // Remover caracteres no válidos
+    String filtered = newValue.text.replaceAll(RegExp(r'[^0-9.-]'), '');
+
+    // Manejar el signo negativo
+    if (!allowNegative) {
+      filtered = filtered.replaceAll('-', '');
+    }
+
+    // Validar formato
+    final parts = filtered.split('.');
+    
+    // Si hay más de un punto decimal, rechazar
+    if (parts.length > 2) {
+      return oldValue;
+    }
+
+    // Validar parte entera
+    String integerPart = parts[0];
+    if (integerPart.length > maxIntegerDigits) {
+      return oldValue;
+    }
+
+    // Validar parte decimal
+    if (parts.length == 2) {
+      String decimalPart = parts[1];
+      if (decimalPart.length > maxDecimalDigits) {
+        decimalPart = decimalPart.substring(0, maxDecimalDigits);
+        filtered = '$integerPart.$decimalPart';
+      }
+    }
+
+    // Para porcentajes, validar que no sea mayor a 100
+    if (maxIntegerDigits == 3) { // Asumimos que es un porcentaje
+      try {
+        final value = double.parse(filtered);
+        if (value > 100) {
+          return oldValue;
+        }
+      } catch (e) {
+        // Si no se puede parsear, permitir continuar editando
+      }
+    }
+
+    return TextEditingValue(
+      text: filtered,
+      selection: TextSelection.collapsed(offset: filtered.length),
+    );
+  }
+}
 
 class VistaIndicadoresGestion extends StatefulWidget {
   const VistaIndicadoresGestion({super.key});
@@ -864,13 +937,34 @@ class _VistaIndicadoresGestionState extends State<VistaIndicadoresGestion> {
                                                     _resultadosIndicadores[_clienteActual.clienteId]![indicador.id] = value;
                                                   });
                                                 },
-                                                keyboardType: TextInputType.number,
+                                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                                inputFormatters: [
+                                                  // Aplicar el formatter personalizado
+                                                  DecimalInputFormatter(
+                                                    maxIntegerDigits: indicador.tipoResultado == 'porcentaje' ? 3 : 6,
+                                                    maxDecimalDigits: 2,
+                                                    allowNegative: false,
+                                                  ),
+                                                  // Limitar longitud total
+                                                  LengthLimitingTextInputFormatter(
+                                                    indicador.tipoResultado == 'porcentaje' ? 6 : 9, // Incluye el punto decimal
+                                                  ),
+                                                ],
                                                 decoration: InputDecoration(
                                                   labelText: 'Resultado',
-                                                  hintText: indicador.tipoResultado == 'porcentaje' ? 'Ej: 80' : 'Ej: 1500',
+                                                  hintText: indicador.tipoResultado == 'porcentaje' 
+                                                    ? 'Ej: 80.50 (máx 100.00)' 
+                                                    : 'Ej: 1500.25',
                                                   suffix: indicador.tipoResultado == 'porcentaje' 
                                                     ? Text('%', style: GoogleFonts.poppins())
                                                     : null,
+                                                  helperText: indicador.tipoResultado == 'porcentaje'
+                                                    ? 'Valor entre 0 y 100'
+                                                    : 'Máximo 6 dígitos con 2 decimales',
+                                                  helperStyle: GoogleFonts.poppins(
+                                                    fontSize: 12,
+                                                    color: Colors.grey.shade600,
+                                                  ),
                                                   filled: true,
                                                   fillColor: Colors.white,
                                                   border: OutlineInputBorder(
@@ -892,6 +986,20 @@ class _VistaIndicadoresGestionState extends State<VistaIndicadoresGestion> {
                                                       width: 2,
                                                     ),
                                                   ),
+                                                  errorBorder: OutlineInputBorder(
+                                                    borderRadius: BorderRadius.circular(8),
+                                                    borderSide: const BorderSide(
+                                                      color: Colors.red,
+                                                      width: 1,
+                                                    ),
+                                                  ),
+                                                  focusedErrorBorder: OutlineInputBorder(
+                                                    borderRadius: BorderRadius.circular(8),
+                                                    borderSide: const BorderSide(
+                                                      color: Colors.red,
+                                                      width: 2,
+                                                    ),
+                                                  ),
                                                   contentPadding: const EdgeInsets.symmetric(
                                                     horizontal: 12,
                                                     vertical: 8,
@@ -900,6 +1008,27 @@ class _VistaIndicadoresGestionState extends State<VistaIndicadoresGestion> {
                                                 style: GoogleFonts.poppins(
                                                   fontSize: 14,
                                                 ),
+                                                validator: (value) {
+                                                  if (value == null || value.isEmpty) {
+                                                    return null; // Campo opcional cuando no está seleccionado
+                                                  }
+                                                  
+                                                  try {
+                                                    final numValue = double.parse(value);
+                                                    
+                                                    if (indicador.tipoResultado == 'porcentaje' && numValue > 100) {
+                                                      return 'El porcentaje no puede ser mayor a 100';
+                                                    }
+                                                    
+                                                    if (numValue < 0) {
+                                                      return 'El valor no puede ser negativo';
+                                                    }
+                                                  } catch (e) {
+                                                    return 'Ingrese un número válido';
+                                                  }
+                                                  
+                                                  return null;
+                                                },
                                               ),
                                             ),
                                           ],
