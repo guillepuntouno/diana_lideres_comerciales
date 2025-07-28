@@ -3217,35 +3217,18 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                                           // Resumen del día
                                           _buildResumenCompactoDia(dia, _planActual!.dias[dia]!),
                                           const SizedBox(height: 16),
-                                          // Botones de acción centrados
+                                          // Botón de acción centrado
                                           Center(
-                                            child: Wrap(
-                                              spacing: 12,
-                                              alignment: WrapAlignment.center,
-                                              children: [
-                                                OutlinedButton.icon(
-                                                  icon: Icon(Icons.visibility_outlined, size: 18),
-                                                  label: Text('Ver completo'),
-                                                  style: OutlinedButton.styleFrom(
-                                                    foregroundColor: const Color(0xFFDE1327),
-                                                    side: BorderSide(color: const Color(0xFFDE1327)),
-                                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                                  ),
-                                                  onPressed: () => _mostrarResumenDia(dia, _planActual!.dias[dia]!),
-                                                ),
-                                                if (esEditable)
-                                                  ElevatedButton.icon(
-                                                    icon: Icon(Icons.edit, size: 18, color: Colors.white),
-                                                    label: Text('Editar día', style: TextStyle(color: Colors.white)),
-                                                    style: ElevatedButton.styleFrom(
-                                                      backgroundColor: const Color(0xFFDE1327),
-                                                      foregroundColor: Colors.white,
-                                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                                                      elevation: 2,
-                                                    ),
-                                                    onPressed: () => _navegarAEditarDia(dia, fechaDia, indice),
-                                                  ),
-                                              ],
+                                            child: ElevatedButton.icon(
+                                              icon: Icon(Icons.visibility_outlined, size: 18, color: Colors.white),
+                                              label: Text('Ver detalle', style: TextStyle(color: Colors.white)),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: const Color(0xFFDE1327),
+                                                foregroundColor: Colors.white,
+                                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                                elevation: 2,
+                                              ),
+                                              onPressed: () => _mostrarResumenDia(dia, _planActual!.dias[dia]!),
                                             ),
                                           ),
                                         ],
