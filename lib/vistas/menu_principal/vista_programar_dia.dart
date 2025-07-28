@@ -1335,26 +1335,32 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                                     ],
                                   ),
                                   actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(context, false),
-                                      child: Text(
-                                        'No, finalizar',
-                                        style: GoogleFonts.poppins(
-                                          color: Colors.grey.shade600,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
                                     ElevatedButton(
                                       onPressed: () => Navigator.pop(context, true),
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFFDE1327),
+                                        backgroundColor: Colors.grey,
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(8),
                                         ),
                                       ),
                                       child: Text(
                                         'Sí, agregar otro objetivo',
+                                        style: GoogleFonts.poppins(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                    ElevatedButton(
+                                      onPressed: () => Navigator.pop(context, false),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.red,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        'Finalizar',
                                         style: GoogleFonts.poppins(
                                           color: Colors.white,
                                           fontWeight: FontWeight.w600,
