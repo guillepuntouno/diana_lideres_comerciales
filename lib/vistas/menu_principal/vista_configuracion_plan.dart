@@ -1440,46 +1440,6 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                 ),
               ),
               
-              // Acciones rápidas si es editable
-              if (esEditable) ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    border: Border(
-                      bottom: BorderSide(color: Colors.grey.shade200),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton.icon(
-                        onPressed: () async {
-                          Navigator.pop(context);
-                          await _navegarAEditarDia(dia, fechaDia, indice);
-                        },
-                        icon: const Icon(Icons.edit, size: 18),
-                        label: Text('Editar', style: GoogleFonts.poppins()),
-                        style: TextButton.styleFrom(
-                          foregroundColor: const Color(0xFFDE1327),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      TextButton.icon(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          _confirmarEliminarDia(dia);
-                        },
-                        icon: const Icon(Icons.delete_outline, size: 18),
-                        label: Text('Eliminar', style: GoogleFonts.poppins()),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.red,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
               
               // Contenido scrollable
               Expanded(
@@ -1515,6 +1475,7 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                           Icons.folder_special,
                           Colors.orange,
                           esEditable,
+                          dia,
                         ),
                       ],
                       
@@ -1528,6 +1489,8 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                           diaData,
                           Icons.store,
                           Colors.blue,
+                          esEditable,
+                          dia,
                         ),
                       ],
                       
@@ -1539,6 +1502,8 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                           diaData.comentario!,
                           Icons.track_changes,
                           Colors.green,
+                          esEditable,
+                          dia,
                         ),
                       ],
                       
@@ -1699,7 +1664,7 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
     );
   }
   
-  Widget _buildSeccionActividadesMejorada(String titulo, String tipoActividad, IconData icono, Color color, bool esEditable) {
+  Widget _buildSeccionActividadesMejorada(String titulo, String tipoActividad, IconData icono, Color color, bool esEditable, String dia) {
     List<Map<String, dynamic>> actividades = [];
     
     try {
@@ -1812,20 +1777,52 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                       ),
                     ),
                   ),
-                  if (esEditable && actividades.length > 1)
-                    IconButton(
-                      icon: Icon(Icons.delete_outline, size: 20),
-                      color: Colors.red.shade400,
-                      onPressed: () {
-                        // TODO: Implementar eliminación individual de actividad administrativa
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Función en desarrollo'),
-                            backgroundColor: Colors.orange,
-                          ),
-                        );
-                      },
-                    ),
+                  if (esEditable) ...[
+                    // Botones de acción solo si hay una actividad
+                    if (actividades.length == 1) ...[
+                      TextButton.icon(
+                        icon: Icon(Icons.edit, size: 16),
+                        label: Text('Editar'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xFFDE1327),
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                        ),
+                        onPressed: () async {
+                          Navigator.pop(context); // Cerrar el modal
+                          // Navegar a la pantalla de edición
+                          await _navegarAEditarDiaDesdeModal(dia);
+                        },
+                      ),
+                      TextButton.icon(
+                        icon: Icon(Icons.delete_outline, size: 16),
+                        label: Text('Eliminar'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                        ),
+                        onPressed: () {
+                          Navigator.pop(context); // Cerrar el modal
+                          _confirmarEliminarDia(dia);
+                        },
+                      ),
+                    ] else ...[
+                      // Si hay múltiples actividades, mostrar botón de eliminar individual
+                      IconButton(
+                        icon: Icon(Icons.delete_outline, size: 20),
+                        color: Colors.red.shade400,
+                        tooltip: 'Eliminar esta actividad',
+                        onPressed: () {
+                          // TODO: Implementar eliminación individual de actividad administrativa
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Función en desarrollo para eliminar actividad individual'),
+                              backgroundColor: Colors.orange,
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ],
                 ],
               ),
             );
@@ -1835,7 +1832,7 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
     );
   }
   
-  Widget _buildSeccionClientesMejorada(String titulo, DiaTrabajoModelo diaData, IconData icono, Color color) {
+  Widget _buildSeccionClientesMejorada(String titulo, DiaTrabajoModelo diaData, IconData icono, Color color, bool esEditable, String dia) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -1898,6 +1895,41 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
             ],
           ),
           const SizedBox(height: 16),
+          if (esEditable) ...[
+            Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  TextButton.icon(
+                    icon: Icon(Icons.edit, size: 18),
+                    label: Text('Editar'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFFDE1327),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    ),
+                    onPressed: () async {
+                      Navigator.pop(context); // Cerrar el modal
+                      await _navegarAEditarDiaDesdeModal(dia);
+                    },
+                  ),
+                  const SizedBox(width: 12),
+                  TextButton.icon(
+                    icon: Icon(Icons.delete_outline, size: 18),
+                    label: Text('Eliminar todo'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    ),
+                    onPressed: () {
+                      Navigator.pop(context); // Cerrar el modal
+                      _confirmarEliminarDia(dia);
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           Container(
             constraints: const BoxConstraints(maxHeight: 300),
             child: ListView.builder(
@@ -2006,7 +2038,7 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
     );
   }
   
-  Widget _buildSeccionObjetivosAbordajeMejorada(String titulo, String comentario, IconData icono, Color color) {
+  Widget _buildSeccionObjetivosAbordajeMejorada(String titulo, String comentario, IconData icono, Color color, bool esEditable, String dia) {
     List<String> objetivos = [];
     String comentarioAdicional = '';
     
@@ -2077,6 +2109,41 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
             ],
           ),
           const SizedBox(height: 16),
+          if (esEditable) ...[
+            Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  TextButton.icon(
+                    icon: Icon(Icons.edit, size: 18),
+                    label: Text('Editar'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFFDE1327),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    ),
+                    onPressed: () async {
+                      Navigator.pop(context); // Cerrar el modal
+                      await _navegarAEditarDiaDesdeModal(dia);
+                    },
+                  ),
+                  const SizedBox(width: 12),
+                  TextButton.icon(
+                    icon: Icon(Icons.delete_outline, size: 18),
+                    label: Text('Eliminar'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    ),
+                    onPressed: () {
+                      Navigator.pop(context); // Cerrar el modal
+                      _confirmarEliminarDia(dia);
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           ...objetivos.map((objetivo) => Container(
             margin: const EdgeInsets.only(bottom: 8),
             padding: const EdgeInsets.all(12),
@@ -3629,6 +3696,18 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
         }
       }
     }
+  }
+  
+  Future<void> _navegarAEditarDiaDesdeModal(String dia) async {
+    // Calcular la fecha del día
+    final indice = diasSemana.indexOf(dia);
+    final semanaSeleccionadaObj = _semanasDisponibles.firstWhere(
+      (s) => s.codigo == _semanaSeleccionada,
+    );
+    final fechaDia = semanaSeleccionadaObj.inicioSemana.add(Duration(days: indice));
+    
+    // Llamar al método existente de navegación
+    await _navegarAEditarDia(dia, fechaDia, indice);
   }
   
   Future<void> _confirmarEliminarDia(String dia) async {
