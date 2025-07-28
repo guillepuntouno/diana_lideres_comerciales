@@ -1353,91 +1353,143 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
     );
     final fechaDia = semanaSeleccionadaObj.inicioSemana.add(Duration(days: indice));
     final fechaFormateada = DateFormat('EEEE, d \'de\' MMMM \'de\' yyyy', 'es').format(fechaDia);
+    final esEditable = _planActual!.estatus == 'borrador' || _puedeEditarPlan(_planActual!);
     
     showDialog(
       context: context,
       builder: (context) => Dialog(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(24),
         ),
         child: Container(
           constraints: BoxConstraints(
             maxWidth: MediaQuery.of(context).size.width * 0.9,
-            maxHeight: MediaQuery.of(context).size.height * 0.8,
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
           ),
-          padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white,
-                const Color(0xFFDE1327).withOpacity(0.02),
-              ],
-            ),
+            borderRadius: BorderRadius.circular(24),
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Encabezado
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFDE1327).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      Icons.calendar_today,
-                      color: const Color(0xFFDE1327),
-                      size: 24,
-                    ),
+              // Encabezado mejorado
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      const Color(0xFFDE1327),
+                      const Color(0xFFDE1327).withOpacity(0.8),
+                    ],
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Resumen del $dia',
-                          style: GoogleFonts.poppins(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: const Color(0xFF1C2120),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.calendar_today,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            dia,
+                            style: GoogleFonts.poppins(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
                           ),
-                        ),
-                        Text(
-                          fechaFormateada,
-                          style: GoogleFonts.poppins(
-                            fontSize: 14,
-                            color: Colors.grey.shade600,
+                          Text(
+                            fechaFormateada,
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              color: Colors.white.withOpacity(0.9),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                    color: Colors.grey,
-                  ),
-                ],
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 20),
-              const Divider(),
-              const SizedBox(height: 20),
+              
+              // Acciones rápidas si es editable
+              if (esEditable) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    border: Border(
+                      bottom: BorderSide(color: Colors.grey.shade200),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton.icon(
+                        onPressed: () async {
+                          Navigator.pop(context);
+                          await _navegarAEditarDia(dia, fechaDia, indice);
+                        },
+                        icon: const Icon(Icons.edit, size: 18),
+                        label: Text('Editar', style: GoogleFonts.poppins()),
+                        style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xFFDE1327),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      TextButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _confirmarEliminarDia(dia);
+                        },
+                        icon: const Icon(Icons.delete_outline, size: 18),
+                        label: Text('Eliminar', style: GoogleFonts.poppins()),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.red,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               
               // Contenido scrollable
               Expanded(
                 child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Tipo de objetivo principal
-                      _buildSeccionResumen(
+                      _buildSeccionResumenMejorada(
                         'Objetivo Principal',
                         diaData.objetivo == 'Múltiples objetivos' 
                           ? 'Día con múltiples objetivos' 
@@ -1457,11 +1509,12 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                       // Actividades administrativas
                       if (diaData.tipoActividad != null && diaData.tipoActividad!.isNotEmpty) ...[
                         const SizedBox(height: 20),
-                        _buildSeccionActividades(
+                        _buildSeccionActividadesMejorada(
                           'Actividades Administrativas',
                           diaData.tipoActividad!,
                           Icons.folder_special,
                           Colors.orange,
+                          esEditable,
                         ),
                       ],
                       
@@ -1470,7 +1523,7 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                            diaData.objetivo == 'Múltiples objetivos') && 
                           diaData.clientesAsignados.isNotEmpty) ...[
                         const SizedBox(height: 20),
-                        _buildSeccionClientes(
+                        _buildSeccionClientesMejorada(
                           'Clientes Asignados',
                           diaData,
                           Icons.store,
@@ -1481,8 +1534,8 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                       // Objetivos de abordaje
                       if (diaData.comentario != null && diaData.comentario!.isNotEmpty) ...[
                         const SizedBox(height: 20),
-                        _buildSeccionObjetivosAbordaje(
-                          'Objetivos de Abordaje',
+                        _buildSeccionObjetivosAbordajeMejorada(
+                          'Indicadores de Ruta',
                           diaData.comentario!,
                           Icons.track_changes,
                           Colors.green,
@@ -1511,67 +1564,88 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                 ),
               ),
               
-              // Botones de acción
-              const SizedBox(height: 20),
-              const Divider(),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
+              // Botón de cerrar como principal
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+                ),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
                     onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFDE1327),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
                     child: Text(
                       'Cerrar',
                       style: GoogleFonts.poppins(
-                        color: Colors.grey.shade600,
+                        fontSize: 16,
                         fontWeight: FontWeight.w600,
+                        color: Colors.white,
                       ),
                     ),
                   ),
-                  if (_planActual!.estatus == 'borrador' || _puedeEditarPlan(_planActual!)) ...[
-                    const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      onPressed: () async {
-                        Navigator.pop(context); // Cerrar el diálogo
-                        
-                        // Navegar a editar día
-                        final resultado = await Navigator.pushNamed(
-                          context,
-                          '/programar_dia',
-                          arguments: {
-                            'dia': dia,
-                            'semana': _planActual!.semana,
-                            'liderId': _planActual!.liderId,
-                            'fecha': fechaDia,
-                            'esEdicion': _planActual!.estatus == 'enviado',
-                          },
-                        );
-                        
-                        if (resultado == true && mounted) {
-                          setState(() => _cargando = true);
-                          await _cargarPlanDesdeServidor();
-                        }
-                      },
-                      icon: const Icon(Icons.edit, size: 18),
-                      label: Text(
-                        'Editar',
-                        style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: const Color(0xFFDE1327),
-                        side: const BorderSide(color: Color(0xFFDE1327), width: 1.5),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
+                ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+  
+  Widget _buildSeccionResumenMejorada(String titulo, String contenido, IconData icono, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icono, color: color, size: 24),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  titulo,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  contenido,
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    color: const Color(0xFF1C2120),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1620,6 +1694,470 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildSeccionActividadesMejorada(String titulo, String tipoActividad, IconData icono, Color color, bool esEditable) {
+    List<Map<String, dynamic>> actividades = [];
+    
+    try {
+      // Intentar parsear como JSON array
+      if (tipoActividad.startsWith('[')) {
+        final actividadesJson = jsonDecode(tipoActividad) as List;
+        for (var actividad in actividadesJson) {
+          actividades.add({
+            'tipo': actividad['tipo'] ?? 'Sin especificar',
+            'estatus': actividad['estatus'] ?? 'pendiente',
+          });
+        }
+      } else {
+        // Si no es JSON, mostrar como actividad simple
+        actividades.add({
+          'tipo': tipoActividad,
+          'estatus': 'pendiente',
+        });
+      }
+    } catch (e) {
+      // Si falla el parseo, mostrar como texto simple
+      actividades.add({
+        'tipo': tipoActividad,
+        'estatus': 'pendiente',
+      });
+    }
+    
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icono, color: color, size: 24),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  titulo,
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    color: const Color(0xFF1C2120),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (actividades.length > 1)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '${actividades.length} actividades',
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      color: color,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ...actividades.asMap().entries.map((entry) {
+            final index = entry.key;
+            final actividad = entry.value;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    actividad['estatus'] == 'completado' 
+                      ? Icons.check_circle 
+                      : Icons.radio_button_unchecked,
+                    size: 20,
+                    color: actividad['estatus'] == 'completado' 
+                      ? Colors.green 
+                      : Colors.grey.shade400,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      actividad['tipo'],
+                      style: GoogleFonts.poppins(
+                        fontSize: 15,
+                        color: const Color(0xFF1C2120),
+                        decoration: actividad['estatus'] == 'completado' 
+                          ? TextDecoration.lineThrough 
+                          : null,
+                      ),
+                    ),
+                  ),
+                  if (esEditable && actividades.length > 1)
+                    IconButton(
+                      icon: Icon(Icons.delete_outline, size: 20),
+                      color: Colors.red.shade400,
+                      onPressed: () {
+                        // TODO: Implementar eliminación individual de actividad administrativa
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Función en desarrollo'),
+                            backgroundColor: Colors.orange,
+                          ),
+                        );
+                      },
+                    ),
+                ],
+              ),
+            );
+          }).toList(),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildSeccionClientesMejorada(String titulo, DiaTrabajoModelo diaData, IconData icono, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icono, color: color, size: 24),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      titulo,
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        color: const Color(0xFF1C2120),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (diaData.rutaNombre != null)
+                      Text(
+                        'Ruta: ${diaData.rutaNombre}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${diaData.clientesAsignados.length}',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    color: color,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            constraints: const BoxConstraints(maxHeight: 300),
+            child: ListView.builder(
+              shrinkWrap: true,
+              physics: const AlwaysScrollableScrollPhysics(),
+              itemCount: diaData.clientesAsignados.length,
+              itemBuilder: (context, index) {
+                final cliente = diaData.clientesAsignados[index];
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: cliente.visitado 
+                        ? Colors.green.shade200 
+                        : Colors.grey.shade200,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: cliente.visitado 
+                            ? Colors.green.shade50 
+                            : Colors.grey.shade50,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          cliente.visitado 
+                            ? Icons.check_circle 
+                            : Icons.store_outlined,
+                          size: 20,
+                          color: cliente.visitado 
+                            ? Colors.green 
+                            : Colors.grey.shade600,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              cliente.clienteNombre,
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                color: const Color(0xFF1C2120),
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Row(
+                              children: [
+                                Icon(Icons.tag, size: 12, color: Colors.grey),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'ID: ${cliente.clienteId}',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Icon(Icons.category_outlined, size: 12, color: Colors.grey),
+                                const SizedBox(width: 4),
+                                Text(
+                                  cliente.clienteTipo,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (cliente.visitado)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            'Visitado',
+                            style: GoogleFonts.poppins(
+                              fontSize: 11,
+                              color: Colors.green.shade700,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildSeccionObjetivosAbordajeMejorada(String titulo, String comentario, IconData icono, Color color) {
+    List<String> objetivos = [];
+    String comentarioAdicional = '';
+    
+    try {
+      // Intentar parsear como JSON
+      final comentarioData = jsonDecode(comentario);
+      if (comentarioData is Map && comentarioData.containsKey('objetivos')) {
+        objetivos = List<String>.from(comentarioData['objetivos']);
+        comentarioAdicional = comentarioData['comentario'] ?? '';
+      } else {
+        throw Exception('No es formato de múltiples objetivos');
+      }
+    } catch (e) {
+      // Si no es JSON, tratar como objetivo único
+      if (comentario.isNotEmpty) {
+        objetivos = [comentario];
+      }
+    }
+    
+    if (objetivos.isEmpty) return const SizedBox.shrink();
+    
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icono, color: color, size: 24),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  titulo,
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    color: const Color(0xFF1C2120),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${objetivos.length} objetivo${objetivos.length > 1 ? 's' : ''}',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    color: color,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ...objetivos.map((objetivo) => Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(top: 6),
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    objetivo,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: const Color(0xFF1C2120),
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          )).toList(),
+          if (comentarioAdicional.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.amber.shade200),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.lightbulb_outline, 
+                    size: 20, 
+                    color: Colors.amber.shade700,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Comentario adicional',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: Colors.amber.shade700,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          comentarioAdicional,
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            color: Colors.grey.shade700,
+                            fontStyle: FontStyle.italic,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -2597,67 +3135,91 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                               );
                             },
                             body: Container(
-                              padding: const EdgeInsets.all(12),
+                              padding: const EdgeInsets.all(16),
                               child: diaConfigurado
-                                  ? Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                // Resumen del día
-                                _buildResumenCompactoDia(dia, _planActual!.dias[dia]!),
-                                const SizedBox(height: 12),
-                                // Botones de acción
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                    TextButton.icon(
-                                      icon: Icon(Icons.visibility_outlined, size: 18),
-                                      label: Text('Ver completo'),
-                                      onPressed: () => _mostrarResumenDia(dia, _planActual!.dias[dia]!),
-                                    ),
-                                    if (esEditable) ...[
-                                      const SizedBox(width: 8),
-                                      ElevatedButton.icon(
-                                        icon: Icon(Icons.edit, size: 18, color: Colors.white),
-                                        label: Text('Editar', style: TextStyle(color: Colors.white)),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(0xFFDE1327),
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                        ),
-                                        onPressed: () => _navegarAEditarDia(dia, fechaDia, indice),
+                                  ? Container(
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade50,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: Colors.grey.shade200),
                                       ),
-                                    ],
-                                  ],
-                                ),
-                                      ],
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          // Resumen del día
+                                          _buildResumenCompactoDia(dia, _planActual!.dias[dia]!),
+                                          const SizedBox(height: 16),
+                                          // Botones de acción centrados
+                                          Center(
+                                            child: Wrap(
+                                              spacing: 12,
+                                              alignment: WrapAlignment.center,
+                                              children: [
+                                                OutlinedButton.icon(
+                                                  icon: Icon(Icons.visibility_outlined, size: 18),
+                                                  label: Text('Ver completo'),
+                                                  style: OutlinedButton.styleFrom(
+                                                    foregroundColor: const Color(0xFFDE1327),
+                                                    side: BorderSide(color: const Color(0xFFDE1327)),
+                                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                                  ),
+                                                  onPressed: () => _mostrarResumenDia(dia, _planActual!.dias[dia]!),
+                                                ),
+                                                if (esEditable)
+                                                  ElevatedButton.icon(
+                                                    icon: Icon(Icons.edit, size: 18, color: Colors.white),
+                                                    label: Text('Editar día', style: TextStyle(color: Colors.white)),
+                                                    style: ElevatedButton.styleFrom(
+                                                      backgroundColor: const Color(0xFFDE1327),
+                                                      foregroundColor: Colors.white,
+                                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                                      elevation: 2,
+                                                    ),
+                                                    onPressed: () => _navegarAEditarDia(dia, fechaDia, indice),
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     )
                                   : Center(
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 20),
+                                padding: const EdgeInsets.symmetric(vertical: 32),
                                 child: Column(
                                   children: [
-                                    Icon(
-                                      Icons.event_available,
-                                      size: 48,
-                                      color: Colors.grey.shade400,
+                                    Container(
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade100,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        Icons.event_available,
+                                        size: 48,
+                                        color: Colors.grey.shade400,
+                                      ),
                                     ),
-                                    const SizedBox(height: 8),
+                                    const SizedBox(height: 16),
                                     Text(
                                       'Día no configurado',
                                       style: TextStyle(
-                                        fontSize: 14,
+                                        fontSize: 16,
                                         color: Colors.grey.shade600,
+                                        fontWeight: FontWeight.w500,
                                       ),
                                     ),
                                     if (esEditable) ...[
-                                      const SizedBox(height: 12),
+                                      const SizedBox(height: 16),
                                       ElevatedButton.icon(
                                         icon: Icon(Icons.add, color: Colors.white),
-                                        label: Text('Configurar día', style: TextStyle(color: Colors.white)),
+                                        label: Text('Configurar día', style: TextStyle(color: Colors.white, fontSize: 16)),
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: const Color(0xFFDE1327),
                                           foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                          elevation: 2,
                                         ),
                                         onPressed: () => _navegarAEditarDia(dia, fechaDia, indice),
                                       ),
@@ -2841,82 +3403,153 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Objetivo principal
-        Row(
-          children: [
-            Icon(
-              diaData.objetivo == 'Gestión de cliente' 
-                ? Icons.people 
-                : Icons.assignment,
-              size: 20,
+        // Objetivo principal con diseño mejorado
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: diaData.objetivo == 'Gestión de cliente' 
+              ? Colors.blue.shade50 
+              : diaData.objetivo == 'Múltiples objetivos'
+                ? Colors.purple.shade50
+                : Colors.orange.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
               color: diaData.objetivo == 'Gestión de cliente' 
-                ? Colors.blue 
-                : Colors.orange,
+                ? Colors.blue.shade200 
+                : diaData.objetivo == 'Múltiples objetivos'
+                  ? Colors.purple.shade200
+                  : Colors.orange.shade200,
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                diaData.objetivo ?? 'No especificado',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1C2120),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                diaData.objetivo == 'Gestión de cliente' 
+                  ? Icons.people 
+                  : diaData.objetivo == 'Múltiples objetivos'
+                    ? Icons.dashboard
+                    : Icons.assignment,
+                size: 20,
+                color: diaData.objetivo == 'Gestión de cliente' 
+                  ? Colors.blue.shade700 
+                  : diaData.objetivo == 'Múltiples objetivos'
+                    ? Colors.purple.shade700
+                    : Colors.orange.shade700,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  diaData.objetivo ?? 'No especificado',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF1C2120),
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         
-        // Clientes asignados
-        if (diaData.clientesAsignados.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Row(
+        const SizedBox(height: 12),
+        
+        // Detalles en contenedor
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.store, size: 16, color: Colors.grey.shade600),
-              const SizedBox(width: 4),
-              Text(
-                '${diaData.clientesAsignados.length} clientes asignados',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey.shade600,
+              // Clientes asignados
+              if (diaData.clientesAsignados.isNotEmpty) ...[
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Icon(Icons.store, size: 16, color: Colors.blue.shade600),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${diaData.clientesAsignados.length} clientes asignados',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: const Color(0xFF1C2120),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          if (diaData.rutaNombre != null)
+                            Text(
+                              'Ruta: ${diaData.rutaNombre}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              if (diaData.rutaNombre != null) ...[
-                const SizedBox(width: 8),
-                Text(
-                  '• Ruta: ${diaData.rutaNombre}',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey.shade600,
-                  ),
+              ],
+              
+              // Actividades administrativas
+              if (diaData.tipoActividad != null && diaData.tipoActividad!.isNotEmpty) ...[
+                if (diaData.clientesAsignados.isNotEmpty) 
+                  const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Icon(Icons.folder_special, size: 16, color: Colors.orange.shade600),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _contarActividadesAdministrativas(diaData.tipoActividad!),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: const Color(0xFF1C2120),
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ],
           ),
-        ],
-        
-        // Actividades administrativas
-        if (diaData.tipoActividad != null && diaData.tipoActividad!.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Icon(Icons.folder_special, size: 16, color: Colors.grey.shade600),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  'Actividades administrativas configuradas',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey.shade600,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ],
+        ),
       ],
     );
+  }
+  
+  String _contarActividadesAdministrativas(String tipoActividad) {
+    try {
+      if (tipoActividad.startsWith('[')) {
+        final actividades = jsonDecode(tipoActividad) as List;
+        return '${actividades.length} actividad${actividades.length > 1 ? 'es' : ''} administrativa${actividades.length > 1 ? 's' : ''}';
+      }
+    } catch (e) {
+      // Si falla el parseo, es una actividad simple
+    }
+    return '1 actividad administrativa';
   }
   
   Future<void> _navegarAEditarDia(String dia, DateTime fechaDia, int indice) async {
