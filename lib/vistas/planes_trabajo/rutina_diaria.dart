@@ -485,12 +485,14 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
     try {
       final fechaSeleccionada =
           _diaSimulado != null ? _obtenerFechaDelDiaSimulado() : DateTime.now();
-      final codigo = _obtenerDiaVisitaCod(fechaSeleccionada);
-      print('🔄 Cargando rutas del día con DIA_VISITA_COD: $codigo');
+      
+      // Formatear la fecha a DD-MM-YYYY para el endpoint de rutas
+      final fechaFormateada = DateFormat('dd-MM-yyyy').format(fechaSeleccionada);
+      print('🔄 Cargando rutas del día con fecha: $fechaFormateada');
 
       final rutas = await _rutasServicio.obtenerRutasPorDia(
         _liderActual!.clave,
-        codigo,
+        fechaFormateada,  // Usar fecha formateada en lugar de código generado
       );
 
       setState(() {
@@ -501,6 +503,9 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
       });
 
       print('✅ Rutas obtenidas del API: ${rutas.length}');
+      for (var ruta in rutas) {
+        print('  - Ruta: ${ruta.nombre} | Asesor: ${ruta.asesor} | DIA_VISITA_COD: "${ruta.diaVisitaCod}"');
+      }
     } catch (e) {
       print('⚠️ Error al obtener rutas del API: $e');
       // Se mantiene la lista de rutas obtenida del plan como fallback
@@ -1162,7 +1167,16 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
       );
 
       print('🔍 Cargando clientes desde API para ruta: ${ruta.nombre}');
-      print('   - DIA_VISITA_COD: ${ruta.diaVisitaCod}');
+      print('   - Líder: ${_liderActual!.clave}');
+      print('   - DIA_VISITA_COD: "${ruta.diaVisitaCod}"');
+      print('   - Ruta nombre: ${ruta.nombre}');
+      print('   - URL será: /rutas/${_liderActual!.clave}/${ruta.diaVisitaCod}/${ruta.nombre}');
+      
+      if (ruta.diaVisitaCod.isEmpty) {
+        print('⚠️ PROBLEMA: DIA_VISITA_COD está vacío! No se puede hacer la llamada al endpoint.');
+        setState(() => _cargandoClientes = false);
+        return;
+      }
 
       final resultado = await _rutasServicio.obtenerClientesPorRutaConJson(
         _liderActual!.clave,
