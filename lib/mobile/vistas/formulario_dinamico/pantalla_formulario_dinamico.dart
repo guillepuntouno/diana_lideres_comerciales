@@ -1781,10 +1781,36 @@ class _PantallaFormularioDinamicoState
                 'Tipo de Exhibidor',
                 tipoExhibidorSeleccionado,
                 ['Por Bandeja', 'Cascada', 'Multicategoría'],
-                (valor) => setState(() {
-                  tipoExhibidorSeleccionado = valor;
-                  modeloExhibidorSeleccionado = null; // Reset modelo
-                }),
+                (valor) {
+                  // Verificar si había un modelo seleccionado antes del cambio
+                  if (modeloExhibidorSeleccionado != null && tipoExhibidorSeleccionado != valor) {
+                    // Mostrar advertencia
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Al cambiar el Tipo de Exhibidor, se perderá la selección del modelo previo.',
+                          style: GoogleFonts.poppins(),
+                        ),
+                        backgroundColor: Colors.orange.shade700,
+                        duration: const Duration(seconds: 3),
+                        action: SnackBarAction(
+                          label: 'Entendido',
+                          textColor: Colors.white,
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                          },
+                        ),
+                      ),
+                    );
+                  }
+                  
+                  setState(() {
+                    tipoExhibidorSeleccionado = valor;
+                    modeloExhibidorSeleccionado = null; // Reset modelo
+                    cantidadExhibidores = 1; // Reset cantidad
+                    exhibidoresAsignados.clear(); // Limpiar exhibidores asignados
+                  });
+                },
               ),
 
               if (tipoExhibidorSeleccionado != null) ...[

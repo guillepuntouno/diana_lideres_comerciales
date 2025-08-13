@@ -24,7 +24,8 @@ class VistaProgramarDia extends StatefulWidget {
 class _VistaProgramarDiaState extends State<VistaProgramarDia> {
   final _formKey = GlobalKey<FormState>();
   final PlanTrabajoServicio _planServicio = PlanTrabajoServicio();
-  final PlanTrabajoOfflineService _planOfflineService = PlanTrabajoOfflineService();
+  final PlanTrabajoOfflineService _planOfflineService =
+      PlanTrabajoOfflineService();
   final RutasServicio _rutasServicio = RutasServicio();
 
   // Variables de estado
@@ -35,13 +36,16 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
   Map<String, String>? _catDia; // mapa resuelto
   String? _codigoDiaVisita; // clave que va al backend
   bool esEdicion = false; // Nuevo: detectar si es edición
-  String? _tipoObjetivoExistente; // Para rastrear el tipo de objetivo ya guardado
+  String?
+  _tipoObjetivoExistente; // Para rastrear el tipo de objetivo ya guardado
   bool _cargandoRutas = false; // Estado de carga de rutas
-  bool _tieneMultiplesActividades = false; // Indicar si hay múltiples actividades administrativas
+  bool _tieneMultiplesActividades =
+      false; // Indicar si hay múltiples actividades administrativas
 
   String? _objetivoSeleccionado;
   String? _rutaSeleccionada;
-  List<String> _objetivosAbordajeSeleccionados = []; // Lista para múltiples objetivos
+  List<String> _objetivosAbordajeSeleccionados =
+      []; // Lista para múltiples objetivos
   String? _comentarioAdicional; // Campo de comentario opcional
   String? _objetivoAbordajeSeleccionado; // Mantener para compatibilidad
   String? _tipoActividadAdministrativa;
@@ -75,7 +79,6 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
     'Promedio de visitas planeadas',
   ];
 
-
   @override
   void initState() {
     super.initState();
@@ -86,7 +89,7 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    
+
     // Solo cargar datos la primera vez
     if (!_datosInicializados) {
       final args =
@@ -94,7 +97,8 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
       diaSeleccionado = args['dia'] as String;
       semana = args['semana'] as String;
       liderId = args['liderId'] as String;
-      _fechaReal = args['fecha'] ?? _calcularFechaParaDia(diaSeleccionado, semana);
+      _fechaReal =
+          args['fecha'] ?? _calcularFechaParaDia(diaSeleccionado, semana);
       esEdicion = args['esEdicion'] ?? false; // Detectar si es edición
 
       print('🚀 Inicializando VistaProgramarDia');
@@ -102,15 +106,15 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
       print('  - Fecha: $_fechaReal');
       print('  - Semana: $semana');
       print('  - Es edición: $esEdicion');
-      
+
       // Cargar datos existentes si vienen en los argumentos
       if (args.containsKey('datosExistentes')) {
         final datosExistentes = args['datosExistentes'] as Map<String, dynamic>;
         print('📋 Datos existentes recibidos: $datosExistentes');
-        
+
         // Precargar los valores en los campos
         _objetivoSeleccionado = datosExistentes['objetivo'];
-        
+
         // Manejar el tipo de actividad administrativa
         if (datosExistentes['tipoActividad'] != null) {
           final tipoActividad = datosExistentes['tipoActividad'];
@@ -123,7 +127,9 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                 final primeraActividad = actividades.first;
                 _tipoActividadAdministrativa = primeraActividad['tipo'];
                 _tieneMultiplesActividades = actividades.length > 1;
-                print('⚠️ Múltiples actividades detectadas (${actividades.length}), mostrando solo la primera: $_tipoActividadAdministrativa');
+                print(
+                  '⚠️ Múltiples actividades detectadas (${actividades.length}), mostrando solo la primera: $_tipoActividadAdministrativa',
+                );
               }
             } else {
               // Es un valor simple
@@ -134,18 +140,21 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
             _tipoActividadAdministrativa = null;
           }
         }
-        
+
         _rutaSeleccionada = datosExistentes['rutaId'];
         _comentarioAdicional = datosExistentes['comentario'];
         _codigoDiaVisita = datosExistentes['codigoDiaVisita'];
-        
+
         // Procesar comentario/objetivos de abordaje
         if (datosExistentes['comentario'] != null) {
           try {
             // Intentar parsear como JSON
             final comentarioData = jsonDecode(datosExistentes['comentario']);
-            if (comentarioData is Map && comentarioData.containsKey('objetivos')) {
-              _objetivosAbordajeSeleccionados = List<String>.from(comentarioData['objetivos']);
+            if (comentarioData is Map &&
+                comentarioData.containsKey('objetivos')) {
+              _objetivosAbordajeSeleccionados = List<String>.from(
+                comentarioData['objetivos'],
+              );
               _comentarioAdicional = comentarioData['comentario'] ?? '';
             }
           } catch (e) {
@@ -156,19 +165,20 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
             }
           }
         }
-        
+
         // Cargar clientes asignados si existen
         if (datosExistentes['clientesAsignados'] != null) {
-          final clientesJson = datosExistentes['clientesAsignados'] as List<dynamic>;
+          final clientesJson =
+              datosExistentes['clientesAsignados'] as List<dynamic>;
           print('📋 Clientes a precargar: ${clientesJson.length}');
           // Los clientes se cargarán cuando se navegue a la pantalla de asignación
         }
-        
+
         print('✅ Datos precargados correctamente');
       }
 
       _datosInicializados = true;
-      
+
       // Cargar catálogo del día después de tener la fecha
       _cargarCatalogoDelDia();
       _inicializarDatos();
@@ -180,7 +190,8 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
     await _cargarDatosLider();
 
     // Si ya tenemos un objetivo de gestión de cliente precargado, cargar las rutas
-    if (_objetivoSeleccionado == 'Gestión de cliente' && _codigoDiaVisita != null) {
+    if (_objetivoSeleccionado == 'Gestión de cliente' &&
+        _codigoDiaVisita != null) {
       await _cargarRutasDelDia();
     }
 
@@ -193,16 +204,16 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
     try {
       print('🔍 Cargando catálogo para fecha: $_fechaReal');
       print('📅 Día seleccionado: $diaSeleccionado');
-      
+
       final box = await CatalogoDiasService.openBox();
       print('📦 Caja abierta con ${box.values.length} registros');
-      
+
       // Buscar por el día que ya tenemos en español
       final Map? registro = box.values.firstWhere(
         (e) => _normaliza(e['dia']) == _normaliza(diaSeleccionado),
         orElse: () => null,
       );
-      
+
       if (registro == null) {
         print('⚠️ No se encontró registro para el día: $diaSeleccionado');
         print('📋 Días disponibles en la caja:');
@@ -211,13 +222,15 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
         }
         throw Exception('Día no encontrado en el catálogo');
       }
-      
+
       print('✅ Registro encontrado: $registro');
 
       // Calcular número de semana ISO usando DateTime
       final int numeroSemana = _calcularNumeroSemanaISO(_fechaReal);
-      print('🗓️ Número de semana ISO: $numeroSemana (${numeroSemana.isEven ? "par" : "impar"})');
-      
+      print(
+        '🗓️ Número de semana ISO: $numeroSemana (${numeroSemana.isEven ? "par" : "impar"})',
+      );
+
       final String sufijo = numeroSemana.isEven ? '03' : '02';
       print('🔢 Sufijo seleccionado: $sufijo');
 
@@ -240,7 +253,7 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
       // En caso de error, usar valores por defecto basados en el día actual
       final String diaActual = diaSeleccionado;
       String inicial;
-      
+
       // Manejar las iniciales especiales
       switch (diaActual.toLowerCase()) {
         case 'lunes':
@@ -251,7 +264,7 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
           break;
         case 'miércoles':
         case 'miercoles':
-          inicial = 'W';  // Miércoles usa W
+          inicial = 'W'; // Miércoles usa W
           break;
         case 'jueves':
           inicial = 'J';
@@ -269,11 +282,11 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
         default:
           inicial = diaActual.substring(0, 1).toUpperCase();
       }
-      
+
       // Calcular si la semana es par o impar para el sufijo por defecto
       final int numeroSemana = _calcularNumeroSemanaISO(_fechaReal);
       final String sufijo = numeroSemana.isEven ? '03' : '02';
-      
+
       setState(() {
         _catDia = {
           'clave01': '${inicial}01',
@@ -285,6 +298,8 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
           'inicial': '${inicial}$sufijo',
         };
         _codigoDiaVisita = _catDia!['inicial'];
+        //_codigoDiaVisita =
+        //  '12-08-2025'; //Cambio temporal para pruebas 12 -08-2025 / remi aguilar / guillermo martinez
       });
     }
   }
@@ -294,17 +309,19 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
     // Ajustar al jueves de la semana
     int diasHastaJueves = DateTime.thursday - fecha.weekday;
     DateTime jueves = fecha.add(Duration(days: diasHastaJueves));
-    
+
     // Primer jueves del año
     DateTime primerEnero = DateTime(jueves.year, 1, 1);
     int diasHastaPrimerJueves = DateTime.thursday - primerEnero.weekday;
-    DateTime primerJueves = primerEnero.add(Duration(days: diasHastaPrimerJueves));
-    
+    DateTime primerJueves = primerEnero.add(
+      Duration(days: diasHastaPrimerJueves),
+    );
+
     // Si el primer jueves es después del 4 de enero, pertenece a la semana anterior
     if (primerJueves.day > 4) {
       primerJueves = primerJueves.subtract(Duration(days: 7));
     }
-    
+
     // Calcular diferencia en días y convertir a semanas
     int diferenciaDias = jueves.difference(primerJueves).inDays;
     return (diferenciaDias / 7).floor() + 1;
@@ -354,17 +371,22 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
     });
 
     try {
-      print('🔄 Cargando rutas para código líder: ${_liderComercial!.clave}, día: $_codigoDiaVisita');
+      // Formatear la fecha real a DD-MM-YYYY
+      final fechaFormateada = DateFormat('dd-MM-yyyy').format(_fechaReal);
       
+      print(
+        '🔄 Cargando rutas para código líder: ${_liderComercial!.clave}, fecha: $fechaFormateada',
+      );
+
       final rutas = await _rutasServicio.obtenerRutasPorDia(
         _liderComercial!.clave,
-        _codigoDiaVisita!,
+        fechaFormateada,
       );
 
       setState(() {
         _rutasDisponibles = rutas;
         _cargandoRutas = false;
-        
+
         // AUTO-SELECCIONAR RUTA SI SOLO HAY UNA DISPONIBLE
         if (_rutasDisponibles.length == 1 && _rutaSeleccionada == null) {
           _rutaSeleccionada = _rutasDisponibles.first.nombre;
@@ -378,11 +400,11 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
       });
     } catch (e) {
       print('❌ Error al cargar rutas: $e');
-      
+
       setState(() {
         _cargandoRutas = false;
       });
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -402,7 +424,7 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
         setState(() {
           // Rastrear el tipo de objetivo existente
           _tipoObjetivoExistente = diaData.objetivo;
-          
+
           // Validar que el objetivo existe en la lista antes de asignarlo
           if (_objetivos.contains(diaData.objetivo)) {
             _objetivoSeleccionado = diaData.objetivo;
@@ -419,7 +441,8 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
           }
 
           // Cargar código del día si existe (sobrescribir el calculado automáticamente)
-          if (diaData.codigoDiaVisita != null && diaData.codigoDiaVisita!.isNotEmpty) {
+          if (diaData.codigoDiaVisita != null &&
+              diaData.codigoDiaVisita!.isNotEmpty) {
             _codigoDiaVisita = diaData.codigoDiaVisita;
             print('📌 Código día existente cargado: $_codigoDiaVisita');
           }
@@ -429,8 +452,11 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
             try {
               // Intentar parsear como JSON
               final comentarioData = jsonDecode(diaData.comentario!);
-              if (comentarioData is Map && comentarioData.containsKey('objetivos')) {
-                _objetivosAbordajeSeleccionados = List<String>.from(comentarioData['objetivos']);
+              if (comentarioData is Map &&
+                  comentarioData.containsKey('objetivos')) {
+                _objetivosAbordajeSeleccionados = List<String>.from(
+                  comentarioData['objetivos'],
+                );
                 _comentarioAdicional = comentarioData['comentario'];
               } else {
                 // Si no es JSON, es un objetivo único (retrocompatibilidad)
@@ -455,9 +481,10 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
         print('Ruta: $_rutaSeleccionada');
         print('Tipo actividad: $_tipoActividadAdministrativa');
         print('Objetivo abordaje: $_objetivoAbordajeSeleccionado');
-        
+
         // Si hay objetivo de gestión de cliente, cargar las rutas del día
-        if (_objetivoSeleccionado == 'Gestión de cliente' && _codigoDiaVisita != null) {
+        if (_objetivoSeleccionado == 'Gestión de cliente' &&
+            _codigoDiaVisita != null) {
           await _cargarRutasDelDia();
         }
       }
@@ -530,12 +557,13 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                     .nombre
                 : null,
         tipoActividad: _tipoActividadAdministrativa,
-        comentario: _objetivosAbordajeSeleccionados.isNotEmpty
-            ? jsonEncode({
-                'objetivos': _objetivosAbordajeSeleccionados,
-                'comentario': _comentarioAdicional ?? '',
-              })
-            : _comentarioAdicional,
+        comentario:
+            _objetivosAbordajeSeleccionados.isNotEmpty
+                ? jsonEncode({
+                  'objetivos': _objetivosAbordajeSeleccionados,
+                  'comentario': _comentarioAdicional ?? '',
+                })
+                : _comentarioAdicional,
         codigoDiaVisita: _codigoDiaVisita,
       );
 
@@ -600,28 +628,29 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
       _mostrarOpcionesPerfil();
     }
   }
-  
+
   void _mostrarOpcionesPerfil() {
     showModalBottomSheet(
       context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.logout, color: Colors.red),
-              title: const Text('Cerrar Sesión'),
-              onTap: () async {
-                Navigator.pop(context);
-                await SesionServicio.cerrarSesion(context);
-                if (context.mounted) {
-                  Navigator.pushReplacementNamed(context, '/login');
-                }
-              },
+      builder:
+          (context) => SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.logout, color: Colors.red),
+                  title: const Text('Cerrar Sesión'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await SesionServicio.cerrarSesion(context);
+                    if (context.mounted) {
+                      Navigator.pushReplacementNamed(context, '/login');
+                    }
+                  },
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
     );
   }
 
@@ -757,7 +786,9 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                               (objetivo) => DropdownMenuItem(
                                 value: objetivo,
                                 child: Text(
-                                  objetivo == 'Gestión de cliente' ? 'Abordaje de ruta' : objetivo,
+                                  objetivo == 'Gestión de cliente'
+                                      ? 'Abordaje de ruta'
+                                      : objetivo,
                                   style: GoogleFonts.poppins(fontSize: 14),
                                 ),
                               ),
@@ -772,13 +803,14 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                           _rutaSeleccionada = null;
                         }
                       });
-                      
+
                       // AJUSTE TEMPORAL - 2025-07-16 - Guillermo Martinez
                       // Revisión con Ricardo Medrano / Remi Aguilar
-                      // AUTO-CARGA DE RUTAS: Cuando se selecciona 'Gestión de cliente', 
+                      // AUTO-CARGA DE RUTAS: Cuando se selecciona 'Gestión de cliente',
                       // automáticamente se cargan las rutas con el código día 01 (ya forzado)
                       // Para 'Actividad administrativa' no se ejecuta este flujo
-                      if (value == 'Gestión de cliente' && _codigoDiaVisita != null) {
+                      if (value == 'Gestión de cliente' &&
+                          _codigoDiaVisita != null) {
                         await _cargarRutasDelDia();
                       }
                     },
@@ -796,7 +828,7 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                   // CAMPO DÍA ASIGNADO OCULTO: El campo existe pero no se muestra al usuario
                   // Se mantiene la lógica interna para no romper funcionalidad
                   // El valor se establece automáticamente con terminación 01
-                  
+
                   // Widget oculto que mantiene la funcionalidad del campo día asignado
                   if (_catDia != null)
                     Visibility(
@@ -829,15 +861,25 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                         ),
                         value: _codigoDiaVisita,
                         items: [
-                          DropdownMenuItem(value: _catDia!['clave01'], child: Text(_catDia!['texto01']!)),
-                          DropdownMenuItem(value: _catDia!['clave02'], child: Text(_catDia!['texto02']!)),
-                          DropdownMenuItem(value: _catDia!['clave03'], child: Text(_catDia!['texto03']!)),
+                          DropdownMenuItem(
+                            value: _catDia!['clave01'],
+                            child: Text(_catDia!['texto01']!),
+                          ),
+                          DropdownMenuItem(
+                            value: _catDia!['clave02'],
+                            child: Text(_catDia!['texto02']!),
+                          ),
+                          DropdownMenuItem(
+                            value: _catDia!['clave03'],
+                            child: Text(_catDia!['texto03']!),
+                          ),
                         ],
                         onChanged: (v) async {
                           setState(() => _codigoDiaVisita = v);
-                          
+
                           // Si hay objetivo de gestión de cliente seleccionado, recargar rutas
-                          if (_objetivoSeleccionado == 'Gestión de cliente' && v != null) {
+                          if (_objetivoSeleccionado == 'Gestión de cliente' &&
+                              v != null) {
                             await _cargarRutasDelDia();
                           }
                         },
@@ -1000,55 +1042,55 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                                   : _rutasDisponibles.length == 1
                                   ? 'RUTA SELECCIONADA AUTOMÁTICAMENTE'
                                   : 'SELECCIONE UNA RUTA',
-                        hintStyle: GoogleFonts.poppins(
-                          fontSize: 14,
-                          color: Colors.grey,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: Colors.grey),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFDE1327),
-                            width: 2,
+                          hintStyle: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color: Colors.grey,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(color: Colors.grey),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFDE1327),
+                              width: 2,
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
                           ),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                      ),
-                      value: _rutaSeleccionada,
-                      items:
-                          _rutasDisponibles
-                              .map(
-                                (ruta) => DropdownMenuItem(
-                                  value: ruta.nombre,
-                                  child: Text(
-                                    '${ruta.nombre} - ${ruta.asesor}',
-                                    style: GoogleFonts.poppins(fontSize: 14),
+                        value: _rutaSeleccionada,
+                        items:
+                            _rutasDisponibles
+                                .map(
+                                  (ruta) => DropdownMenuItem(
+                                    value: ruta.nombre,
+                                    child: Text(
+                                      '${ruta.nombre} - ${ruta.asesor}',
+                                      style: GoogleFonts.poppins(fontSize: 14),
+                                    ),
                                   ),
-                                ),
-                              )
-                              .toList(),
-                      onChanged:
-                          _rutasDisponibles.isNotEmpty
-                              ? (value) {
-                                setState(() {
-                                  _rutaSeleccionada = value;
-                                });
-                              }
-                              : null,
-                      validator: (value) {
-                        if (_objetivoSeleccionado == 'Gestión de cliente' &&
-                            (value == null || value.isEmpty)) {
-                          return 'Por favor seleccione una ruta';
-                        }
-                        return null;
-                      },
-                    ),
+                                )
+                                .toList(),
+                        onChanged:
+                            _rutasDisponibles.isNotEmpty
+                                ? (value) {
+                                  setState(() {
+                                    _rutaSeleccionada = value;
+                                  });
+                                }
+                                : null,
+                        validator: (value) {
+                          if (_objetivoSeleccionado == 'Gestión de cliente' &&
+                              (value == null || value.isEmpty)) {
+                            return 'Por favor seleccione una ruta';
+                          }
+                          return null;
+                        },
+                      ),
                     const SizedBox(height: 20),
                     Text(
                       'Indicador de ruta:',
@@ -1081,19 +1123,26 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                           ),
                           const SizedBox(height: 8),
                           ..._objetivosAbordaje.map((objetivo) {
-                            final isSelected = _objetivosAbordajeSeleccionados.contains(objetivo);
+                            final isSelected = _objetivosAbordajeSeleccionados
+                                .contains(objetivo);
                             return InkWell(
                               onTap: () {
                                 setState(() {
                                   if (isSelected) {
-                                    _objetivosAbordajeSeleccionados.remove(objetivo);
+                                    _objetivosAbordajeSeleccionados.remove(
+                                      objetivo,
+                                    );
                                   } else {
-                                    _objetivosAbordajeSeleccionados.add(objetivo);
+                                    _objetivosAbordajeSeleccionados.add(
+                                      objetivo,
+                                    );
                                   }
                                 });
                               },
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 4,
+                                ),
                                 child: Row(
                                   children: [
                                     Container(
@@ -1101,23 +1150,26 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                                       height: 20,
                                       decoration: BoxDecoration(
                                         border: Border.all(
-                                          color: isSelected 
-                                              ? const Color(0xFFDE1327) 
-                                              : Colors.grey.shade400,
+                                          color:
+                                              isSelected
+                                                  ? const Color(0xFFDE1327)
+                                                  : Colors.grey.shade400,
                                           width: 2,
                                         ),
                                         borderRadius: BorderRadius.circular(4),
-                                        color: isSelected 
-                                            ? const Color(0xFFDE1327) 
-                                            : Colors.transparent,
+                                        color:
+                                            isSelected
+                                                ? const Color(0xFFDE1327)
+                                                : Colors.transparent,
                                       ),
-                                      child: isSelected
-                                          ? const Icon(
-                                              Icons.check,
-                                              size: 14,
-                                              color: Colors.white,
-                                            )
-                                          : null,
+                                      child:
+                                          isSelected
+                                              ? const Icon(
+                                                Icons.check,
+                                                size: 14,
+                                                color: Colors.white,
+                                              )
+                                              : null,
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
@@ -1137,7 +1189,8 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                         ],
                       ),
                     ),
-                    if (_objetivosAbordajeSeleccionados.isEmpty && _objetivoSeleccionado == 'Gestión de cliente')
+                    if (_objetivosAbordajeSeleccionados.isEmpty &&
+                        _objetivoSeleccionado == 'Gestión de cliente')
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
                         child: Text(
@@ -1166,7 +1219,8 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                       },
                       maxLines: 3,
                       decoration: InputDecoration(
-                        hintText: 'Agregue comentarios adicionales si es necesario',
+                        hintText:
+                            'Agregue comentarios adicionales si es necesario',
                         hintStyle: GoogleFonts.poppins(
                           fontSize: 14,
                           color: Colors.grey,
@@ -1290,10 +1344,13 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                     onPressed: () async {
                       if (_formKey.currentState!.validate()) {
                         // Validación adicional para objetivos de abordaje
-                        if (_objetivoSeleccionado == 'Gestión de cliente' && _objetivosAbordajeSeleccionados.isEmpty) {
+                        if (_objetivoSeleccionado == 'Gestión de cliente' &&
+                            _objetivosAbordajeSeleccionados.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Por favor seleccione al menos un indicador de ruta'),
+                              content: Text(
+                                'Por favor seleccione al menos un indicador de ruta',
+                              ),
                               backgroundColor: Colors.red,
                             ),
                           );
@@ -1320,29 +1377,49 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
 
                           if (_objetivoSeleccionado == 'Gestión de cliente') {
                             // Navegar a asignación de clientes
-                            final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-                            final clientesExistentes = args.containsKey('datosExistentes') && 
-                                args['datosExistentes']['clientesAsignados'] != null
-                                ? args['datosExistentes']['clientesAsignados'] as List<dynamic>
-                                : [];
-                            
+                            final args =
+                                ModalRoute.of(context)!.settings.arguments
+                                    as Map<String, dynamic>;
+                            final clientesExistentes =
+                                args.containsKey('datosExistentes') &&
+                                        args['datosExistentes']['clientesAsignados'] !=
+                                            null
+                                    ? args['datosExistentes']['clientesAsignados']
+                                        as List<dynamic>
+                                    : [];
+
                             // Obtener el nombre del asesor de la ruta seleccionada
                             String nombreAsesor = '';
-                            if (_rutaSeleccionada != null && _rutasDisponibles.isNotEmpty) {
-                              print('🔍 Extrayendo asesor de la ruta seleccionada:');
-                              print('   - Ruta seleccionada: "$_rutaSeleccionada"');
-                              print('   - Total rutas disponibles: ${_rutasDisponibles.length}');
-                              
+                            if (_rutaSeleccionada != null &&
+                                _rutasDisponibles.isNotEmpty) {
+                              print(
+                                '🔍 Extrayendo asesor de la ruta seleccionada:',
+                              );
+                              print(
+                                '   - Ruta seleccionada: "$_rutaSeleccionada"',
+                              );
+                              print(
+                                '   - Total rutas disponibles: ${_rutasDisponibles.length}',
+                              );
+
                               // Mostrar todas las rutas disponibles para debug
-                              for (var i = 0; i < _rutasDisponibles.length; i++) {
+                              for (
+                                var i = 0;
+                                i < _rutasDisponibles.length;
+                                i++
+                              ) {
                                 final ruta = _rutasDisponibles[i];
-                                print('   - Ruta[$i]: nombre="${ruta.nombre}", asesor="${ruta.asesor}"');
+                                print(
+                                  '   - Ruta[$i]: nombre="${ruta.nombre}", asesor="${ruta.asesor}"',
+                                );
                               }
-                              
+
                               final rutaEncontrada = _rutasDisponibles.firstWhere(
                                 (ruta) => ruta.nombre == _rutaSeleccionada,
                                 orElse: () {
-                                  print('⚠️ No se encontró la ruta "$_rutaSeleccionada" en las rutas disponibles');
+                                  print(
+                                    '⚠️ No se encontró la ruta "$_rutaSeleccionada" en las rutas disponibles',
+                                  );
                                   print('⚠️ Usando valor por defecto');
                                   return Ruta(
                                     asesor: 'Asesor no disponible',
@@ -1351,17 +1428,23 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                                   );
                                 },
                               );
-                              
+
                               nombreAsesor = rutaEncontrada.asesor;
                               print('✅ Asesor encontrado: "$nombreAsesor"');
-                              print('✅ Ruta encontrada: "${rutaEncontrada.nombre}"');
+                              print(
+                                '✅ Ruta encontrada: "${rutaEncontrada.nombre}"',
+                              );
                             } else {
                               print('⚠️ Condiciones no cumplidas:');
-                              print('   - _rutaSeleccionada: $_rutaSeleccionada');
-                              print('   - _rutasDisponibles.isNotEmpty: ${_rutasDisponibles.isNotEmpty}');
+                              print(
+                                '   - _rutaSeleccionada: $_rutaSeleccionada',
+                              );
+                              print(
+                                '   - _rutasDisponibles.isNotEmpty: ${_rutasDisponibles.isNotEmpty}',
+                              );
                               nombreAsesor = 'Asesor no disponible';
                             }
-                            
+
                             final resultado = await Navigator.pushNamed(
                               context,
                               '/asignacion_clientes',
@@ -1371,12 +1454,17 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                                 'centro': _centroDistribucionInterno,
                                 'semana': semana,
                                 'liderId': liderId,
-                                'liderNombre': _liderComercial?.nombre ?? '', // Agregar nombre del líder
-                                'asesor': nombreAsesor, // Pasar el nombre del asesor
+                                'liderNombre':
+                                    _liderComercial?.nombre ??
+                                    '', // Agregar nombre del líder
+                                'asesor':
+                                    nombreAsesor, // Pasar el nombre del asesor
                                 'esEdicion': esEdicion,
-                                'codigoDiaVisita': _codigoDiaVisita, // Pasar código del día
+                                'codigoDiaVisita':
+                                    _codigoDiaVisita, // Pasar código del día
                                 'fecha': _fechaReal, // Pasar la fecha también
-                                'clientesExistentes': clientesExistentes, // Pasar clientes existentes
+                                'clientesExistentes':
+                                    clientesExistentes, // Pasar clientes existentes
                               },
                             );
 
@@ -1386,11 +1474,13 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                           } else if (_objetivoSeleccionado ==
                               'Actividad administrativa') {
                             // Mostrar confirmación
-                            print('Actividad administrativa guardada para $diaSeleccionado');
-                            
+                            print(
+                              'Actividad administrativa guardada para $diaSeleccionado',
+                            );
+
                             // Esperar un poco más para asegurar que Hive complete el guardado
                             await Future.delayed(Duration(milliseconds: 300));
-                            
+
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
@@ -1410,116 +1500,128 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                                   duration: const Duration(seconds: 1),
                                 ),
                               );
-                              
+
                               // Preguntar si desea agregar otro objetivo
                               final bool? agregarOtro = await showDialog<bool>(
                                 context: context,
                                 barrierDismissible: false,
-                                builder: (context) => AlertDialog(
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  title: Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(8),
-                                        decoration: BoxDecoration(
-                                          color: Colors.green.shade100,
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: Icon(
-                                          Icons.check_circle,
-                                          color: Colors.green.shade700,
-                                          size: 24,
-                                        ),
+                                builder:
+                                    (context) => AlertDialog(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(20),
                                       ),
-                                      const SizedBox(width: 12),
-                                      const Text('Actividad guardada'),
-                                    ],
-                                  ),
-                                  titleTextStyle: GoogleFonts.poppins(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w600,
-                                    color: const Color(0xFF1C2120),
-                                  ),
-                                  content: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '¿Desea agregar otro objetivo para el día $diaSeleccionado?',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 16,
-                                          color: Colors.grey.shade700,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Container(
-                                        padding: const EdgeInsets.all(12),
-                                        decoration: BoxDecoration(
-                                          color: Colors.blue.shade50,
-                                          borderRadius: BorderRadius.circular(8),
-                                          border: Border.all(color: Colors.blue.shade200),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Icon(
-                                              Icons.info_outline,
-                                              color: Colors.blue.shade700,
-                                              size: 20,
+                                      title: Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              color: Colors.green.shade100,
+                                              shape: BoxShape.circle,
                                             ),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Text(
-                                                'Puede agregar más actividades administrativas o cambiar a gestión de clientes',
-                                                style: GoogleFonts.poppins(
-                                                  fontSize: 13,
-                                                  color: Colors.blue.shade700,
-                                                ),
+                                            child: Icon(
+                                              Icons.check_circle,
+                                              color: Colors.green.shade700,
+                                              size: 24,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          const Text('Actividad guardada'),
+                                        ],
+                                      ),
+                                      titleTextStyle: GoogleFonts.poppins(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w600,
+                                        color: const Color(0xFF1C2120),
+                                      ),
+                                      content: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            '¿Desea agregar otro objetivo para el día $diaSeleccionado?',
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 16,
+                                              color: Colors.grey.shade700,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 12),
+                                          Container(
+                                            padding: const EdgeInsets.all(12),
+                                            decoration: BoxDecoration(
+                                              color: Colors.blue.shade50,
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              border: Border.all(
+                                                color: Colors.blue.shade200,
                                               ),
                                             ),
-                                          ],
-                                        ),
+                                            child: Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.info_outline,
+                                                  color: Colors.blue.shade700,
+                                                  size: 20,
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Expanded(
+                                                  child: Text(
+                                                    'Puede agregar más actividades administrativas o cambiar a gestión de clientes',
+                                                    style: GoogleFonts.poppins(
+                                                      fontSize: 13,
+                                                      color:
+                                                          Colors.blue.shade700,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
-                                  actions: [
-                                    ElevatedButton(
-                                      onPressed: () => Navigator.pop(context, true),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.grey,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(8),
+                                      actions: [
+                                        ElevatedButton(
+                                          onPressed:
+                                              () =>
+                                                  Navigator.pop(context, true),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.grey,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            'Sí, agregar otro objetivo',
+                                            style: GoogleFonts.poppins(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
                                         ),
-                                      ),
-                                      child: Text(
-                                        'Sí, agregar otro objetivo',
-                                        style: GoogleFonts.poppins(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w600,
+                                        ElevatedButton(
+                                          onPressed:
+                                              () =>
+                                                  Navigator.pop(context, false),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.red,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            'Finalizar',
+                                            style: GoogleFonts.poppins(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
                                         ),
-                                      ),
+                                      ],
                                     ),
-                                    ElevatedButton(
-                                      onPressed: () => Navigator.pop(context, false),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.red,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                      ),
-                                      child: Text(
-                                        'Finalizar',
-                                        style: GoogleFonts.poppins(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
                               );
-                              
+
                               if (agregarOtro == true && mounted) {
                                 // Limpiar campos para nuevo objetivo
                                 setState(() {
@@ -1604,19 +1706,21 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
       if (partes.length >= 4) {
         final numeroSemana = int.tryParse(partes[1]) ?? 1;
         final anio = int.tryParse(partes[3]) ?? DateTime.now().year;
-        
+
         // Calcular el primer día del año
         final primerDiaDelAnio = DateTime(anio, 1, 1);
-        
+
         // Encontrar el primer lunes del año
         var primerLunes = primerDiaDelAnio;
         while (primerLunes.weekday != DateTime.monday) {
           primerLunes = primerLunes.add(const Duration(days: 1));
         }
-        
+
         // Calcular el lunes de la semana deseada
-        final lunesDeSemana = primerLunes.add(Duration(days: (numeroSemana - 1) * 7));
-        
+        final lunesDeSemana = primerLunes.add(
+          Duration(days: (numeroSemana - 1) * 7),
+        );
+
         // Mapear el día a un número
         final diasSemana = {
           'Lunes': 0,
@@ -1627,14 +1731,14 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
           'Sábado': 5,
           'Domingo': 6,
         };
-        
+
         final offsetDia = diasSemana[dia] ?? 0;
         return lunesDeSemana.add(Duration(days: offsetDia));
       }
     } catch (e) {
       print('Error calculando fecha para día: $e');
     }
-    
+
     // Si hay algún error, devolver la fecha actual
     return DateTime.now();
   }
