@@ -1,0 +1,49 @@
+# Amplify ignore file
+# Ignorar archivos de desarrollo y cache
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Archivos de configuración local
+.vscode/
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Archivos temporales
+*.tmp
+*.temp
+
+# Archivos de testing
+test/
+test_driver/
+coverage/
+
+# Archivos específicos de plataforma que no se necesitan para web
+android/
+ios/
+linux/
+macos/
+windows/
+
+# Archivos de documentación
+*.md
+context/
+release_*.zip
+*.bat
+*.sh
+
+# Archivos de análisis
+analysis_options.yaml

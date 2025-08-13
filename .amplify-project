@@ -1,0 +1,18 @@
+# Configuración de proyecto Flutter para AWS Amplify
+
+## Tipo de proyecto
+Flutter Web Application
+
+## Directorio de salida
+build/web
+
+## Comando de build
+flutter build web --release
+
+## Framework detectado
+Flutter
+
+## Variables de entorno requeridas
+FLUTTER_ROOT=/opt/flutter
+FLUTTER_WEB=true
+PUB_CACHE=/opt/flutter/.pub-cache
