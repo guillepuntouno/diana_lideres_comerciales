@@ -54,8 +54,14 @@ class Ruta {
   final String asesor;
   final String nombre;
   final List<Negocio> negocios;
+  final String diaVisitaCod; // Nuevo campo para DIA_VISITA_COD
 
-  Ruta({required this.asesor, required this.nombre, required this.negocios});
+  Ruta({
+    required this.asesor, 
+    required this.nombre, 
+    required this.negocios,
+    this.diaVisitaCod = '', // Valor por defecto
+  });
 
   factory Ruta.fromJson(Map<String, dynamic> json) {
     // Obtener negocios de manera más segura
@@ -76,6 +82,7 @@ class Ruta {
       asesor: json['Asesor'] ?? json['asesor'] ?? json['Canal_clientevend'] ?? '',
       nombre: json['Ruta'] ?? json['idRuta'] ?? json['Nombre'] ?? json['nombre'] ?? '',
       negocios: negociosList,
+      diaVisitaCod: json['DIA_VISITA_COD'] ?? '',
     );
   }
 
@@ -84,6 +91,7 @@ class Ruta {
       'asesor': asesor,
       'nombre': nombre,
       'negocios': negocios.map((negocio) => negocio.toJson()).toList(),
+      'diaVisitaCod': diaVisitaCod,
     };
   }
 }
