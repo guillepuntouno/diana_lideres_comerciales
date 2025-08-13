@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:convert';
+import 'package:intl/intl.dart';
 import 'package:diana_lc_front/shared/modelos/plan_trabajo_modelo.dart';
 import 'package:diana_lc_front/shared/servicios/plan_trabajo_offline_service.dart';
 import 'package:diana_lc_front/shared/servicios/sesion_servicio.dart';
@@ -31,6 +32,7 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
   late String liderId;
   late String liderNombre;
   late String codigoDiaVisita;
+  late String diaVisitaCod; // Nuevo: DIA_VISITA_COD de la ruta
   late DateTime fechaReal;
   String asesorRecibido = ''; // Asesor recibido desde programar_dia
   bool esEdicion = false;
@@ -60,6 +62,7 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
     liderId = args['liderId'] ?? '';
     liderNombre = args['liderNombre'] ?? '';
     codigoDiaVisita = args['codigoDiaVisita'] ?? '';
+    diaVisitaCod = args['diaVisitaCod'] ?? ''; // Recibir DIA_VISITA_COD
     fechaReal = args['fecha'] ?? DateTime.now();
     asesorRecibido = args['asesor'] ?? ''; // Recibir el nombre del asesor
     esEdicion = args['esEdicion'] ?? false;
@@ -72,10 +75,16 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
 
     try {
       // Debug: Verificar datos recibidos
-      print('🔍 Datos recibidos en AsignacionClientes:');
+      print('🔍 VERIFICACIÓN DE DATOS RECIBIDOS EN ASIGNACIÓN CLIENTES:');
       print('   - Asesor recibido: "$asesorRecibido"');
-      print('   - Ruta seleccionada: "$rutaSeleccionada"');
+      print('   - ID de ruta (encabezado): "$rutaSeleccionada"');
       print('   - Líder ID: "$liderId"');
+      print('   - Código día visita (interno): "$codigoDiaVisita"');
+      print('   - DIA_VISITA_COD (endpoint): "$diaVisitaCod"');
+      print('   - Fecha real: $fechaReal');
+      print('');
+      print('✅ ENDPOINT CORRECTO SERÁ: /rutas/$liderId/$diaVisitaCod/$rutaSeleccionada');
+      print('   - Ejemplo: /rutas/176/W01/MORD57');
       
       // Cargar datos del líder comercial
       _liderComercial = await SesionServicio.obtenerLiderComercial();
@@ -146,17 +155,18 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
     try {
       print('🔄 Cargando clientes para ruta: $rutaSeleccionada');
 
-      // Usar el nuevo servicio de rutas con el endpoint actualizado
-      print('📋 Parámetros para obtener clientes:');
+      // Usar el endpoint correcto: /rutas/{liderId}/{diaVisitaCod}/{idRuta}
+      print('📋 Parámetros FINALES para obtener clientes:');
       print('   - Líder ID: $liderId');
-      print('   - Código día visita: $codigoDiaVisita');
-      print('   - Ruta: $rutaSeleccionada');
+      print('   - DIA_VISITA_COD: $diaVisitaCod (ej: W01, L01)');
+      print('   - ID de ruta: $rutaSeleccionada (ej: MORD57)');
+      print('   - URL FINAL: /rutas/$liderId/$diaVisitaCod/$rutaSeleccionada');
 
-      // Cargar clientes desde el nuevo endpoint con JSON
+      // Cargar clientes usando DIA_VISITA_COD correcto
       final resultado = await _rutasServicio.obtenerClientesPorRutaConJson(
-        liderId,
-        codigoDiaVisita,
-        rutaSeleccionada,
+        liderId,                // Código del líder (176)
+        diaVisitaCod,          // DIA_VISITA_COD de la ruta (W01, L01, etc.)
+        rutaSeleccionada,      // ID de la ruta (MORD57, etc.)
       );
 
       final clientes = resultado['negocios'] as List<Negocio>;

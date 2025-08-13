@@ -55,6 +55,7 @@ class RutasServicio {
           final rutaCodigo = item['RUTA'] ?? '';
           final codigoAsesor = item['CODIGO_ASESOR'] ?? '';
           final nombreAsesor = item['NOMBRE_ASESOR'] ?? '';
+          final diaVisitaCod = item['DIA_VISITA_COD'] ?? '';
           
           // Crear una clave única combinando ruta y código de asesor
           final claveUnica = '${rutaCodigo}_${codigoAsesor}';
@@ -64,6 +65,7 @@ class RutasServicio {
               'RUTA': rutaCodigo,
               'NOMBRE_ASESOR': nombreAsesor,
               'CODIGO_ASESOR': codigoAsesor,
+              'DIA_VISITA_COD': diaVisitaCod,
             };
           }
         }
@@ -72,7 +74,7 @@ class RutasServicio {
         
         // Log detallado de las rutas
         rutasUnicas.forEach((key, value) {
-          print('  - Ruta: ${value['RUTA']} | Asesor: ${value['NOMBRE_ASESOR']} (${value['CODIGO_ASESOR']})');
+          print('  - Ruta: ${value['RUTA']} | Asesor: ${value['NOMBRE_ASESOR']} (${value['CODIGO_ASESOR']}) | DIA_VISITA_COD: ${value['DIA_VISITA_COD']}');
         });
 
         // Convertir a lista de objetos Ruta
@@ -81,6 +83,7 @@ class RutasServicio {
             nombre: rutaData['RUTA'],
             asesor: rutaData['NOMBRE_ASESOR'],
             negocios: [], // Los negocios se cargarán después si es necesario
+            diaVisitaCod: rutaData['DIA_VISITA_COD'] ?? '',
           );
         }).toList();
       } else if (response.statusCode == 404) {
@@ -117,7 +120,9 @@ class RutasServicio {
       print(
         '🔍 Obteniendo clientes para líder: $codigoLider, día: $codigoDiaVisita, ruta: $ruta',
       );
-      print('📡 URL: $url');
+      print('📡 URL construida: $url');
+      print('✅ Formato esperado: /rutas/{liderId}/{codigoDiaVisita}/{rutaId}');
+      debugPrint('URL final de clientes: $url');
 
       // Obtener token de autenticación
       final token = await SesionServicio.obtenerToken();

@@ -1395,12 +1395,14 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                                         as List<dynamic>
                                     : [];
 
-                            // Obtener el nombre del asesor de la ruta seleccionada
+                            // Obtener el asesor y DIA_VISITA_COD de la ruta seleccionada
                             String nombreAsesor = '';
+                            String diaVisitaCod = '';
+                            
                             if (_rutaSeleccionada != null &&
                                 _rutasDisponibles.isNotEmpty) {
                               print(
-                                '🔍 Extrayendo asesor de la ruta seleccionada:',
+                                '🔍 Extrayendo asesor y DIA_VISITA_COD de la ruta seleccionada:',
                               );
                               print(
                                 '   - Ruta seleccionada: "$_rutaSeleccionada"',
@@ -1417,7 +1419,7 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                               ) {
                                 final ruta = _rutasDisponibles[i];
                                 print(
-                                  '   - Ruta[$i]: nombre="${ruta.nombre}", asesor="${ruta.asesor}"',
+                                  '   - Ruta[$i]: nombre="${ruta.nombre}", asesor="${ruta.asesor}", diaVisitaCod="${ruta.diaVisitaCod}"',
                                 );
                               }
 
@@ -1427,17 +1429,20 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                                   print(
                                     '⚠️ No se encontró la ruta "$_rutaSeleccionada" en las rutas disponibles',
                                   );
-                                  print('⚠️ Usando valor por defecto');
+                                  print('⚠️ Usando valores por defecto');
                                   return Ruta(
                                     asesor: 'Asesor no disponible',
                                     nombre: _rutaSeleccionada!,
                                     negocios: [],
+                                    diaVisitaCod: '', // Valor por defecto
                                   );
                                 },
                               );
 
                               nombreAsesor = rutaEncontrada.asesor;
+                              diaVisitaCod = rutaEncontrada.diaVisitaCod;
                               print('✅ Asesor encontrado: "$nombreAsesor"');
+                              print('✅ DIA_VISITA_COD encontrado: "$diaVisitaCod"');
                               print(
                                 '✅ Ruta encontrada: "${rutaEncontrada.nombre}"',
                               );
@@ -1450,6 +1455,7 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                                 '   - _rutasDisponibles.isNotEmpty: ${_rutasDisponibles.isNotEmpty}',
                               );
                               nombreAsesor = 'Asesor no disponible';
+                              diaVisitaCod = '';
                             }
 
                             final resultado = await Navigator.pushNamed(
@@ -1468,7 +1474,9 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                                     nombreAsesor, // Pasar el nombre del asesor
                                 'esEdicion': esEdicion,
                                 'codigoDiaVisita':
-                                    _codigoDiaVisita, // Pasar código del día
+                                    _codigoDiaVisita, // Pasar código del día (interno)
+                                'diaVisitaCod': 
+                                    diaVisitaCod, // Pasar DIA_VISITA_COD de la ruta (para el endpoint)
                                 'fecha': _fechaReal, // Pasar la fecha también
                                 'clientesExistentes':
                                     clientesExistentes, // Pasar clientes existentes
