@@ -18,6 +18,7 @@ import 'package:diana_lc_front/shared/modelos/hive/plan_trabajo_unificado_hive.d
 import 'package:diana_lc_front/servicios/visita_cliente_unificado_service.dart';
 import 'package:diana_lc_front/servicios/clientes_locales_service.dart';
 import 'package:diana_lc_front/shared/modelos/hive/cliente_hive.dart';
+import 'package:diana_lc_front/shared/servicios/rutas_servicio.dart';
 
 // -----------------------------------------------------------------------------
 // COLORES CORPORATIVOS DIANA
@@ -131,6 +132,7 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
   final VisitaClienteUnificadoService _visitaUnificadoService =
       VisitaClienteUnificadoService();
   final ClientesLocalesService _clientesLocalesService = ClientesLocalesService();
+  final RutasServicio _rutasServicio = RutasServicio();
 
   List<ActivityModel> _actividades = [];
   List<PlanOpcion> _planesDisponibles = [];
@@ -155,7 +157,7 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
 
   // Variables para ruta
   String? _rutaSeleccionada;
-  List<String> _rutasDisponibles = [];
+  List<Ruta> _rutasDisponibles = [];
 
   bool _isLoading = true;
   bool _cargandoPlanes = false;
@@ -451,9 +453,10 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
         });
 
         await _procesarDetallePlan(detallePlan);
-        
+
         // Cargar el plan unificado después de procesar el detalle
         await _cargarPlanUnificado();
+        await _cargarRutasDisponibles();
       } else {
         print('❌ No se encontró detalle para el plan seleccionado');
         setState(() => _actividades = []);
@@ -476,6 +479,34 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
     }
   }
 
+  Future<void> _cargarRutasDisponibles() async {
+    if (_liderActual == null) return;
+
+    try {
+      final fechaSeleccionada =
+          _diaSimulado != null ? _obtenerFechaDelDiaSimulado() : DateTime.now();
+      final codigo = _obtenerDiaVisitaCod(fechaSeleccionada);
+      print('🔄 Cargando rutas del día con DIA_VISITA_COD: $codigo');
+
+      final rutas = await _rutasServicio.obtenerRutasPorDia(
+        _liderActual!.clave,
+        codigo,
+      );
+
+      setState(() {
+        _rutasDisponibles = rutas;
+        if (_rutasDisponibles.length == 1) {
+          _rutaSeleccionada = _rutasDisponibles.first.nombre;
+        }
+      });
+
+      print('✅ Rutas obtenidas del API: ${rutas.length}');
+    } catch (e) {
+      print('⚠️ Error al obtener rutas del API: $e');
+      // Se mantiene la lista de rutas obtenida del plan como fallback
+    }
+  }
+
   Future<void> _procesarDetallePlan(Map<String, dynamic> detallePlan) async {
     try {
       print('🔄 Procesando detalle del plan...');
@@ -494,15 +525,22 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
 
         String diaKey = diaParaBuscar.toLowerCase();
 
-        // Extraer rutas disponibles
+        // Extraer rutas disponibles del plan (fallback en modo offline)
         for (var dia in datosSemanales.entries) {
           if (dia.value is Map<String, dynamic>) {
             var diaData = dia.value as Map<String, dynamic>;
             String? rutaNombre = diaData['rutaNombre'];
             if (rutaNombre != null &&
                 rutaNombre.isNotEmpty &&
-                !_rutasDisponibles.contains(rutaNombre)) {
-              _rutasDisponibles.add(rutaNombre);
+                !_rutasDisponibles.any((r) => r.nombre == rutaNombre)) {
+              _rutasDisponibles.add(
+                Ruta(
+                  asesor: 'Asesor no disponible',
+                  nombre: rutaNombre,
+                  negocios: [],
+                  diaVisitaCod: '',
+                ),
+              );
             }
           }
         }
@@ -942,6 +980,25 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
     return ahora.add(Duration(days: diferenciaDias));
   }
 
+  int _calcularNumeroSemanaISO(DateTime fecha) {
+    int diasHastaJueves = DateTime.thursday - fecha.weekday;
+    DateTime jueves = fecha.add(Duration(days: diasHastaJueves));
+
+    DateTime primerEnero = DateTime(jueves.year, 1, 1);
+    int diasHastaPrimerJueves = DateTime.thursday - primerEnero.weekday;
+    DateTime primerJueves = primerEnero.add(Duration(days: diasHastaPrimerJueves));
+
+    return 1 + ((jueves.difference(primerJueves).inDays) / 7).floor();
+    }
+
+  String _obtenerDiaVisitaCod(DateTime fecha) {
+    const iniciales = ['L', 'M', 'W', 'J', 'V', 'S', 'D'];
+    String inicial = iniciales[fecha.weekday - 1];
+    final numeroSemana = _calcularNumeroSemanaISO(fecha);
+    final sufijo = numeroSemana.isEven ? '03' : '02';
+    return '$inicial$sufijo';
+  }
+
   Future<void> _verificarVisitasEnPlanUnificado(List<ActivityModel> actividades) async {
     if (_planUnificado == null) return;
 
@@ -1093,43 +1150,84 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
     });
 
     try {
-      print('🔍 Cargando clientes adicionales desde almacenamiento local...');
-      print('   Ruta seleccionada: $_rutaSeleccionada');
-      
-      // Primero, vamos a ver todos los clientes para depurar
-      final todosClientes = _clientesLocalesService.obtenerTodosLosClientes();
-      print('   Total de clientes en Hive: ${todosClientes.length}');
-      
-      // Mostrar las primeras 5 rutas únicas para depuración
-      final rutasUnicas = todosClientes.map((c) => c.rutaNombre).toSet().take(5);
-      print('   Rutas disponibles (primeras 5): $rutasUnicas');
+      // Obtener información de la ruta seleccionada
+      final ruta = _rutasDisponibles.firstWhere(
+        (r) => r.nombre == _rutaSeleccionada,
+        orElse: () => Ruta(
+          asesor: '',
+          nombre: _rutaSeleccionada!,
+          negocios: [],
+          diaVisitaCod: '',
+        ),
+      );
 
-      // Cargar clientes desde el servicio local
-      var clientesHive = _clientesLocalesService.obtenerClientesPorRutaNombre(_rutaSeleccionada!);
-      print('   Clientes encontrados (búsqueda exacta) para ruta "$_rutaSeleccionada": ${clientesHive.length}');
-      
-      // Si no encuentra con búsqueda exacta, intentar con búsqueda flexible
+      print('🔍 Cargando clientes desde API para ruta: ${ruta.nombre}');
+      print('   - DIA_VISITA_COD: ${ruta.diaVisitaCod}');
+
+      final resultado = await _rutasServicio.obtenerClientesPorRutaConJson(
+        _liderActual!.clave,
+        ruta.diaVisitaCod,
+        ruta.nombre,
+      );
+
+      final clientesApi =
+          List<Map<String, dynamic>>.from(resultado['jsonData']);
+
+      final clientesExistentes = _actividades
+          .where((a) => a.type == ActivityType.visita && a.cliente != null)
+          .map((a) => a.cliente)
+          .toSet();
+
+      final clientesNoFoco = clientesApi.where((cliente) {
+        final id = cliente['CODIGO_CLIENTE']?.toString() ?? '';
+        return !_clientesFoco.contains(id) && !clientesExistentes.contains(id);
+      }).map((cliente) {
+        return {
+          'Cliente_ID': cliente['CODIGO_CLIENTE'] ?? '',
+          'Negocio': cliente['NOMBRE_CLIENTE'] ?? '',
+          'Direccion': cliente['DIRECCION CLIENTE'] ?? '',
+          'Ruta': ruta.nombre,
+          'Clasificación': cliente['CLASIFICACION_CLIENTE'] ?? '',
+          'Subcanal': cliente['SUBCANAL_VENTA'] ?? '',
+          'Canal': cliente['CANAL_VENTA'] ?? '',
+        };
+      }).toList();
+
+      _todosLosClientes = clientesNoFoco;
+      _ordenarYFiltrarClientes();
+
+      setState(() {
+        _cargandoClientes = false;
+        _clientesAdicionalescargados = true;
+      });
+
+      await _agregarActividadesClientesAdicionales();
+      return;
+    } catch (e) {
+      print('⚠️ Error al obtener clientes desde API: $e');
+    }
+
+    // Fallback a clientes locales
+    try {
+      print('🔄 Intentando cargar clientes desde almacenamiento local...');
+      final todosClientes = _clientesLocalesService.obtenerTodosLosClientes();
+      var clientesHive =
+          _clientesLocalesService.obtenerClientesPorRutaNombre(_rutaSeleccionada!);
+
       if (clientesHive.isEmpty) {
-        print('   Intentando búsqueda flexible...');
-        clientesHive = _clientesLocalesService.obtenerClientesPorRutaNombreFlexible(_rutaSeleccionada!);
-        print('   Clientes encontrados (búsqueda flexible): ${clientesHive.length}');
-        
-        // Si aún no encuentra, mostrar todos los clientes como opción
+        clientesHive = _clientesLocalesService
+            .obtenerClientesPorRutaNombreFlexible(_rutaSeleccionada!);
         if (clientesHive.isEmpty && todosClientes.isNotEmpty) {
-          print('   ⚠️ No se encontraron clientes para la ruta específica.');
-          print('   Mostrando todos los clientes disponibles...');
           clientesHive = todosClientes;
         }
       }
 
       if (clientesHive.isNotEmpty) {
-        // Filtrar clientes que NO son FOCO y NO están ya en las actividades
         final clientesExistentes = _actividades
             .where((a) => a.type == ActivityType.visita && a.cliente != null)
             .map((a) => a.cliente)
             .toSet();
-        
-        // Convertir ClienteHive a Map para mantener compatibilidad
+
         final clientesMap = clientesHive.map((cliente) {
           return {
             'Cliente_ID': cliente.id,
@@ -1141,17 +1239,12 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
             'Canal': cliente.canalVenta ?? '',
           };
         }).toList();
-        
+
         final clientesNoFoco = clientesMap.where((cliente) {
           final clienteId = cliente['Cliente_ID']?.toString() ?? '';
-          // Excluir si es FOCO o si ya existe en las actividades
-          return !_clientesFoco.contains(clienteId) && !clientesExistentes.contains(clienteId);
+          return !_clientesFoco.contains(clienteId) &&
+              !clientesExistentes.contains(clienteId);
         }).toList();
-
-        print('📊 Clientes locales obtenidos: ${clientesHive.length}');
-        print('📊 Clientes FOCO a excluir: ${_clientesFoco.length}');
-        print('📊 Clientes ya en actividades: ${clientesExistentes.length}');
-        print('📊 Clientes adicionales (no duplicados): ${clientesNoFoco.length}');
 
         _todosLosClientes = clientesNoFoco;
         _ordenarYFiltrarClientes();
@@ -1161,10 +1254,8 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
           _clientesAdicionalescargados = true;
         });
 
-        // Agregar actividades para clientes adicionales
         await _agregarActividadesClientesAdicionales();
       } else {
-        print('❌ No se encontraron clientes locales para esta ruta');
         setState(() {
           _cargandoClientes = false;
         });
@@ -1172,7 +1263,8 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('No se encontraron clientes adicionales en almacenamiento local'),
+              content: Text(
+                  'No se encontraron clientes adicionales en almacenamiento local'),
               backgroundColor: Colors.orange,
               duration: Duration(seconds: 2),
             ),
@@ -1923,19 +2015,19 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
                   'Seleccione una ruta...',
                   style: GoogleFonts.poppins(color: AppColors.mediumGray),
                 ),
-                items:
-                    _rutasDisponibles.map((ruta) {
-                      return DropdownMenuItem<String>(
-                        value: ruta,
-                        child: Text(
-                          ruta,
-                          style: GoogleFonts.poppins(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      );
-                    }).toList(),
+                items: _rutasDisponibles.map((ruta) {
+                  final etiqueta = '${ruta.nombre} - ${ruta.asesor}';
+                  return DropdownMenuItem<String>(
+                    value: ruta.nombre,
+                    child: Text(
+                      etiqueta,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  );
+                }).toList(),
                 onChanged: (nuevaRuta) {
                   setState(() {
                     _rutaSeleccionada = nuevaRuta;
