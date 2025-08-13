@@ -387,6 +387,9 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
         _rutasDisponibles = rutas;
         _cargandoRutas = false;
 
+        print('🔍 DEPURACIÓN - Rutas recibidas del servicio: ${rutas.length}');
+        print('🔍 DEPURACIÓN - Rutas asignadas a _rutasDisponibles: ${_rutasDisponibles.length}');
+
         // AUTO-SELECCIONAR RUTA SI SOLO HAY UNA DISPONIBLE
         if (_rutasDisponibles.length == 1 && _rutaSeleccionada == null) {
           _rutaSeleccionada = _rutasDisponibles.first.nombre;
@@ -394,7 +397,8 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
         }
       });
 
-      print('✅ Rutas cargadas: ${_rutasDisponibles.length}');
+      print('✅ Rutas cargadas en UI: ${_rutasDisponibles.length}');
+      print('📋 Detalle de rutas disponibles:');
       _rutasDisponibles.forEach((ruta) {
         print('  - ${ruta.nombre} (Asesor: ${ruta.asesor})');
       });
@@ -1062,6 +1066,8 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                             vertical: 12,
                           ),
                         ),
+                        isExpanded: true,
+                        menuMaxHeight: 300, // Configurar altura máxima del menú para scroll
                         value: _rutaSeleccionada,
                         items:
                             _rutasDisponibles
@@ -1071,6 +1077,7 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                                     child: Text(
                                       '${ruta.nombre} - ${ruta.asesor}',
                                       style: GoogleFonts.poppins(fontSize: 14),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                 )

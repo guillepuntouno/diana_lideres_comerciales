@@ -46,21 +46,34 @@ class RutasServicio {
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-        print('✅ Rutas obtenidas: ${data.length}');
+        print('✅ Rutas obtenidas del API: ${data.length}');
 
-        // Agrupar por ruta para obtener rutas únicas
+        // Crear un mapa para agrupar por combinación única de RUTA + CODIGO_ASESOR
         final Map<String, Map<String, dynamic>> rutasUnicas = {};
-
+        
         for (var item in data) {
           final rutaCodigo = item['RUTA'] ?? '';
-          if (rutaCodigo.isNotEmpty && !rutasUnicas.containsKey(rutaCodigo)) {
-            rutasUnicas[rutaCodigo] = {
+          final codigoAsesor = item['CODIGO_ASESOR'] ?? '';
+          final nombreAsesor = item['NOMBRE_ASESOR'] ?? '';
+          
+          // Crear una clave única combinando ruta y código de asesor
+          final claveUnica = '${rutaCodigo}_${codigoAsesor}';
+          
+          if (rutaCodigo.isNotEmpty && !rutasUnicas.containsKey(claveUnica)) {
+            rutasUnicas[claveUnica] = {
               'RUTA': rutaCodigo,
-              'NOMBRE_ASESOR': item['NOMBRE_ASESOR'] ?? '',
-              'CODIGO_ASESOR': item['CODIGO_ASESOR'] ?? '',
+              'NOMBRE_ASESOR': nombreAsesor,
+              'CODIGO_ASESOR': codigoAsesor,
             };
           }
         }
+
+        print('📊 Rutas únicas procesadas: ${rutasUnicas.length}');
+        
+        // Log detallado de las rutas
+        rutasUnicas.forEach((key, value) {
+          print('  - Ruta: ${value['RUTA']} | Asesor: ${value['NOMBRE_ASESOR']} (${value['CODIGO_ASESOR']})');
+        });
 
         // Convertir a lista de objetos Ruta
         return rutasUnicas.values.map((rutaData) {
