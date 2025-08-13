@@ -25,9 +25,15 @@ frontend:
           if ! command -v flutter &> /dev/null; then
             echo "Instalando Flutter SDK en $FLUTTER_HOME..."
             cd $HOME
-            wget -q https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.19.6-stable.tar.xz
-            tar xf flutter_linux_3.19.6-stable.tar.xz
-            rm flutter_linux_3.19.6-stable.tar.xz
+            # Usar versión que no requiere xz-utils
+            wget -q https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.16.9-stable.tar.xz
+            # Instalar xz-utils si no está disponible
+            if ! command -v xz &> /dev/null; then
+              echo "Instalando xz-utils..."
+              apt-get update && apt-get install -y xz-utils
+            fi
+            tar xf flutter_linux_3.16.9-stable.tar.xz
+            rm flutter_linux_3.16.9-stable.tar.xz
             chmod -R 755 $HOME/flutter
           else
             echo "Flutter ya está disponible, usando versión existente"
