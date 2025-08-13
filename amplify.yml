@@ -12,22 +12,25 @@ frontend:
             echo 'echo "Verificación básica del entorno"' >> scripts/verify_env.sh
             chmod +x scripts/verify_env.sh
           fi
-        # Configurar variables de entorno
-        - export FLUTTER_ROOT=/opt/flutter
-        - export PATH="$PATH:$FLUTTER_ROOT/bin"
-        - export PUB_CACHE=/opt/flutter/.pub-cache
+        # Configurar variables de entorno usando directorio home (siempre tiene permisos)
+        - export FLUTTER_HOME=$HOME/flutter
+        - export PATH="$PATH:$FLUTTER_HOME/bin"
+        - export PUB_CACHE=$HOME/.pub-cache
         - export FLUTTER_WEB=true
-        # Crear directorios necesarios
+        # Crear directorios necesarios en home directory
         - mkdir -p $PUB_CACHE
-        # Instalar Flutter usando snap o descarga directa
+        - mkdir -p $FLUTTER_HOME
+        # Instalar Flutter en directorio home
         - |
           if ! command -v flutter &> /dev/null; then
-            echo "Instalando Flutter SDK..."
-            cd /opt
+            echo "Instalando Flutter SDK en $FLUTTER_HOME..."
+            cd $HOME
             wget -q https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.19.6-stable.tar.xz
             tar xf flutter_linux_3.19.6-stable.tar.xz
             rm flutter_linux_3.19.6-stable.tar.xz
-            chown -R $(whoami):$(whoami) /opt/flutter
+            chmod -R 755 $HOME/flutter
+          else
+            echo "Flutter ya está disponible, usando versión existente"
           fi
         # Verificar instalación de Flutter
         - flutter --version
@@ -45,9 +48,9 @@ frontend:
         - find . -name "*.g.dart" | head -10 || echo "No se encontraron archivos .g.dart"
     build:
       commands:
-        - export FLUTTER_ROOT=/opt/flutter
-        - export PATH="$PATH:$FLUTTER_ROOT/bin"
-        - export PUB_CACHE=/opt/flutter/.pub-cache
+        - export FLUTTER_HOME=$HOME/flutter
+        - export PATH="$PATH:$FLUTTER_HOME/bin"
+        - export PUB_CACHE=$HOME/.pub-cache
         - export FLUTTER_WEB=true
         - echo "=== Iniciando build de la aplicación web ==="
         # Verificar que Flutter esté disponible
@@ -75,7 +78,7 @@ frontend:
       - '**/*'
   cache:
     paths:
-      - /opt/flutter/**/*
-      - /opt/flutter/.pub-cache/**/*
+      - $HOME/flutter/**/*
+      - $HOME/.pub-cache/**/*
       - .dart_tool/**/*
       - build/**/*

@@ -8,39 +8,41 @@
 
 ## Variables de entorno necesarias
 ```bash
-FLUTTER_ROOT=/opt/flutter
+FLUTTER_HOME=$HOME/flutter
 FLUTTER_WEB=true
-PUB_CACHE=/opt/flutter/.pub-cache
-PATH=$PATH:$FLUTTER_ROOT/bin
+PUB_CACHE=$HOME/.pub-cache
+PATH=$PATH:$FLUTTER_HOME/bin
 ```
 
 ## Problemas comunes y soluciones
 
-### 1. Error "npm ci" cuando debería ejecutar Flutter
-**Causa**: Amplify detecta incorrectamente el proyecto como Node.js
+### 1. Error "mkdir: cannot create directory '/opt/flutter': Permission denied"
+**Causa**: Amplify no tiene permisos para crear directorios en /opt/
+**Solución**: 
+- Usar $HOME/flutter en lugar de /opt/flutter
+- Usar $HOME/.pub-cache para el cache de pub
+- Configurar FLUTTER_HOME en lugar de FLUTTER_ROOT
+
+### 2. Error "npm ci" cuando debería ejecutar Flutter
+**Causa**: Detecta incorrectamente el proyecto como Node.js
 **Solución**: 
 - Asegurar que no hay archivo package.json en el root
 - Usar amplify.yml específico para Flutter
 - Configurar las variables de entorno correctamente
 
-### 2. Error en build_runner (Hive adapters)
+### 3. Error en build_runner (Hive adapters)
 **Causa**: Falta de dependencias o conflictos en generación de código
 **Solución**:
 - Ejecutar con --delete-conflicting-outputs
 - Continuar el build aunque falle (usar || echo)
 - Verificar archivos .g.dart después de la generación
 
-### 3. Error de permisos en Flutter SDK
-**Causa**: Instalación en directorio sin permisos
-**Solución**:
-- Usar /opt/flutter en lugar de /tmp/flutter
-- Configurar chown después de la instalación
-
 ### 4. Cache de dependencias
 **Causa**: Dependencias no se cachean correctamente
 **Solución**:
-- Configurar PUB_CACHE en ubicación persistente
+- Configurar PUB_CACHE en $HOME/.pub-cache (ubicación persistente)
 - Agregar directorios correctos a cache en amplify.yml
+- Usar $HOME/flutter para Flutter SDK
 
 ## Comandos de verificación manual
 ```bash
