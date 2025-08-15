@@ -297,12 +297,9 @@ class _ReporteProgramaExcelenciaView extends StatelessWidget {
             DataColumn(label: Text('Canal')),
             DataColumn(label: Text('Líder')),
             DataColumn(label: Text('Equipo')),
-            DataColumn(label: Text('Alineación\nObjetivos'), numeric: true),
-            DataColumn(label: Text('Planeación'), numeric: true),
-            DataColumn(label: Text('Organización'), numeric: true),
-            DataColumn(label: Text('Ejecución'), numeric: true),
+            DataColumn(label: Text('Ejecución\nde Ventas'), numeric: true),
+            DataColumn(label: Text('Aspectos\nGenerales'), numeric: true),
             DataColumn(label: Text('Retroalimentación\ny Reconocimiento'), numeric: true),
-            DataColumn(label: Text('Logro Objetivos\nde Venta'), numeric: true),
             DataColumn(label: Text('Puntaje\nFinal'), numeric: true),
           ],
           rows: [
@@ -312,12 +309,9 @@ class _ReporteProgramaExcelenciaView extends StatelessWidget {
                     DataCell(Text(fila['canal'] ?? '')),
                     DataCell(Text(fila['lider'] ?? '')),
                     DataCell(Text(fila['equipo'] ?? '')),
-                    DataCell(Text(_formatearPuntaje(fila['alineacionObjetivos']))),
-                    DataCell(Text(_formatearPuntaje(fila['planeacion']))),
-                    DataCell(Text(_formatearPuntaje(fila['organizacion']))),
-                    DataCell(Text(_formatearPuntaje(fila['ejecucion']))),
+                    DataCell(Text(_formatearPuntaje(fila['ejecucionVentas']))),
+                    DataCell(Text(_formatearPuntaje(fila['aspectosGenerales']))),
                     DataCell(Text(_formatearPuntaje(fila['retroalimentacion']))),
-                    DataCell(Text(_formatearPuntaje(fila['logroObjetivos']))),
                     DataCell(
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -340,7 +334,7 @@ class _ReporteProgramaExcelenciaView extends StatelessWidget {
             // Separador
             if (totalesPorCanal.isNotEmpty) ...[
               DataRow(
-                cells: List.generate(10, (_) => const DataCell(SizedBox())),
+                cells: List.generate(7, (_) => const DataCell(SizedBox())),
               ),
             ],
             
@@ -356,12 +350,9 @@ class _ReporteProgramaExcelenciaView extends StatelessWidget {
                   DataCell(Text('Total $canal', style: const TextStyle(fontWeight: FontWeight.w600))),
                   const DataCell(Text('')),
                   const DataCell(Text('')),
-                  DataCell(Text(_formatearPuntaje(totales['alineacionObjetivos']), style: const TextStyle(fontWeight: FontWeight.w600))),
-                  DataCell(Text(_formatearPuntaje(totales['planeacion']), style: const TextStyle(fontWeight: FontWeight.w600))),
-                  DataCell(Text(_formatearPuntaje(totales['organizacion']), style: const TextStyle(fontWeight: FontWeight.w600))),
-                  DataCell(Text(_formatearPuntaje(totales['ejecucion']), style: const TextStyle(fontWeight: FontWeight.w600))),
+                  DataCell(Text(_formatearPuntaje(totales['ejecucionVentas']), style: const TextStyle(fontWeight: FontWeight.w600))),
+                  DataCell(Text(_formatearPuntaje(totales['aspectosGenerales']), style: const TextStyle(fontWeight: FontWeight.w600))),
                   DataCell(Text(_formatearPuntaje(totales['retroalimentacion']), style: const TextStyle(fontWeight: FontWeight.w600))),
-                  DataCell(Text(_formatearPuntaje(totales['logroObjetivos']), style: const TextStyle(fontWeight: FontWeight.w600))),
                   DataCell(
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -390,12 +381,9 @@ class _ReporteProgramaExcelenciaView extends StatelessWidget {
                   const DataCell(Text('TOTAL GENERAL', style: TextStyle(fontWeight: FontWeight.bold))),
                   const DataCell(Text('')),
                   const DataCell(Text('')),
-                  DataCell(Text(_formatearPuntaje(totalGeneral['alineacionObjetivos']), style: const TextStyle(fontWeight: FontWeight.bold))),
-                  DataCell(Text(_formatearPuntaje(totalGeneral['planeacion']), style: const TextStyle(fontWeight: FontWeight.bold))),
-                  DataCell(Text(_formatearPuntaje(totalGeneral['organizacion']), style: const TextStyle(fontWeight: FontWeight.bold))),
-                  DataCell(Text(_formatearPuntaje(totalGeneral['ejecucion']), style: const TextStyle(fontWeight: FontWeight.bold))),
+                  DataCell(Text(_formatearPuntaje(totalGeneral['ejecucionVentas']), style: const TextStyle(fontWeight: FontWeight.bold))),
+                  DataCell(Text(_formatearPuntaje(totalGeneral['aspectosGenerales']), style: const TextStyle(fontWeight: FontWeight.bold))),
                   DataCell(Text(_formatearPuntaje(totalGeneral['retroalimentacion']), style: const TextStyle(fontWeight: FontWeight.bold))),
-                  DataCell(Text(_formatearPuntaje(totalGeneral['logroObjetivos']), style: const TextStyle(fontWeight: FontWeight.bold))),
                   DataCell(
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

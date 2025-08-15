@@ -2,40 +2,102 @@ import 'package:diana_lc_front/shared/modelos/hive/resultado_excelencia_hive.dar
 
 /// Helper para agregar y calcular datos del Programa de Excelencia
 class ExcelenciaAggregator {
-  /// Categorías de evaluación del programa
+  /// Categorías de evaluación del programa (actualizadas según datos reales)
   static const List<String> categorias = [
-    'Alineación de Objetivos',
-    'Planeación',
-    'Organización',
-    'Ejecución',
+    'Pasos de la Venta',
+    'Otros Aspectos a Evaluar', 
     'Retroalimentación y Reconocimiento',
-    'Logro de Objetivos de Venta',
   ];
+  
+  /// Mapeo para mostrar nombres más descriptivos en el reporte
+  static const Map<String, String> categoriasDisplay = {
+    'Pasos de la Venta': 'Ejecución de Ventas',
+    'Otros Aspectos a Evaluar': 'Aspectos Generales',
+    'Retroalimentación y Reconocimiento': 'Retroalimentación y Reconocimiento',
+  };
 
   /// Calcula el puntaje promedio de una categoría específica
   static double calcularPuntajeCategoria(
     List<RespuestaEvaluacionHive> respuestas,
     String categoria,
   ) {
+    print('🔍 Calculando puntaje para categoría: "$categoria"');
+    print('  - Total respuestas disponibles: ${respuestas.length}');
+    
+    // Debug: mostrar todas las categorías disponibles
+    final categoriasDisponibles = respuestas.map((r) => r.categoria).toSet();
+    print('  - Categorías disponibles: $categoriasDisponibles');
+    
     final respuestasCategoria = respuestas
         .where((r) => r.categoria?.toLowerCase() == categoria.toLowerCase())
         .toList();
 
-    if (respuestasCategoria.isEmpty) return 0.0;
+    print('  - Respuestas encontradas para "$categoria": ${respuestasCategoria.length}');
+
+    if (respuestasCategoria.isEmpty) {
+      print('  - ❌ No hay respuestas para esta categoría');
+      return 0.0;
+    }
 
     double sumaPonderaciones = 0.0;
-    int preguntasConPonderacion = 0;
+    int preguntasEvaluadas = 0;
 
     for (var respuesta in respuestasCategoria) {
+      print('    * Pregunta: ${respuesta.preguntaTitulo}');
+      print('      - Respuesta: ${respuesta.respuesta}');
+      print('      - Ponderación original: ${respuesta.ponderacion}');
+      
+      double puntaje = 0.0;
+      
+      // Si hay ponderación definida, usarla
       if (respuesta.ponderacion != null) {
-        sumaPonderaciones += respuesta.ponderacion!;
-        preguntasConPonderacion++;
+        puntaje = respuesta.ponderacion!;
+      } 
+      // Si no hay ponderación, calcular según la respuesta
+      else if (respuesta.respuesta != null) {
+        puntaje = _calcularPuntajePorRespuesta(respuesta.respuesta.toString());
+      }
+      
+      print('      - Puntaje asignado: $puntaje');
+      
+      if (puntaje > 0 || respuesta.respuesta != null) {
+        sumaPonderaciones += puntaje;
+        preguntasEvaluadas++;
       }
     }
 
-    return preguntasConPonderacion > 0
-        ? sumaPonderaciones / preguntasConPonderacion
+    final promedio = preguntasEvaluadas > 0
+        ? sumaPonderaciones / preguntasEvaluadas
         : 0.0;
+        
+    print('  - ✅ Promedio calculado: $promedio (${preguntasEvaluadas} preguntas evaluadas)');
+    return promedio;
+  }
+  
+  /// Calcula puntaje basado en la respuesta cuando no hay ponderación definida
+  static double _calcularPuntajePorRespuesta(String respuesta) {
+    final respuestaLower = respuesta.toLowerCase().trim();
+    
+    // Respuestas positivas
+    if (respuestaLower == 'sí' || respuestaLower == 'si' || 
+        respuestaLower == 'yes' || respuestaLower == 'true' ||
+        respuestaLower == 'correcto' || respuestaLower == 'bueno' ||
+        respuestaLower == 'excelente') {
+      return 100.0;
+    }
+    
+    // Respuestas negativas
+    if (respuestaLower == 'no' || respuestaLower == 'false' ||
+        respuestaLower == 'incorrecto' || respuestaLower == 'malo') {
+      return 0.0;
+    }
+    
+    // Respuestas de texto libre - asignar puntaje medio si tiene contenido
+    if (respuesta.isNotEmpty && respuesta.length > 1) {
+      return 75.0; // Puntaje por defecto para respuestas con contenido
+    }
+    
+    return 0.0;
   }
 
   /// Calcula todos los puntajes por categoría
@@ -196,5 +258,25 @@ class ExcelenciaAggregator {
     if (puntaje >= 85) return 'verde';
     if (puntaje >= 60) return 'amarillo';
     return 'rojo';
+  }
+
+  /// DEBUG: Obtiene todas las categorías reales de los datos
+  static Set<String> obtenerCategoriasReales(List<ResultadoExcelenciaHive> resultados) {
+    final Set<String> categorias = {};
+    
+    for (var resultado in resultados) {
+      for (var respuesta in resultado.respuestas) {
+        if (respuesta.categoria != null && respuesta.categoria!.isNotEmpty) {
+          categorias.add(respuesta.categoria!);
+        }
+      }
+    }
+    
+    print('🏷️ Categorías reales encontradas en los datos:');
+    for (var categoria in categorias) {
+      print('  - "$categoria"');
+    }
+    
+    return categorias;
   }
 }

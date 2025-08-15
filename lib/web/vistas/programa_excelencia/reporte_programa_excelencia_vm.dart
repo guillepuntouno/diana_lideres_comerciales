@@ -80,6 +80,21 @@ class ReporteProgramaExcelenciaVM extends ChangeNotifier {
         print('  - País: ${primer.pais}');
         print('  - Canal: ${primer.metadatos?['canalVenta']}');
         print('  - Respuestas: ${primer.respuestas.length}');
+        
+        // Mostrar categorías reales
+        ExcelenciaAggregator.obtenerCategoriasReales(_todosLosResultados);
+        
+        // Mostrar ejemplo de respuestas
+        if (primer.respuestas.isNotEmpty) {
+          print('📝 Ejemplos de respuestas:');
+          for (int i = 0; i < primer.respuestas.length && i < 3; i++) {
+            final resp = primer.respuestas[i];
+            print('  ${i+1}. ${resp.preguntaTitulo}');
+            print('     - Categoría: "${resp.categoria}"');
+            print('     - Respuesta: ${resp.respuesta}');
+            print('     - Ponderación: ${resp.ponderacion}');
+          }
+        }
       }
       
       // Extraer valores únicos para filtros
@@ -220,12 +235,9 @@ class ReporteProgramaExcelenciaVM extends ChangeNotifier {
           'canal': canal,
           'lider': liderNombre,
           'equipo': equipo,
-          'alineacionObjetivos': puntajesPorCategoria['Alineación de Objetivos'] ?? 0.0,
-          'planeacion': puntajesPorCategoria['Planeación'] ?? 0.0,
-          'organizacion': puntajesPorCategoria['Organización'] ?? 0.0,
-          'ejecucion': puntajesPorCategoria['Ejecución'] ?? 0.0,
+          'ejecucionVentas': puntajesPorCategoria['Pasos de la Venta'] ?? 0.0,
+          'aspectosGenerales': puntajesPorCategoria['Otros Aspectos a Evaluar'] ?? 0.0,
           'retroalimentacion': puntajesPorCategoria['Retroalimentación y Reconocimiento'] ?? 0.0,
-          'logroObjetivos': puntajesPorCategoria['Logro de Objetivos de Venta'] ?? 0.0,
           'puntajeFinal': puntajePromedio,
           'color': ExcelenciaAggregator.obtenerColorPuntaje(puntajePromedio),
         });
@@ -264,12 +276,9 @@ class ReporteProgramaExcelenciaVM extends ChangeNotifier {
       final puntajesPorCategoria = resumen['puntajesPorCategoria'] as Map<String, double>;
       
       totales[canal] = {
-        'alineacionObjetivos': puntajesPorCategoria['Alineación de Objetivos'] ?? 0.0,
-        'planeacion': puntajesPorCategoria['Planeación'] ?? 0.0,
-        'organizacion': puntajesPorCategoria['Organización'] ?? 0.0,
-        'ejecucion': puntajesPorCategoria['Ejecución'] ?? 0.0,
+        'ejecucionVentas': puntajesPorCategoria['Pasos de la Venta'] ?? 0.0,
+        'aspectosGenerales': puntajesPorCategoria['Otros Aspectos a Evaluar'] ?? 0.0,
         'retroalimentacion': puntajesPorCategoria['Retroalimentación y Reconocimiento'] ?? 0.0,
-        'logroObjetivos': puntajesPorCategoria['Logro de Objetivos de Venta'] ?? 0.0,
         'puntajeFinal': resumen['puntajePromedio'] ?? 0.0,
       };
     }
@@ -287,12 +296,9 @@ class ReporteProgramaExcelenciaVM extends ChangeNotifier {
     final puntajesPorCategoria = resumen['puntajesPorCategoria'] as Map<String, double>;
     
     return {
-      'alineacionObjetivos': puntajesPorCategoria['Alineación de Objetivos'] ?? 0.0,
-      'planeacion': puntajesPorCategoria['Planeación'] ?? 0.0,
-      'organizacion': puntajesPorCategoria['Organización'] ?? 0.0,
-      'ejecucion': puntajesPorCategoria['Ejecución'] ?? 0.0,
+      'ejecucionVentas': puntajesPorCategoria['Pasos de la Venta'] ?? 0.0,
+      'aspectosGenerales': puntajesPorCategoria['Otros Aspectos a Evaluar'] ?? 0.0,
       'retroalimentacion': puntajesPorCategoria['Retroalimentación y Reconocimiento'] ?? 0.0,
-      'logroObjetivos': puntajesPorCategoria['Logro de Objetivos de Venta'] ?? 0.0,
       'puntajeFinal': resumen['puntajePromedio'] ?? 0.0,
     };
   }
