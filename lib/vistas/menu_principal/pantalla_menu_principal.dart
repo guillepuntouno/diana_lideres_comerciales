@@ -464,22 +464,8 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
                         onTap: () => Navigator.pushNamed(context, '/rutina_diaria'),
                       ),
                       _MenuItem(
-                        icon: Icons.checklist_outlined,
-                        title: 'Evaluación de desempeño',
-                        onTap: () => Navigator.pushNamed(
-                          context, 
-                          '/evaluacion_desempeno',
-                          arguments: {
-                            'liderData': _liderComercial?.toJson() ?? {},
-                            'rutaData': {},
-                            'pais': _liderComercial?.pais ?? '',
-                            'centroDistribucion': _liderComercial?.centroDistribucion ?? '',
-                          },
-                        ),
-                      ),
-                      _MenuItem(
                         icon: Icons.assessment_outlined,
-                        title: 'Evaluación de desempeño (PoC)',
+                        title: 'Evaluación de desempeño',
                         onTap: () => Navigator.pushNamed(context, '/evaluacion_desempenio_principal'),
                       ),
                     ],
@@ -505,20 +491,6 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
                         icon: Icons.assignment_turned_in_outlined,
                         title: 'Resultados Programa de Excelencia',
                         onTap: () => Navigator.pushNamed(context, '/programa_excelencia'),
-                      ),
-                    ],
-                    crossAxisCount: crossAxisCount,
-                    childAspectRatio: childAspectRatio,
-                  ),
-                  const SizedBox(height: 32),
-                  
-                  _buildSection(
-                    title: 'Administración',
-                    items: [
-                      _MenuItem(
-                        icon: Icons.admin_panel_settings_outlined,
-                        title: 'Administración',
-                        onTap: () => Navigator.pushNamed(context, '/administracion'),
                       ),
                     ],
                     crossAxisCount: crossAxisCount,
