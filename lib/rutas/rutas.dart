@@ -20,6 +20,8 @@ import 'package:diana_lc_front/web/vistas/administracion/pantalla_administracion
 import 'package:diana_lc_front/vistas/programa_excelencia/pantalla_evaluaciones_lider_v2.dart';
 import 'package:diana_lc_front/features/reporte_acuerdos/presentation/reporte_acuerdos_screen.dart';
 import 'package:diana_lc_front/web/vistas/evaluacion_desempeno/pantalla_evaluacion_desempeno.dart';
+import 'package:diana_lc_front/mobile/vistas/evaluacion_desempeño/evaluacion_desempeño_principal.dart';
+import 'package:diana_lc_front/mobile/vistas/evaluacion_desempeño/evaluacion_desempeño_llenado.dart';
 
 final Map<String, WidgetBuilder> rutas = {
   '/': (BuildContext context) => const PantallaLogin(),
@@ -48,6 +50,8 @@ final Map<String, WidgetBuilder> rutas = {
       centroDistribucion: args?['centroDistribucion'] ?? '',
     );
   },
+  '/evaluacion_desempenio_principal': (context) => const EvaluacionDesempenioPrincipal(),
+  '/evaluacion_desempenio_llenado': (context) => const EvaluacionDesempenioLlenado(),
   
   // Rutas administrativas web
   '/administracion': (context) => const PantallaAdministracion(),

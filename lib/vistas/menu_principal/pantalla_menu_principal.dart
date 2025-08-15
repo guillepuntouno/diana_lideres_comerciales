@@ -477,6 +477,11 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
                           },
                         ),
                       ),
+                      _MenuItem(
+                        icon: Icons.assessment_outlined,
+                        title: 'Evaluación de desempeño (PoC)',
+                        onTap: () => Navigator.pushNamed(context, '/evaluacion_desempenio_principal'),
+                      ),
                     ],
                     crossAxisCount: crossAxisCount,
                     childAspectRatio: childAspectRatio,
