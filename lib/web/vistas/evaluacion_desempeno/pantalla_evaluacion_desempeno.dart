@@ -891,7 +891,7 @@ class _PantallaEvaluacionDesempenoState extends State<PantallaEvaluacionDesempen
                 await Future.delayed(const Duration(seconds: 2)); // Simulación
                 
                 if (mounted) {
-                  // Primero mostrar el mensaje
+                  // Mostrar mensaje de éxito
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Row(
@@ -905,30 +905,35 @@ class _PantallaEvaluacionDesempenoState extends State<PantallaEvaluacionDesempen
                         ],
                       ),
                       backgroundColor: const Color(0xFF38A169),
-                      duration: const Duration(seconds: 3),
+                      duration: const Duration(seconds: 2),
                     ),
                   );
                   
-                  // Esperar un poco antes de navegar para que el mensaje se muestre
-                  await Future.delayed(const Duration(milliseconds: 100));
+                  // Esperar un momento para que se vea el mensaje
+                  await Future.delayed(const Duration(milliseconds: 500));
                   
-                  // Verificar nuevamente si el widget está montado antes de navegar
+                  // Navegar de vuelta cerrando esta pantalla
                   if (mounted) {
+                    // Solo cerrar esta pantalla, el callback en pantalla_administracion.dart
+                    // se encargará de recargar los datos
                     Navigator.of(context).pop();
                   }
                 }
               } catch (e) {
                 if (mounted) {
                   setState(() => _isLoading = false);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Error al enviar evaluación: $e',
-                        style: GoogleFonts.poppins(),
+                  // Solo mostrar el SnackBar si el widget sigue montado
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Error al enviar evaluación: $e',
+                          style: GoogleFonts.poppins(),
+                        ),
+                        backgroundColor: Colors.red,
                       ),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
+                    );
+                  }
                 }
               }
             },
@@ -1040,6 +1045,38 @@ class _PantallaEvaluacionDesempenoState extends State<PantallaEvaluacionDesempen
           'formularioId': widget.rutaData['formularioId'],
         },
       );
+      
+      // Imprimir el DTO completo antes de guardar
+      print('=== DTO RESULTADO EXCELENCIA (ANTES DE GUARDAR) ===');
+      print('ID: ${resultadoExcelencia.id}');
+      print('Líder Clave: ${resultadoExcelencia.liderClave}');
+      print('Líder Nombre: ${resultadoExcelencia.liderNombre}');
+      print('Líder Correo: ${resultadoExcelencia.liderCorreo}');
+      print('País: ${resultadoExcelencia.pais}');
+      print('Ruta: ${resultadoExcelencia.ruta}');
+      print('Centro Distribución: ${resultadoExcelencia.centroDistribucion}');
+      print('Tipo Formulario: ${resultadoExcelencia.tipoFormulario}');
+      print('Ponderación Final: ${resultadoExcelencia.ponderacionFinal}');
+      print('Fecha Captura: ${resultadoExcelencia.fechaCaptura}');
+      print('Estatus: ${resultadoExcelencia.estatus}');
+      print('Total de respuestas: ${resultadoExcelencia.respuestas.length}');
+      print('Metadatos: ${resultadoExcelencia.metadatos}');
+      print('--- Detalle de Respuestas ---');
+      for (var i = 0; i < resultadoExcelencia.respuestas.length; i++) {
+        final respuesta = resultadoExcelencia.respuestas[i];
+        print('  Respuesta $i:');
+        print('    - Pregunta ID: ${respuesta.preguntaId}');
+        print('    - Pregunta: ${respuesta.preguntaTitulo}');
+        print('    - Categoría: ${respuesta.categoria}');
+        print('    - Tipo: ${respuesta.tipoPregunta}');
+        print('    - Respuesta: ${respuesta.respuesta}');
+        print('    - Ponderación: ${respuesta.ponderacion}');
+      }
+      print('=== FIN DEL DTO ===');
+      print('');
+      print('JSON del DTO:');
+      print(resultadoExcelencia.toJson());
+      print('');
       
       // Guardar en Hive
       final box = _hiveService.resultadosExcelenciaBox;

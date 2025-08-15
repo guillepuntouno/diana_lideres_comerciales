@@ -6,6 +6,7 @@ import 'package:diana_lc_front/shared/modelos/user_dto.dart';
 import 'package:diana_lc_front/web/vistas/gestion_datos/formulario/formulario_list_page.dart';
 import 'package:diana_lc_front/web/vistas/evaluacion_desempeno/pantalla_evaluacion_desempeno.dart';
 import 'package:diana_lc_front/web/vistas/evaluacion_desempeno/pantalla_resumen_evaluacion.dart';
+import 'package:diana_lc_front/web/vistas/programa_excelencia/reporte_programa_excelencia.dart';
 import 'package:diana_lc_front/shared/servicios/formularios_api_service.dart';
 import 'package:diana_lc_front/shared/servicios/hive_service.dart';
 import 'package:diana_lc_front/shared/modelos/hive/resultado_excelencia_hive.dart';
@@ -125,10 +126,31 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
   @override
   void initState() {
     super.initState();
-    _cargarDatos();
-    _cargarEvaluacionesMockup();
-    _inicializarRutinas();
-    _checkConnectivity();
+    _inicializarHive();
+  }
+  
+  Future<void> _inicializarHive() async {
+    try {
+      await _hiveService.initialize();
+      print('✅ HIVE inicializado correctamente en el módulo web');
+      
+      // Continuar con las demás inicializaciones después de que HIVE esté listo
+      _cargarDatos();
+      _cargarEvaluacionesMockup();
+      _inicializarRutinas();
+      _checkConnectivity();
+    } catch (e) {
+      print('❌ Error inicializando HIVE en módulo web: $e');
+      // Mostrar mensaje de error al usuario si es necesario
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error inicializando almacenamiento local: $e'),
+            backgroundColor: AppColors.dianaRed,
+          ),
+        );
+      }
+    }
   }
   
   // Método para cargar evaluaciones desde HIVE
@@ -2895,6 +2917,37 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
               color: const Color(0xFF8F8E8E),
             ),
           ),
+          const SizedBox(height: 24),
+          
+          // Botón para ver reporte
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ReporteProgramaExcelencia(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.analytics),
+            label: Text(
+              'Ver Reporte de Resultados',
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF38A169),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              elevation: 2,
+            ),
+          ),
+          
           const SizedBox(height: 32),
           
           // Filtros en cascada
