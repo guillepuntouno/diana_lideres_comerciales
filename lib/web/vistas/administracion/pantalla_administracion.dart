@@ -602,6 +602,55 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
     return AppColors.dianaRed;
   }
 
+  void _mostrarDialogoConfirmacion() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(
+            '¿Desea cerrar sesión?',
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text(
+                'No',
+                style: GoogleFonts.poppins(
+                  color: AppColors.mediumGray,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await _cerrarSesion();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.dianaRed,
+              ),
+              child: Text(
+                'Sí',
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _cerrarSesion() async {
+    await SesionServicio.cerrarSesion(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -653,6 +702,9 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
           _buildSidebarItem('dashboard', 'Dashboard', Icons.dashboard),
           _buildSidebarItem('formularios', 'Formularios', Icons.description),
           _buildSidebarItem('programa_excelencia', 'Programa de excelencia', Icons.star),
+          const Spacer(),
+          _buildLogoutButton(),
+          const SizedBox(height: 20),
         ],
       ),
     );
@@ -694,6 +746,36 @@ class _PantallaAdministracionState extends State<PantallaAdministracion> {
                   fontSize: 14,
                   fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
                   color: isActive ? const Color(0xFFDE1327) : const Color(0xFF8F8E8E),
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLogoutButton() {
+    return InkWell(
+      onTap: _mostrarDialogoConfirmacion,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.logout,
+              size: 24,
+              color: Color(0xFF8F8E8E),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Cerrar sesión',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.normal,
+                  color: const Color(0xFF8F8E8E),
                 ),
                 overflow: TextOverflow.ellipsis,
               ),

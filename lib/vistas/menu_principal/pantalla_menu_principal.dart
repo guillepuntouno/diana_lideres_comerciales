@@ -464,9 +464,18 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
                         onTap: () => Navigator.pushNamed(context, '/rutina_diaria'),
                       ),
                       _MenuItem(
-                        icon: Icons.assignment_turned_in_outlined,
-                        title: 'Programa de excelencia',
-                        onTap: () => Navigator.pushNamed(context, '/programa_excelencia'),
+                        icon: Icons.checklist_outlined,
+                        title: 'Evaluación de desempeño',
+                        onTap: () => Navigator.pushNamed(
+                          context, 
+                          '/evaluacion_desempeno',
+                          arguments: {
+                            'liderData': _liderComercial?.toJson() ?? {},
+                            'rutaData': {},
+                            'pais': _liderComercial?.pais ?? '',
+                            'centroDistribucion': _liderComercial?.centroDistribucion ?? '',
+                          },
+                        ),
                       ),
                     ],
                     crossAxisCount: crossAxisCount,
@@ -486,6 +495,11 @@ class _PantallaMenuPrincipalState extends State<PantallaMenuPrincipal> {
                         icon: Icons.insert_chart_outlined_rounded,
                         title: 'Reporte de acuerdos',
                         onTap: () => Navigator.pushNamed(context, '/reporte_acuerdos'),
+                      ),
+                      _MenuItem(
+                        icon: Icons.assignment_turned_in_outlined,
+                        title: 'Resultados Programa de Excelencia',
+                        onTap: () => Navigator.pushNamed(context, '/programa_excelencia'),
                       ),
                     ],
                     crossAxisCount: crossAxisCount,

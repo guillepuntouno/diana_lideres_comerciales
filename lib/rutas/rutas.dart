@@ -19,6 +19,7 @@ import 'package:diana_lc_front/mobile/vistas/rutinas/pantalla_rutinas_resultados
 import 'package:diana_lc_front/web/vistas/administracion/pantalla_administracion.dart';
 import 'package:diana_lc_front/vistas/programa_excelencia/pantalla_evaluaciones_lider_v2.dart';
 import 'package:diana_lc_front/features/reporte_acuerdos/presentation/reporte_acuerdos_screen.dart';
+import 'package:diana_lc_front/web/vistas/evaluacion_desempeno/pantalla_evaluacion_desempeno.dart';
 
 final Map<String, WidgetBuilder> rutas = {
   '/': (BuildContext context) => const PantallaLogin(),
@@ -38,6 +39,15 @@ final Map<String, WidgetBuilder> rutas = {
   '/rutinas_resultados': (context) => const PantallaRutinasResultados(),
   '/programa_excelencia': (context) => const PantallaEvaluacionesLiderV2(),
   '/reporte_acuerdos': (context) => const ReporteAcuerdosScreen(),
+  '/evaluacion_desempeno': (context) {
+    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
+    return PantallaEvaluacionDesempeno(
+      liderData: args?['liderData'] ?? {},
+      rutaData: args?['rutaData'] ?? {},
+      pais: args?['pais'] ?? '',
+      centroDistribucion: args?['centroDistribucion'] ?? '',
+    );
+  },
   
   // Rutas administrativas web
   '/administracion': (context) => const PantallaAdministracion(),
