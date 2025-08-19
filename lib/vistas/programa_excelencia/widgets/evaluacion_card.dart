@@ -147,7 +147,17 @@ class _EvaluacionCardState extends State<EvaluacionCard>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              evaluacion.tipoFormulario,
+                              // TODO: Ajuste temporal para demo 19 de agosto 2025
+                              // Se debe crear boxes diferentes para evaluacion_desempeno y programa_excelencia
+                              // en lugar de compartir la misma caja 'resultados_excelencia'
+                              // Mientras tanto, ocultamos el texto problemático que viene de evaluación de desempeño
+                              // Texto exacto: "Evaluacion de desempeño en campo - Canal Detalle"
+                              (evaluacion.tipoFormulario.contains('Evaluacion de desempe') ||
+                               evaluacion.tipoFormulario.contains('Evaluación de desempe') ||
+                               evaluacion.tipoFormulario.toLowerCase().contains('evaluaci') &&
+                               evaluacion.tipoFormulario.toLowerCase().contains('desempe'))
+                                  ? 'Resultado Programa de Excelencia'
+                                  : evaluacion.tipoFormulario,
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.w600,
                               ),

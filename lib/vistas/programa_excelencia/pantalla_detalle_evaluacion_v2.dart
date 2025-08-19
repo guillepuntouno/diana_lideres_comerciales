@@ -47,7 +47,10 @@ class PantallaDetalleEvaluacionV2 extends StatelessWidget {
       backgroundColor: const Color(0xFFF9FAFB),
       appBar: AppBar(
         title: Text(
-          'Evaluación de Desempeño',
+          // TODO: Ajuste temporal para demo 19 de agosto 2025
+          // Se debe crear boxes diferentes para evaluacion_desempeno y programa_excelencia
+          // Mientras tanto, ocultamos el texto problemático
+          'Resultado Programa de Excelencia',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w600,
@@ -144,7 +147,14 @@ class PantallaDetalleEvaluacionV2 extends StatelessWidget {
                         
                         // Tipo de formulario
                         Text(
-                          evaluacion.tipoFormulario,
+                          // TODO: Ajuste temporal para demo 19 de agosto 2025
+                          // Mismo ajuste que en las tarjetas
+                          (evaluacion.tipoFormulario.contains('Evaluacion de desempe') ||
+                           evaluacion.tipoFormulario.contains('Evaluación de desempe') ||
+                           evaluacion.tipoFormulario.toLowerCase().contains('evaluaci') &&
+                           evaluacion.tipoFormulario.toLowerCase().contains('desempe'))
+                              ? 'Resultado Programa de Excelencia'
+                              : evaluacion.tipoFormulario,
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w500,

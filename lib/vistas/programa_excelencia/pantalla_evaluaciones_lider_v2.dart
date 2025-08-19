@@ -10,15 +10,17 @@ class PantallaEvaluacionesLiderV2 extends StatefulWidget {
   const PantallaEvaluacionesLiderV2({super.key});
 
   @override
-  State<PantallaEvaluacionesLiderV2> createState() => _PantallaEvaluacionesLiderV2State();
+  State<PantallaEvaluacionesLiderV2> createState() =>
+      _PantallaEvaluacionesLiderV2State();
 }
 
-class _PantallaEvaluacionesLiderV2State extends State<PantallaEvaluacionesLiderV2> 
+class _PantallaEvaluacionesLiderV2State
+    extends State<PantallaEvaluacionesLiderV2>
     with TickerProviderStateMixin {
   List<ResultadoExcelenciaHive> _evaluaciones = [];
   bool _isLoading = true;
   String _filtroEstatus = 'todos';
-  
+
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
 
@@ -34,13 +36,9 @@ class _PantallaEvaluacionesLiderV2State extends State<PantallaEvaluacionesLiderV
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _fadeController,
-      curve: Curves.easeInOut,
-    ));
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
+    );
   }
 
   @override
@@ -51,18 +49,20 @@ class _PantallaEvaluacionesLiderV2State extends State<PantallaEvaluacionesLiderV
 
   Future<void> _cargarEvaluaciones() async {
     setState(() => _isLoading = true);
-    
+
     try {
-      final box = await Hive.openBox<ResultadoExcelenciaHive>('resultados_excelencia');
-      
+      final box = await Hive.openBox<ResultadoExcelenciaHive>(
+        'resultados_excelencia',
+      );
+
       List<ResultadoExcelenciaHive> evaluaciones = box.values.toList();
       evaluaciones.sort((a, b) => b.fechaCaptura.compareTo(a.fechaCaptura));
-      
+
       setState(() {
         _evaluaciones = evaluaciones;
         _isLoading = false;
       });
-      
+
       _fadeController.forward();
     } catch (e) {
       print('Error al cargar evaluaciones: $e');
@@ -92,11 +92,11 @@ class _PantallaEvaluacionesLiderV2State extends State<PantallaEvaluacionesLiderV
   Map<String, List<ResultadoExcelenciaHive>> _agruparPorFecha() {
     final Map<String, List<ResultadoExcelenciaHive>> grupos = {};
     final ahora = DateTime.now();
-    
+
     for (final evaluacion in _evaluacionesFiltradas) {
       final diferencia = ahora.difference(evaluacion.fechaCaptura);
       String grupo;
-      
+
       if (diferencia.inDays == 0) {
         grupo = 'Hoy';
       } else if (diferencia.inDays == 1) {
@@ -108,10 +108,10 @@ class _PantallaEvaluacionesLiderV2State extends State<PantallaEvaluacionesLiderV
       } else {
         grupo = 'Anteriores';
       }
-      
+
       grupos.putIfAbsent(grupo, () => []).add(evaluacion);
     }
-    
+
     return grupos;
   }
 
@@ -162,16 +162,16 @@ class _PantallaEvaluacionesLiderV2State extends State<PantallaEvaluacionesLiderV
             ),
             const SizedBox(height: 16),
             Text(
-              'No hay evaluaciones disponibles',
+              'No hay resultados de programa de excelencia disponibles',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              _filtroEstatus == 'todos' 
-                  ? 'No se han realizado evaluaciones aún' 
-                  : 'No hay evaluaciones ${_filtroEstatus}',
+              _filtroEstatus == 'todos'
+                  ? 'No se han realizado programa de excelencia aún'
+                  : 'No hay resultados ${_filtroEstatus}',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
               ),
@@ -182,7 +182,10 @@ class _PantallaEvaluacionesLiderV2State extends State<PantallaEvaluacionesLiderV
               icon: const Icon(Icons.refresh),
               label: const Text('Recargar'),
               style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
               ),
             ),
           ],
@@ -194,11 +197,11 @@ class _PantallaEvaluacionesLiderV2State extends State<PantallaEvaluacionesLiderV
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        title: const Text('Evaluaciones de Desempeño'),
+        title: const Text('Resultados Programa de Excelencia'),
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF1C2120),
         elevation: 0,
@@ -212,9 +215,7 @@ class _PantallaEvaluacionesLiderV2State extends State<PantallaEvaluacionesLiderV
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: Colors.grey.shade50,
-              border: Border(
-                bottom: BorderSide(color: Colors.grey.shade200),
-              ),
+              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
             ),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -229,28 +230,30 @@ class _PantallaEvaluacionesLiderV2State extends State<PantallaEvaluacionesLiderV
               ),
             ),
           ),
-          
+
           // Contenido principal
           Expanded(
-            child: _isLoading
-                ? _buildShimmerLoading()
-                : RefreshIndicator(
-                    onRefresh: () async {
-                      HapticFeedback.mediumImpact();
-                      await _cargarEvaluaciones();
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Evaluaciones actualizadas'),
-                            duration: Duration(seconds: 1),
-                          ),
-                        );
-                      }
-                    },
-                    child: _evaluacionesFiltradas.isEmpty
-                        ? _buildEmptyState()
-                        : _buildGroupedList(),
-                  ),
+            child:
+                _isLoading
+                    ? _buildShimmerLoading()
+                    : RefreshIndicator(
+                      onRefresh: () async {
+                        HapticFeedback.mediumImpact();
+                        await _cargarEvaluaciones();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Resultados actualizads'),
+                              duration: Duration(seconds: 1),
+                            ),
+                          );
+                        }
+                      },
+                      child:
+                          _evaluacionesFiltradas.isEmpty
+                              ? _buildEmptyState()
+                              : _buildGroupedList(),
+                    ),
           ),
         ],
       ),
@@ -260,7 +263,7 @@ class _PantallaEvaluacionesLiderV2State extends State<PantallaEvaluacionesLiderV
   Widget _buildFilterChip(String label, String value) {
     final isSelected = _filtroEstatus == value;
     final theme = Theme.of(context);
-    
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       child: FilterChip(
@@ -276,15 +279,11 @@ class _PantallaEvaluacionesLiderV2State extends State<PantallaEvaluacionesLiderV
         backgroundColor: Colors.white,
         checkmarkColor: const Color(0xFFDE1327),
         labelStyle: TextStyle(
-          color: isSelected 
-              ? const Color(0xFFDE1327) 
-              : const Color(0xFF1C2120),
+          color: isSelected ? const Color(0xFFDE1327) : const Color(0xFF1C2120),
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
         ),
         side: BorderSide(
-          color: isSelected 
-              ? const Color(0xFFDE1327) 
-              : Colors.grey.shade300,
+          color: isSelected ? const Color(0xFFDE1327) : Colors.grey.shade300,
         ),
         materialTapTargetSize: MaterialTapTargetSize.padded,
       ),
@@ -293,7 +292,7 @@ class _PantallaEvaluacionesLiderV2State extends State<PantallaEvaluacionesLiderV
 
   Widget _buildGroupedList() {
     final grupos = _agruparPorFecha();
-    
+
     return FadeTransition(
       opacity: _fadeAnimation,
       child: ListView.builder(
@@ -302,7 +301,7 @@ class _PantallaEvaluacionesLiderV2State extends State<PantallaEvaluacionesLiderV
         itemBuilder: (context, index) {
           final titulo = grupos.keys.elementAt(index);
           final evaluaciones = grupos[titulo]!;
-          
+
           return StickyHeader(
             header: Container(
               width: double.infinity,
@@ -312,32 +311,45 @@ class _PantallaEvaluacionesLiderV2State extends State<PantallaEvaluacionesLiderV
                 titulo,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withOpacity(0.7),
                 ),
               ),
             ),
             content: Column(
-              children: evaluaciones.map((evaluacion) {
-                return EvaluacionCard(
-                  evaluacion: evaluacion,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      PageRouteBuilder(
-                        pageBuilder: (context, animation, secondaryAnimation) => 
-                            PantallaDetalleEvaluacionV2(evaluacion: evaluacion),
-                        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                          return FadeTransition(
-                            opacity: animation,
-                            child: child,
-                          );
-                        },
-                        transitionDuration: const Duration(milliseconds: 300),
-                      ),
+              children:
+                  evaluaciones.map((evaluacion) {
+                    return EvaluacionCard(
+                      evaluacion: evaluacion,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          PageRouteBuilder(
+                            pageBuilder:
+                                (context, animation, secondaryAnimation) =>
+                                    PantallaDetalleEvaluacionV2(
+                                      evaluacion: evaluacion,
+                                    ),
+                            transitionsBuilder: (
+                              context,
+                              animation,
+                              secondaryAnimation,
+                              child,
+                            ) {
+                              return FadeTransition(
+                                opacity: animation,
+                                child: child,
+                              );
+                            },
+                            transitionDuration: const Duration(
+                              milliseconds: 300,
+                            ),
+                          ),
+                        );
+                      },
                     );
-                  },
-                );
-              }).toList(),
+                  }).toList(),
             ),
           );
         },
