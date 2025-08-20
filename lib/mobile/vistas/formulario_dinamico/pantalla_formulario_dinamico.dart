@@ -1,5 +1,6 @@
 // lib/mobile/vistas/formulario_dinamico/pantalla_formulario_dinamico.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
@@ -20,6 +21,12 @@ class AppColors {
   static const Color lightGray = Color(0xFFF5F5F5);
   static const Color darkGray = Color(0xFF1C2120);
   static const Color mediumGray = Color(0xFF8F8E8E);
+}
+
+// Constantes para formularios
+class FormConstants {
+  static const int kMaxCharsFreeText = 300;
+  static const String kCharLimitHint = '(máx. 300 caracteres)';
 }
 
 class PantallaFormularioDinamico extends StatefulWidget {
@@ -2363,13 +2370,30 @@ class _PantallaFormularioDinamicoState
           ),
         ),
         const SizedBox(height: 8),
-        TextField(
+        TextFormField(
           controller: retroalimentacionController,
           maxLines: 4,
+          maxLength: FormConstants.kMaxCharsFreeText,
+          maxLengthEnforcement: MaxLengthEnforcement.enforced,
+          inputFormatters: [
+            LengthLimitingTextInputFormatter(FormConstants.kMaxCharsFreeText),
+          ],
           decoration: InputDecoration(
-            hintText: 'Escriba su retroalimentación...',
+            hintText: 'Escriba su retroalimentación ${FormConstants.kCharLimitHint}',
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            counterText: '', // Hide the default counter to use our custom one
+            helperText: FormConstants.kCharLimitHint,
+            helperStyle: GoogleFonts.poppins(
+              fontSize: 12,
+              color: AppColors.mediumGray,
+            ),
           ),
+          validator: (value) {
+            if (value != null && value.length > FormConstants.kMaxCharsFreeText) {
+              return 'Máximo ${FormConstants.kMaxCharsFreeText} caracteres permitidos';
+            }
+            return null;
+          },
         ),
 
         const SizedBox(height: 24),
@@ -2383,11 +2407,16 @@ class _PantallaFormularioDinamicoState
           ),
         ),
         const SizedBox(height: 8),
-        TextField(
+        TextFormField(
           controller: reconocimientoController,
           maxLines: 4,
+          maxLength: FormConstants.kMaxCharsFreeText,
+          maxLengthEnforcement: MaxLengthEnforcement.enforced,
+          inputFormatters: [
+            LengthLimitingTextInputFormatter(FormConstants.kMaxCharsFreeText),
+          ],
           decoration: InputDecoration(
-            hintText: 'Escriba el reconocimiento...',
+            hintText: 'Escriba el reconocimiento ${FormConstants.kCharLimitHint}',
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           ),
         ),
