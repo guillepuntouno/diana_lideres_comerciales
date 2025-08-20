@@ -563,83 +563,29 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
           _rutaSeleccionada = diaData['rutaNombre'];
 
           String tipoActividad = diaData['tipo'] ?? '';
+          String objetivo = diaData['objetivo'] ?? '';
           
           print('📊 Procesando actividad:');
           print('   └── Tipo: $tipoActividad');
+          print('   └── Objetivo: $objetivo');
           print('   └── TipoActividad field: ${diaData['tipoActividad']}');
           print('   └── Comentario: ${diaData['comentario']}');
 
-          if (tipoActividad == 'administrativo') {
-            String titulo = diaData['objetivo'] ?? 'Actividad administrativa';
+          // Detectar si es un día mixto basado en el objetivo
+          bool esDiaMixto = objetivo == 'Múltiples objetivos' || tipoActividad == 'mixto';
+          
+          if (esDiaMixto) {
+            print('🔀 Detectado día MIXTO - procesando actividades administrativas Y clientes');
             
-            // Manejar tipoActividad que puede ser string o JSON
-            String tipoActividadDetalle = '';
-            var tipoActividadRaw = diaData['tipoActividad'];
-            if (tipoActividadRaw != null) {
-              if (tipoActividadRaw is String) {
-                // Verificar si es un JSON string
-                if (tipoActividadRaw.trim().startsWith('{') || tipoActividadRaw.trim().startsWith('[')) {
-                  try {
-                    var decoded = jsonDecode(tipoActividadRaw);
-                    // Extraer información relevante del JSON
-                    if (decoded is Map) {
-                      tipoActividadDetalle = decoded['nombre'] ?? decoded['tipo'] ?? decoded.toString();
-                    } else {
-                      tipoActividadDetalle = decoded.toString();
-                    }
-                  } catch (e) {
-                    tipoActividadDetalle = tipoActividadRaw;
-                  }
-                } else {
-                  tipoActividadDetalle = tipoActividadRaw;
-                }
-              } else if (tipoActividadRaw is Map) {
-                // Si ya es un mapa, extraer el valor relevante
-                tipoActividadDetalle = tipoActividadRaw['nombre'] ?? 
-                                      tipoActividadRaw['tipo'] ?? 
-                                      tipoActividadRaw.toString();
-              }
-            }
+            // Procesar actividades administrativas
+            await _procesarActividadesAdministrativas(diaData, actividadesDelDia);
             
-            String comentario = diaData['comentario'] ?? '';
+            // Procesar clientes asignados
+            await _procesarClientesAsignados(diaData, actividadesDelDia);
             
-            // Construir descripción legible
-            String descripcion = '';
-            if (tipoActividadDetalle.isNotEmpty && 
-                !tipoActividadDetalle.contains('{') && 
-                !tipoActividadDetalle.contains('[')) {
-              descripcion = tipoActividadDetalle;
-            }
-            if (comentario.isNotEmpty) {
-              if (descripcion.isNotEmpty) {
-                descripcion += ' - ';
-              }
-              descripcion += comentario;
-            }
-            if (descripcion.isEmpty) {
-              descripcion = 'Actividad administrativa programada';
-            }
-            
-            print('📝 Actividad administrativa procesada:');
-            print('   └── Titulo: $titulo');
-            print('   └── TipoActividadRaw: $tipoActividadRaw');
-            print('   └── TipoActividadDetalle: $tipoActividadDetalle');
-            print('   └── Descripción final: $descripcion');
-
-            actividadesDelDia.add(
-              ActivityModel(
-                id: '${_diaActual}_admin',
-                type: ActivityType.admin,
-                title: titulo,
-                direccion: descripcion,
-                metadata: {
-                  'tipoActividad': tipoActividadDetalle,
-                  'comentario': comentario,
-                },
-              ),
-            );
-
-            print('➕ ✅ ACTIVIDAD ADMINISTRATIVA CREADA: $titulo');
+          } else if (tipoActividad == 'administrativo') {
+            print('📝 Día ADMINISTRATIVO puro - procesando actividades');
+            await _procesarActividadesAdministrativas(diaData, actividadesDelDia);
           } else if (tipoActividad == 'gestion_cliente') {
             final clientesAsignados =
                 diaData['clientesAsignados'] as List<dynamic>?;
@@ -749,6 +695,34 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
         } else {
           print('❌ No hay datos para el día $_diaActual');
         }
+      }
+
+      // Verificar actividades creadas antes de continuar
+      print('📊 Resumen de actividades creadas:');
+      print('   └── Total actividades: ${actividadesDelDia.length}');
+      
+      Map<String, int> contadores = {};
+      Set<String> idsCreados = {};
+      
+      for (var actividad in actividadesDelDia) {
+        String tipo = actividad.type == ActivityType.admin ? 'Administrativas' : 'Visitas';
+        contadores[tipo] = (contadores[tipo] ?? 0) + 1;
+        
+        if (idsCreados.contains(actividad.id)) {
+          print('⚠️ ID DUPLICADO DETECTADO: ${actividad.id}');
+        } else {
+          idsCreados.add(actividad.id);
+        }
+      }
+      
+      contadores.forEach((tipo, count) {
+        print('   └── $tipo: $count');
+      });
+      
+      if (idsCreados.length != actividadesDelDia.length) {
+        print('❌ ¡ADVERTENCIA! IDs duplicados encontrados');
+      } else {
+        print('✅ Todos los IDs son únicos');
       }
 
       await _cargarEstadoActividades(actividadesDelDia);
@@ -1102,6 +1076,54 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
   }
 
   Future<void> _cambiarEstadoActividad(ActivityModel actividad) async {
+    // Para actividades administrativas, mostrar diálogo de confirmación al completar
+    if (actividad.type == ActivityType.admin) {
+      if (actividad.status == ActivityStatus.enCurso) {
+        // Mostrar diálogo de confirmación antes de marcar como completada
+        bool? confirmar = await showDialog<bool>(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: Text(
+                'Confirmar finalización',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.darkGray,
+                ),
+              ),
+              content: Text(
+                '¿Desea marcar esta actividad como finalizada?',
+                style: GoogleFonts.poppins(),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: Text(
+                    'No',
+                    style: GoogleFonts.poppins(color: Colors.grey),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.dianaRed,
+                  ),
+                  child: Text(
+                    'Sí',
+                    style: GoogleFonts.poppins(color: Colors.white),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+
+        if (confirmar != true) {
+          return; // Usuario canceló, no hacer nada
+        }
+      }
+    }
+
     setState(() {
       switch (actividad.status) {
         case ActivityStatus.pendiente:
@@ -1124,6 +1146,11 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
     });
 
     await _guardarEstadoActividades();
+    
+    // Para actividades administrativas, también actualizar en Hive
+    if (actividad.type == ActivityType.admin) {
+      await _actualizarActividadEnHive(actividad);
+    }
   }
 
   Future<void> _postergarActividad(ActivityModel actividad) async {
@@ -1142,6 +1169,368 @@ class _PantallaRutinaDiariaState extends State<PantallaRutinaDiaria> {
         duration: const Duration(seconds: 2),
       ),
     );
+  }
+
+  /// Actualiza el estado de una actividad administrativa en Hive
+  Future<void> _actualizarActividadEnHive(ActivityModel actividad) async {
+    try {
+      if (_planUnificado == null || actividad.metadata?['actividadId'] == null) {
+        print('⚠️ No se puede actualizar actividad en Hive: plan o ID faltante');
+        return;
+      }
+
+      String actividadId = actividad.metadata?['actividadId'] as String;
+      String diaParaBuscar = _diaSimulado ?? _diaActual;
+      
+      print('🔄 Actualizando actividad en Hive: $actividadId (día: $diaParaBuscar)');
+
+      // Obtener el día del plan unificado
+      var diaUnificado = _planUnificado!.dias[diaParaBuscar];
+      if (diaUnificado == null) {
+        print('❌ No se encontró el día $diaParaBuscar en el plan unificado');
+        return;
+      }
+
+      // Obtener las actividades administrativas
+      String? tipoActividadRaw = diaUnificado.tipoActividadAdministrativa;
+      if (tipoActividadRaw == null || tipoActividadRaw.isEmpty) {
+        print('❌ No hay actividades administrativas en el día $diaParaBuscar');
+        return;
+      }
+
+      // Parsear actividades existentes
+      List<Map<String, dynamic>> actividades = [];
+      if (tipoActividadRaw.startsWith('[')) {
+        try {
+          actividades = List<Map<String, dynamic>>.from(jsonDecode(tipoActividadRaw));
+        } catch (e) {
+          print('❌ Error parseando actividades JSON: $e');
+          return;
+        }
+      } else {
+        // Formato legacy, crear nueva estructura
+        actividades = [{
+          'id': actividadId,
+          'tipo': tipoActividadRaw,
+          'objetivo': 'Actividad administrativa',
+          'estatus': 'pendiente',
+          'fechaCompletado': null,
+          'fechaCreacion': DateTime.now().toIso8601String()
+        }];
+      }
+
+      // Buscar y actualizar la actividad específica
+      bool encontrada = false;
+      for (var actividadHive in actividades) {
+        if (actividadHive['id'] == actividadId) {
+          encontrada = true;
+          
+          // Actualizar estado
+          if (actividad.status == ActivityStatus.completada) {
+            actividadHive['estatus'] = 'completada';
+            actividadHive['fechaCompletado'] = actividad.horaFin?.toIso8601String() ?? DateTime.now().toIso8601String();
+          } else {
+            actividadHive['estatus'] = 'pendiente';
+            actividadHive['fechaCompletado'] = null;
+          }
+          
+          print('✅ Actividad actualizada en memoria: $actividadId -> ${actividadHive['estatus']}');
+          break;
+        }
+      }
+
+      if (!encontrada) {
+        print('❌ No se encontró la actividad $actividadId en las actividades del día');
+        return;
+      }
+
+      // Actualizar en el plan unificado
+      diaUnificado.tipoActividadAdministrativa = jsonEncode(actividades);
+      diaUnificado.fechaModificacion = DateTime.now();
+
+      // Guardar en Hive usando el repositorio
+      await _planUnificadoService.repository.actualizarPlan(_planUnificado!);
+      
+      print('✅ Plan actualizado en Hive exitosamente');
+      
+      // También actualizar en el plan semanal offline para compatibilidad
+      await _actualizarPlanSemanalOffline(diaParaBuscar, actividades);
+      
+    } catch (e, stackTrace) {
+      print('❌ Error actualizando actividad en Hive: $e');
+      print('Stack trace: $stackTrace');
+    }
+  }
+
+  /// Procesa actividades administrativas de un día específico
+  Future<void> _procesarActividadesAdministrativas(
+    Map<String, dynamic> diaData, 
+    List<ActivityModel> actividadesDelDia
+  ) async {
+    var tipoActividadRaw = diaData['tipoActividad'];
+    String comentario = diaData['comentario'] ?? '';
+    
+    print('📝 Procesando actividades administrativas:');
+    print('   └── TipoActividadRaw: $tipoActividadRaw');
+    print('   └── Tipo de dato: ${tipoActividadRaw.runtimeType}');
+    
+    List<Map<String, dynamic>> actividadesIndividuales = [];
+    
+    if (tipoActividadRaw != null) {
+      if (tipoActividadRaw is String) {
+        // Verificar si es un JSON string (array o object)
+        if (tipoActividadRaw.trim().startsWith('[')) {
+          // Es un array de actividades
+          try {
+            var decoded = jsonDecode(tipoActividadRaw) as List;
+            for (int i = 0; i < decoded.length; i++) {
+              var actividad = decoded[i];
+              if (actividad is Map<String, dynamic>) {
+                actividadesIndividuales.add({
+                  'id': actividad['id'] ?? 'admin_${i + 1}',
+                  'tipo': actividad['tipo'] ?? 'Actividad administrativa',
+                  'estatus': actividad['estatus'] ?? 'pendiente',
+                  'fechaCompletado': actividad['fechaCompletado'],
+                  'index': i,
+                });
+              }
+            }
+            print('   └── ${actividadesIndividuales.length} actividades encontradas en array JSON');
+          } catch (e) {
+            print('   └── Error parseando array JSON: $e');
+            // Fallback: crear una sola actividad
+            actividadesIndividuales.add({
+              'id': 'admin_1',
+              'tipo': tipoActividadRaw,
+              'estatus': 'pendiente',
+              'fechaCompletado': null,
+              'index': 0,
+            });
+          }
+        } else if (tipoActividadRaw.trim().startsWith('{')) {
+          // Es un objeto single
+          try {
+            var decoded = jsonDecode(tipoActividadRaw) as Map<String, dynamic>;
+            actividadesIndividuales.add({
+              'id': decoded['id'] ?? 'admin_1',
+              'tipo': decoded['tipo'] ?? decoded['nombre'] ?? 'Actividad administrativa',
+              'estatus': decoded['estatus'] ?? 'pendiente',
+              'fechaCompletado': decoded['fechaCompletado'],
+              'index': 0,
+            });
+            print('   └── 1 actividad encontrada en objeto JSON');
+          } catch (e) {
+            print('   └── Error parseando objeto JSON: $e');
+            // Fallback: crear una sola actividad
+            actividadesIndividuales.add({
+              'id': 'admin_1',
+              'tipo': tipoActividadRaw,
+              'estatus': 'pendiente',
+              'fechaCompletado': null,
+              'index': 0,
+            });
+          }
+        } else {
+          // Es un string simple
+          actividadesIndividuales.add({
+            'id': 'admin_1',
+            'tipo': tipoActividadRaw,
+            'estatus': 'pendiente',
+            'fechaCompletado': null,
+            'index': 0,
+          });
+          print('   └── 1 actividad creada desde string simple');
+        }
+      } else if (tipoActividadRaw is List) {
+        // Ya es una lista
+        for (int i = 0; i < tipoActividadRaw.length; i++) {
+          var actividad = tipoActividadRaw[i];
+          if (actividad is Map<String, dynamic>) {
+            actividadesIndividuales.add({
+              'id': actividad['id'] ?? 'admin_${i + 1}',
+              'tipo': actividad['tipo'] ?? 'Actividad administrativa',
+              'estatus': actividad['estatus'] ?? 'pendiente',
+              'fechaCompletado': actividad['fechaCompletado'],
+              'index': i,
+            });
+          }
+        }
+        print('   └── ${actividadesIndividuales.length} actividades encontradas en List');
+      } else if (tipoActividadRaw is Map) {
+        // Ya es un mapa
+        var actividad = tipoActividadRaw as Map<String, dynamic>;
+        actividadesIndividuales.add({
+          'id': actividad['id'] ?? 'admin_1',
+          'tipo': actividad['tipo'] ?? actividad['nombre'] ?? 'Actividad administrativa',
+          'estatus': actividad['estatus'] ?? 'pendiente',
+          'fechaCompletado': actividad['fechaCompletado'],
+          'index': 0,
+        });
+        print('   └── 1 actividad encontrada en Map');
+      }
+    }
+    
+    // Si no se procesaron actividades, crear una por defecto
+    if (actividadesIndividuales.isEmpty) {
+      actividadesIndividuales.add({
+        'id': 'admin_1',
+        'tipo': 'Actividad administrativa',
+        'estatus': 'pendiente',
+        'fechaCompletado': null,
+        'index': 0,
+      });
+      print('   └── Actividad por defecto creada');
+    }
+    
+    // Crear ActivityModel individual para cada actividad
+    for (var actividadData in actividadesIndividuales) {
+      String actividadId = actividadData['id'];
+      String tipoDetalle = actividadData['tipo'];
+      String estatus = actividadData['estatus'];
+      String? fechaCompletado = actividadData['fechaCompletado'];
+      int index = actividadData['index'];
+      
+      // Usar el tipo de actividad como título en lugar de "Múltiples objetivos"
+      String titulo = tipoDetalle;
+      
+      // Para actividades administrativas, no mostrar descripción secundaria (genera ruido visual)
+      String descripcion = '';
+      
+      // Determinar estado inicial basado en estatus guardado
+      ActivityStatus statusInicial = ActivityStatus.pendiente;
+      if (estatus == 'completada' || fechaCompletado != null) {
+        statusInicial = ActivityStatus.completada;
+      }
+
+      actividadesDelDia.add(
+        ActivityModel(
+          id: '${_diaActual}_admin_$actividadId',
+          type: ActivityType.admin,
+          title: titulo,
+          direccion: descripcion,
+          status: statusInicial,
+          horaFin: fechaCompletado != null ? DateTime.tryParse(fechaCompletado) : null,
+          metadata: {
+            'tipoActividad': tipoDetalle,
+            'comentario': comentario,
+            'actividadId': actividadId,
+            'estatus': estatus,
+            'fechaCompletado': fechaCompletado,
+          },
+        ),
+      );
+
+      print('➕ ✅ ACTIVIDAD ADMINISTRATIVA CREADA: $titulo (ID: $actividadId, Estado: $estatus)');
+    }
+  }
+
+  /// Procesa clientes asignados de un día específico
+  Future<void> _procesarClientesAsignados(
+    Map<String, dynamic> diaData, 
+    List<ActivityModel> actividadesDelDia
+  ) async {
+    final clientesAsignados = diaData['clientesAsignados'] as List<dynamic>?;
+
+    print('👥 Clientes asignados: ${clientesAsignados?.length ?? 0}');
+
+    if (clientesAsignados != null && clientesAsignados.isNotEmpty) {
+      // Guardar clientes FOCO y sus IDs
+      _clientesAsignadosFoco = clientesAsignados.map((c) => Map<String, dynamic>.from(c)).toList();
+      _clientesFoco = clientesAsignados
+          .map((c) => c['clienteId']?.toString() ?? '')
+          .where((id) => id.isNotEmpty)
+          .toList();
+
+      print('🌟 IDs de clientes FOCO: $_clientesFoco');
+
+      // Crear actividades para clientes FOCO
+      for (int i = 0; i < clientesAsignados.length; i++) {
+        final cliente = clientesAsignados[i] as Map<String, dynamic>;
+
+        String clienteId = cliente['clienteId'] ?? 'ID_$i';
+        String clienteNombreJson = cliente['clienteNombre'] ?? '';
+        String clienteDireccionJson = cliente['clienteDireccion'] ?? '';
+        String clienteTipo = cliente['clienteTipo'] ?? 'No especificado';
+
+        // Buscar información completa del cliente en HIVE
+        String clienteNombre = clienteNombreJson;
+        String clienteDireccion = clienteDireccionJson;
+        String? subcanal;
+        String? clasificacion;
+        String? canal;
+        
+        try {
+          final clienteHive = _clientesLocalesService.obtenerCliente(clienteId);
+          if (clienteHive != null) {
+            // Usar información de HIVE si está disponible
+            clienteNombre = clienteHive.nombre;
+            clienteDireccion = clienteHive.direccion ?? clienteDireccionJson;
+            subcanal = clienteHive.subcanalVenta;
+            clasificacion = clienteHive.clasificacionCliente;
+            canal = clienteHive.canalVenta;
+            
+            print('📋 Cliente FOCO encontrado en HIVE: $clienteNombre');
+          } else {
+            print('⚠️ Cliente $clienteId no encontrado en HIVE, usando datos del plan');
+          }
+        } catch (e) {
+          print('⚠️ Error buscando cliente en HIVE: $e');
+        }
+
+        actividadesDelDia.add(
+          ActivityModel(
+            id: '${_diaActual}_cliente_$clienteId',
+            type: ActivityType.visita,
+            title: clienteNombre,
+            direccion: clienteDireccion,
+            cliente: clienteId,
+            asesor: '${diaData['rutaNombre']} (${clasificacion ?? clienteTipo})',
+            status: cliente['visitado'] == true
+                ? ActivityStatus.completada
+                : ActivityStatus.pendiente,
+            metadata: {
+              'esFoco': true,
+              'planId': _planUnificado?.id,
+              'dia': _diaSimulado ?? _diaActual,
+              'rutaNombre': diaData['rutaNombre'],
+              'subcanal': subcanal,
+              'clasificacion': clasificacion,
+              'canal': canal,
+            },
+          ),
+        );
+
+        print('➕ ✅ VISITA CLIENTE CREADA: $clienteNombre (FOCO)');
+      }
+    } else {
+      print('📭 Sin clientes asignados para gestión');
+    }
+  }
+
+  /// Actualiza el plan semanal offline para mantener compatibilidad
+  Future<void> _actualizarPlanSemanalOffline(String dia, List<Map<String, dynamic>> actividades) async {
+    try {
+      if (_liderActual == null || _planSeleccionado == null) return;
+
+      await _planServicio.initialize();
+      final planRepository = _planServicio.getPlanRepository();
+      
+      // Buscar el plan semanal
+      String semanaKey = _planSeleccionado!.etiqueta.split(' (')[0];
+      final planSemanal = planRepository.obtenerPlanPorSemana(_liderActual!.clave, semanaKey);
+      
+      if (planSemanal != null && planSemanal.dias.containsKey(dia)) {
+        var diaHive = planSemanal.dias[dia]!;
+        diaHive.tipoActividadAdministrativa = jsonEncode(actividades);
+        diaHive.fechaModificacion = DateTime.now();
+        
+        await planRepository.actualizarDia(_liderActual!.clave, semanaKey, diaHive);
+        print('✅ Plan semanal offline actualizado');
+      }
+    } catch (e) {
+      print('⚠️ Error actualizando plan semanal offline: $e');
+      // No lanzar error, es un fallback
+    }
   }
 
   int get _actividadesCompletadas =>
