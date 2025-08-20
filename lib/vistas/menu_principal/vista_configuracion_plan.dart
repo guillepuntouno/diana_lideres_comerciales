@@ -2056,6 +2056,29 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
               },
             ),
           ),
+          // Botón para agregar nueva gestión de clientes
+          if (esEditable) ...[
+            const SizedBox(height: 12),
+            Center(
+              child: OutlinedButton.icon(
+                icon: Icon(Icons.add_circle_outline, size: 20),
+                label: Text('Agregar nueva gestión de clientes'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: color,
+                  side: BorderSide(color: color),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                onPressed: () async {
+                  Navigator.pop(context); // Cerrar el modal
+                  // Navegar a la pantalla de programar día indicando que es para agregar nueva actividad
+                  await _navegarAAgregarNuevaActividad(dia);
+                },
+              ),
+            ),
+          ],
         ],
       ),
     );

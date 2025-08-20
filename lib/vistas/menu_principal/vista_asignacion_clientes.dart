@@ -448,7 +448,14 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
       }
 
       // Guardar la configuración del día usando el servicio offline
-      await _planServicio.guardarConfiguracionDia(semana, liderId, diaData);
+      // Si esEdicion es true y no hay actividades existentes, es una edición completa
+      // Si hay actividades existentes, es una adición (no edición)
+      await _planServicio.guardarConfiguracionDia(
+        semana, 
+        liderId, 
+        diaData,
+        esEdicion: esEdicion && _actividadesExistentes.isEmpty,
+      );
 
       // Cerrar loading
       if (mounted) Navigator.of(context).pop();
@@ -560,7 +567,7 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
             );
             
             if (agregarOtro == true && mounted) {
-              // Navegar de vuelta a programar día
+              // Navegar de vuelta a programar día indicando que es nueva actividad
               Navigator.pushReplacementNamed(
                 context,
                 '/programar_dia',
@@ -568,12 +575,18 @@ class _VistaAsignacionClientesState extends State<VistaAsignacionClientes> {
                   'dia': diaAsignado,
                   'semana': semana,
                   'liderId': liderId,
-                  'esEdicion': esEdicion,
+                  'esEdicion': false,  // Importante: false para nueva actividad
+                  'esNuevaActividad': true,  // Indicar que es nueva actividad
                   'fecha': fechaReal,
                 },
               );
             } else if (mounted) {
-              Navigator.pop(context, true);
+              // Si no quiere agregar más, regresar a la vista de configuración
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                '/plan_configuracion',
+                (route) => route.settings.name == '/menu_principal',
+              );
             }
           } else if (mounted) {
             // Si canceló en indicadores, volver atrás
