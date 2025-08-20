@@ -240,223 +240,85 @@ class _VistaPlanesTrabajo extends State<VistaPlanesTrabajo> {
 
   Widget _buildPlanCard(PlanTrabajoUnificadoHive plan) {
     final esActual = plan.semana == _semanaActual;
-    final puedeEjecutar = plan.estatus == 'enviado' && esActual;
-    final esBorrador = plan.estatus == 'borrador';
+    final totalActividades = _calcularTotalActividades(plan);
+    final totalClientes = _calcularTotalClientes(plan);
 
     return Card(
       elevation: esActual ? 4 : 2,
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side:
-            esActual
-                ? const BorderSide(color: Color(0xFFDE1327), width: 2)
-                : BorderSide.none,
+        side: esActual
+            ? const BorderSide(color: Color(0xFFDE1327), width: 2)
+            : BorderSide.none,
       ),
-      child: InkWell(
-        onTap: () => _abrirDetallePlan(plan),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Encabezado con semana y badges
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      plan.semana,
-                      style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF1C2120),
-                      ),
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      if (puedeEjecutar)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.blue,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            'HOY',
-                            style: GoogleFonts.poppins(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      if (esActual && !puedeEjecutar)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.orange,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            'ACTUAL',
-                            style: GoogleFonts.poppins(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Información del plan
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildInfoRow('Fecha inicial:', plan.fechaInicio),
-                        const SizedBox(height: 4),
-                        _buildInfoRow('Fecha final:', plan.fechaFin),
-                        const SizedBox(height: 4),
-                        _buildInfoRow('Líder:', plan.liderNombre),
-                        const SizedBox(height: 4),
-                        _buildInfoRow('Centro:', plan.centroDistribucion),
-                        const SizedBox(height: 4),
-                        _buildInfoRow('Días config.:', '${plan.diasConfigurados}/6'),
-                        const SizedBox(height: 4),
-                        _buildInfoRow('Total clientes:', _calcularTotalClientes(plan).toString()),
-                      ],
-                    ),
-                  ),
-                  // Botones de acción
-                  Column(
-                    children: [
-                      if (esBorrador)
-                        IconButton(
-                          onPressed: () => _editarPlan(plan),
-                          icon: const Icon(
-                            Icons.edit,
-                            color: Colors.orange,
-                            size: 24,
-                          ),
-                          tooltip: 'Editar borrador',
-                        )
-                      else
-                        IconButton(
-                          onPressed: () => _abrirDetallePlan(plan),
-                          icon: const Icon(
-                            Icons.visibility,
-                            color: Color(0xFFDE1327),
-                            size: 24,
-                          ),
-                          tooltip: 'Ver rutinas',
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Estado del plan
-              Row(
-                children: [
-                  Icon(
-                    _getEstatusIcon(plan.estatus),
-                    color: _getEstatusColor(plan.estatus),
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Estatus: ${_getEstatusTexto(plan.estatus)}',
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: _getEstatusColor(plan.estatus),
-                    ),
-                  ),
-                ],
-              ),
-
-              // Mostrar resumen de indicadores si existen
-              if (_tieneIndicadores(plan)) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.purple.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.purple.withOpacity(0.2)),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.analytics,
-                        color: Colors.purple,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          '${_contarClientesConIndicadores(plan)} clientes con indicadores asignados',
-                          style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            color: Colors.purple.shade700,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-              
-              // Botón de acción principal
-              if (puedeEjecutar || esBorrador) ...[
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () => _abrirDetallePlan(plan),
-                    icon: Icon(
-                      esBorrador ? Icons.edit : Icons.play_arrow,
-                      color: Colors.white,
-                    ),
-                    label: Text(
-                      esBorrador
-                          ? 'Continuar Configuración'
-                          : 'Ejecutar Rutinas',
-                      style: GoogleFonts.poppins(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          esBorrador ? Colors.orange : const Color(0xFFDE1327),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ],
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        childrenPadding: const EdgeInsets.all(16),
+        expandedAlignment: Alignment.centerLeft,
+        title: Text(
+          plan.semana,
+          style: GoogleFonts.poppins(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: const Color(0xFF1C2120),
           ),
         ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 8),
+            _buildInfoRow('Periodo:', '${plan.fechaInicio} - ${plan.fechaFin}'),
+            const SizedBox(height: 4),
+            _buildInfoRow('Días trabajados:', '${plan.diasConfigurados}/6'),
+          ],
+        ),
+        children: [
+          // Metadata del plan
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Información del Plan',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF1C2120),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _buildInfoRow('ID:', plan.id),
+                const SizedBox(height: 4),
+                _buildInfoRow('Líder:', plan.liderNombre),
+                const SizedBox(height: 4),
+                _buildInfoRow('Centro:', plan.centroDistribucion),
+                const SizedBox(height: 4),
+                _buildInfoRow('Total actividades:', totalActividades.toString()),
+                const SizedBox(height: 4),
+                _buildInfoRow('Total clientes:', totalClientes.toString()),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Resumen por días
+          Text(
+            'Resumen Semanal',
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF1C2120),
+            ),
+          ),
+          const SizedBox(height: 12),
+          ..._buildDailyActivitySummary(plan),
+        ],
       ),
     );
   }
@@ -582,12 +444,6 @@ class _VistaPlanesTrabajo extends State<VistaPlanesTrabajo> {
                     child: Column(
                       children: [
                         _buildInfoItem(
-                          Icons.badge_outlined,
-                          'Clave',
-                          _liderActual!.clave,
-                        ),
-                        const SizedBox(height: 8),
-                        _buildInfoItem(
                           Icons.email_outlined,
                           'Correo',
                           _liderEmail ?? 'No disponible',
@@ -597,12 +453,6 @@ class _VistaPlanesTrabajo extends State<VistaPlanesTrabajo> {
                           Icons.business_outlined,
                           'Centro de Distribución',
                           _liderActual!.centroDistribucion,
-                        ),
-                        const SizedBox(height: 8),
-                        _buildInfoItem(
-                          Icons.route_outlined,
-                          'Rutas asignadas',
-                          '${_liderActual!.rutas.length} rutas',
                         ),
                       ],
                     ),
@@ -806,6 +656,211 @@ class _VistaPlanesTrabajo extends State<VistaPlanesTrabajo> {
       }
     });
     return total;
+  }
+
+  int _calcularTotalActividades(PlanTrabajoUnificadoHive plan) {
+    int total = 0;
+    plan.dias.forEach((_, dia) {
+      if (dia.configurado) {
+        if (dia.tipo == 'administrativo' || dia.tipo == 'mixto') {
+          if (dia.tipoActividadAdministrativa != null && dia.tipoActividadAdministrativa!.isNotEmpty) {
+            try {
+              if (dia.tipoActividadAdministrativa!.startsWith('[')) {
+                final actividades = jsonDecode(dia.tipoActividadAdministrativa!);
+                total += (actividades as List).length;
+              } else {
+                total += 1;
+              }
+            } catch (e) {
+              total += 1;
+            }
+          }
+        }
+      }
+    });
+    return total;
+  }
+
+  List<Widget> _buildDailyActivitySummary(PlanTrabajoUnificadoHive plan) {
+    final diasSemana = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    return diasSemana.map((nombreDia) {
+      final dia = plan.dias[nombreDia];
+      if (dia == null || !dia.configurado) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.calendar_today_outlined,
+                color: Colors.grey.shade600,
+                size: 20,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  nombreDia,
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ),
+              Text(
+                'Sin configurar',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: Colors.grey.shade500,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+
+      // Contar actividades administrativas
+      int actividadesAdmin = 0;
+      if (dia.tipo == 'administrativo' || dia.tipo == 'mixto') {
+        if (dia.tipoActividadAdministrativa != null && dia.tipoActividadAdministrativa!.isNotEmpty) {
+          try {
+            if (dia.tipoActividadAdministrativa!.startsWith('[')) {
+              final actividades = jsonDecode(dia.tipoActividadAdministrativa!);
+              actividadesAdmin = (actividades as List).length;
+            } else {
+              actividadesAdmin = 1;
+            }
+          } catch (e) {
+            actividadesAdmin = 1;
+          }
+        }
+      }
+
+      // Contar clientes
+      int clientesCount = 0;
+      if (dia.tipo == 'gestion_cliente' || dia.tipo == 'mixto') {
+        clientesCount = dia.clienteIds.length;
+      }
+
+      return Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.blue.shade50,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: Colors.blue.shade200),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.calendar_today,
+                  color: Colors.blue.shade700,
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    nombreDia,
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.blue.shade700,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _getTipoColor(dia.tipo),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    _getTipoTexto(dia.tipo),
+                    style: GoogleFonts.poppins(
+                      fontSize: 10,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                if (actividadesAdmin > 0) ...[
+                  Icon(
+                    Icons.assignment_turned_in,
+                    color: Colors.green.shade600,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '$actividadesAdmin actividad${actividadesAdmin > 1 ? 'es' : ''}',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: Colors.green.shade600,
+                    ),
+                  ),
+                  if (clientesCount > 0) ...[
+                    const SizedBox(width: 16),
+                    Text('•', style: TextStyle(color: Colors.grey.shade400)),
+                    const SizedBox(width: 16),
+                  ],
+                ],
+                if (clientesCount > 0) ...[
+                  Icon(
+                    Icons.people,
+                    color: Colors.orange.shade600,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '$clientesCount cliente${clientesCount > 1 ? 's' : ''}',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: Colors.orange.shade600,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
+      );
+    }).toList();
+  }
+
+  Color _getTipoColor(String tipo) {
+    switch (tipo) {
+      case 'administrativo':
+        return Colors.blue;
+      case 'gestion_cliente':
+        return Colors.orange;
+      case 'mixto':
+        return Colors.purple;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _getTipoTexto(String tipo) {
+    switch (tipo) {
+      case 'administrativo':
+        return 'ADMIN';
+      case 'gestion_cliente':
+        return 'CLIENTES';
+      case 'mixto':
+        return 'MIXTO';
+      default:
+        return 'OTRO';
+    }
   }
   
   bool _tieneIndicadores(PlanTrabajoUnificadoHive plan) {
