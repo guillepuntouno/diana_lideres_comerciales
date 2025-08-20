@@ -1494,18 +1494,18 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                         ),
                       ],
                       
-                      // Objetivos de abordaje
-                      if (diaData.comentario != null && diaData.comentario!.isNotEmpty) ...[
-                        const SizedBox(height: 20),
-                        _buildSeccionObjetivosAbordajeMejorada(
-                          'Indicadores de Ruta',
-                          diaData.comentario!,
-                          Icons.track_changes,
-                          Colors.green,
-                          esEditable,
-                          dia,
-                        ),
-                      ],
+                      // Objetivos de abordaje - COMENTADO POR SOLICITUD DEL USUARIO
+                      // if (diaData.comentario != null && diaData.comentario!.isNotEmpty) ...[
+                      //   const SizedBox(height: 20),
+                      //   _buildSeccionObjetivosAbordajeMejorada(
+                      //     'Indicadores de Ruta',
+                      //     diaData.comentario!,
+                      //     Icons.track_changes,
+                      //     Colors.green,
+                      //     esEditable,
+                      //     dia,
+                      //   ),
+                      // ],
                       
                       // Indicadores de gestión
                       if (diaData.clientesAsignados.isNotEmpty) ...[
@@ -2062,7 +2062,7 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
             Center(
               child: OutlinedButton.icon(
                 icon: Icon(Icons.add_circle_outline, size: 20),
-                label: Text('Agregar nueva gestión de clientes'),
+                label: Text('Agregar nueva actividad'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: color,
                   side: BorderSide(color: color),
