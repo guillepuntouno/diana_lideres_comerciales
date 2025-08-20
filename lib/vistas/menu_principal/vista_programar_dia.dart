@@ -36,6 +36,7 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
   Map<String, String>? _catDia; // mapa resuelto
   String? _codigoDiaVisita; // clave que va al backend
   bool esEdicion = false; // Nuevo: detectar si es edición
+  bool esNuevaActividad = false; // Para indicar si es una nueva actividad en un día ya configurado
   String?
   _tipoObjetivoExistente; // Para rastrear el tipo de objetivo ya guardado
   bool _cargandoRutas = false; // Estado de carga de rutas
@@ -100,6 +101,7 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
       _fechaReal =
           args['fecha'] ?? _calcularFechaParaDia(diaSeleccionado, semana);
       esEdicion = args['esEdicion'] ?? false; // Detectar si es edición
+      esNuevaActividad = args['esNuevaActividad'] ?? false; // Detectar si es para agregar nueva actividad
 
       print('🚀 Inicializando VistaProgramarDia');
       print('  - Día: $diaSeleccionado');
@@ -572,11 +574,12 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
       );
 
       // Guardar usando el servicio offline, indicando si es edición
+      // Si esNuevaActividad es true, significa que estamos agregando, no editando
       await _planOfflineService.guardarConfiguracionDia(
         semana,
         liderId,
         diaTrabajo,
-        esEdicion: esEdicion,
+        esEdicion: esEdicion && !esNuevaActividad,
       );
 
       print('💾 Configuración guardada offline para $diaSeleccionado');
@@ -584,6 +587,8 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
       print('   └── Centro: $_centroDistribucionInterno');
       print('   └── Ruta: $_rutaSeleccionada');
       print('   └── Objetivo: $_objetivoSeleccionado');
+      print('   └── Es edición: ${esEdicion && !esNuevaActividad}');
+      print('   └── Es nueva actividad: $esNuevaActividad');
     } catch (e) {
       print('❌ Error al guardar configuración: $e');
       rethrow;
@@ -709,19 +714,30 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${esEdicion ? 'Editando' : 'Configurando'}: $diaSeleccionado',
+                          esNuevaActividad 
+                              ? 'Agregar actividad: $diaSeleccionado'
+                              : '${esEdicion ? 'Editando' : 'Configurando'}: $diaSeleccionado',
                           style: GoogleFonts.poppins(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                             color: const Color(0xFF1C2120),
                           ),
                         ),
-                        if (esEdicion)
+                        if (esEdicion && !esNuevaActividad)
                           Text(
                             'Modificando plan enviado',
                             style: GoogleFonts.poppins(
                               fontSize: 12,
                               color: Colors.orange.shade700,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        if (esNuevaActividad)
+                          Text(
+                            'Agregando nueva actividad al día',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: Colors.green.shade700,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -1646,6 +1662,9 @@ class _VistaProgramarDiaState extends State<VistaProgramarDia> {
                                   _objetivosAbordajeSeleccionados.clear();
                                   _objetivoAbordajeSeleccionado = null;
                                   _comentarioAdicional = null;
+                                  // Indicar que la próxima será una nueva actividad, NO una edición
+                                  esEdicion = false;
+                                  esNuevaActividad = true;
                                 });
                               } else if (mounted) {
                                 Navigator.of(context).pop(true);

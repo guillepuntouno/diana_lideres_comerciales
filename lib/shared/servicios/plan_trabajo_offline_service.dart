@@ -14,6 +14,7 @@ import 'hive_service.dart';
 import 'plan_trabajo_servicio.dart';
 import 'sesion_servicio.dart';
 import 'indicadores_gestion_servicio.dart';
+import 'package:uuid/uuid.dart';
 
 class PlanTrabajoOfflineService {
   static final PlanTrabajoOfflineService _instance = PlanTrabajoOfflineService._internal();
@@ -24,6 +25,7 @@ class PlanTrabajoOfflineService {
   ClienteRepository? _clienteRepository;
   ObjetivoRepository? _objetivoRepository;
   final PlanTrabajoServicio _planServicioHttp = PlanTrabajoServicio();
+  final _uuid = const Uuid();
 
   bool _isInitialized = false;
 
@@ -192,12 +194,24 @@ class PlanTrabajoOfflineService {
     bool esEdicion = false,
   }) async {
     await initialize();
+    
+    print('\n🔧 === INICIANDO guardarConfiguracionDia ===');
+    print('📅 Día: ${dia.dia}');
+    print('📋 Objetivo: ${dia.objetivo}');
+    print('✏️ Es edición: $esEdicion');
+    print('📝 Tipo actividad: ${dia.tipoActividad}');
 
     // Obtener el plan existente para verificar si ya hay datos del día
     final planExistente = _planRepository!.obtenerPlanPorSemana(liderClave, semana);
     DiaTrabajoHive? diaExistente;
     if (planExistente != null && planExistente.dias.containsKey(dia.dia)) {
       diaExistente = planExistente.dias[dia.dia];
+      print('📌 Día existente encontrado:');
+      print('   - Configurado: ${diaExistente?.configurado}');
+      print('   - Tipo: ${diaExistente?.tipo}');
+      print('   - Actividades: ${diaExistente?.tipoActividadAdministrativa}');
+    } else {
+      print('🆕 No hay configuración previa para este día');
     }
 
     // Si es una actividad administrativa
@@ -206,12 +220,14 @@ class PlanTrabajoOfflineService {
         // EN MODO EDICIÓN: Reemplazar completamente la configuración
         print('🔄 Modo edición: Reemplazando actividad administrativa');
         
-        // Crear nueva actividad
+        // Crear nueva actividad con ID único
         final nuevaActividad = jsonEncode([{
+          'id': _uuid.v4(),
           'tipo': dia.tipoActividad ?? '',
           'objetivo': 'Actividad administrativa',
           'estatus': 'pendiente',
-          'fechaCompletado': null
+          'fechaCompletado': null,
+          'fechaCreacion': DateTime.now().toIso8601String()
         }]);
         
         // Actualizar el día existente
@@ -232,6 +248,8 @@ class PlanTrabajoOfflineService {
       } else if (!esEdicion && diaExistente != null && diaExistente.configurado) {
         // MODO AGREGAR: Mantener lógica actual de agregar múltiples actividades
         print('➕ Modo agregar: Añadiendo actividad administrativa');
+        print('   - Día: ${dia.dia}');
+        print('   - Datos existentes: ${diaExistente.tipoActividadAdministrativa}');
         
         // Parsear actividades administrativas existentes
         List<Map<String, dynamic>> actividadesExistentes = [];
@@ -242,31 +260,49 @@ class PlanTrabajoOfflineService {
               actividadesExistentes = List<Map<String, dynamic>>.from(
                 jsonDecode(diaExistente.tipoActividadAdministrativa!)
               );
+              print('   - Actividades existentes parseadas: ${actividadesExistentes.length}');
+              for (var i = 0; i < actividadesExistentes.length; i++) {
+                print('     * Actividad $i: ${actividadesExistentes[i]['tipo']} (ID: ${actividadesExistentes[i]['id'] ?? 'sin ID'})');
+              }
             } else {
+              // Actividad antigua sin ID, generar uno
               actividadesExistentes = [{
+                'id': _uuid.v4(),
                 'tipo': diaExistente.tipoActividadAdministrativa!,
                 'objetivo': 'Actividad administrativa',
                 'estatus': 'pendiente',
-                'fechaCompletado': null
+                'fechaCompletado': null,
+                'fechaCreacion': DateTime.now().toIso8601String()
               }];
             }
           } catch (e) {
+            // Actividad antigua sin ID, generar uno
             actividadesExistentes = [{
+              'id': _uuid.v4(),
               'tipo': diaExistente.tipoActividadAdministrativa!,
               'objetivo': 'Actividad administrativa',
               'estatus': 'pendiente',
-              'fechaCompletado': null
+              'fechaCompletado': null,
+              'fechaCreacion': DateTime.now().toIso8601String()
             }];
           }
         }
         
-        // Agregar nueva actividad
+        // Agregar nueva actividad con ID único
+        final nuevaActividadId = _uuid.v4();
         actividadesExistentes.add({
+          'id': nuevaActividadId,
           'tipo': dia.tipoActividad ?? '',
           'objetivo': 'Actividad administrativa',
           'estatus': 'pendiente',
-          'fechaCompletado': null
+          'fechaCompletado': null,
+          'fechaCreacion': DateTime.now().toIso8601String()
         });
+        
+        print('✅ Agregando nueva actividad administrativa:');
+        print('   - ID: $nuevaActividadId');
+        print('   - Tipo: ${dia.tipoActividad}');
+        print('   - Total actividades después de agregar: ${actividadesExistentes.length}');
         
         // Actualizar el día existente
         diaExistente.tipoActividadAdministrativa = jsonEncode(actividadesExistentes);
@@ -281,7 +317,13 @@ class PlanTrabajoOfflineService {
         
         await _planRepository!.actualizarDia(liderClave, semana, diaExistente);
       } else {
-        // Crear nuevo día administrativo
+        // Crear nuevo día administrativo con ID único
+        final actividadId = _uuid.v4();
+        print('📝 Creando nueva actividad administrativa:');
+        print('   - ID: $actividadId');
+        print('   - Tipo: ${dia.tipoActividad}');
+        print('   - Día: ${dia.dia}');
+        
         final diaHive = DiaTrabajoHive(
           dia: dia.dia,
           objetivoId: dia.objetivo,
@@ -291,10 +333,12 @@ class PlanTrabajoOfflineService {
           rutaId: null,
           rutaNombre: null,
           tipoActividadAdministrativa: jsonEncode([{
+            'id': actividadId,
             'tipo': dia.tipoActividad,
             'objetivo': 'Actividad administrativa',
             'estatus': 'pendiente',
-            'fechaCompletado': null
+            'fechaCompletado': null,
+            'fechaCreacion': DateTime.now().toIso8601String()
           }]),
           objetivoAbordaje: null,
           configurado: true,
@@ -383,6 +427,26 @@ class PlanTrabajoOfflineService {
     
     // Sincronizar con el plan unificado después de actualizar el día
     await sincronizarConPlanUnificado(semana, liderClave);
+    
+    // Verificar qué se guardó realmente
+    final planVerificacion = _planRepository!.obtenerPlanPorSemana(liderClave, semana);
+    if (planVerificacion != null && planVerificacion.dias.containsKey(dia.dia)) {
+      final diaVerificacion = planVerificacion.dias[dia.dia];
+      print('\n✅ === VERIFICACIÓN POST-GUARDADO ===');
+      print('📅 Día: ${dia.dia}');
+      print('📌 Tipo: ${diaVerificacion?.tipo}');
+      print('📝 Actividades administrativas: ${diaVerificacion?.tipoActividadAdministrativa}');
+      if (diaVerificacion?.tipoActividadAdministrativa != null && 
+          diaVerificacion!.tipoActividadAdministrativa!.startsWith('[')) {
+        try {
+          final actividades = jsonDecode(diaVerificacion.tipoActividadAdministrativa!);
+          print('📊 Total actividades guardadas: ${(actividades as List).length}');
+        } catch (e) {
+          print('⚠️ Error parseando actividades: $e');
+        }
+      }
+    }
+    
     print('✅ Día sincronizado con plan unificado');
   }
 

@@ -1827,6 +1827,29 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
               ),
             );
           }).toList(),
+          // Botón para agregar nueva actividad
+          if (esEditable) ...[
+            const SizedBox(height: 12),
+            Center(
+              child: OutlinedButton.icon(
+                icon: Icon(Icons.add_circle_outline, size: 20),
+                label: Text('Agregar nueva actividad'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: color,
+                  side: BorderSide(color: color),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                onPressed: () async {
+                  Navigator.pop(context); // Cerrar el modal
+                  // Navegar a la pantalla de programar día indicando que es para agregar nueva actividad
+                  await _navegarAAgregarNuevaActividad(dia);
+                },
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -3691,6 +3714,34 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
     
     // Llamar al método existente de navegación
     await _navegarAEditarDia(dia, fechaDia, indice);
+  }
+  
+  Future<void> _navegarAAgregarNuevaActividad(String dia) async {
+    // Calcular la fecha del día
+    final indice = diasSemana.indexOf(dia);
+    final semanaSeleccionadaObj = _semanasDisponibles.firstWhere(
+      (s) => s.codigo == _semanaSeleccionada,
+    );
+    final fechaDia = semanaSeleccionadaObj.inicioSemana.add(Duration(days: indice));
+    
+    final resultado = await Navigator.pushNamed(
+      context,
+      '/programar_dia',
+      arguments: {
+        'dia': dia,
+        'semana': _planActual!.semana,
+        'liderId': _planActual!.liderId,
+        'fecha': fechaDia,
+        'esEdicion': false, // Importante: false para indicar que es nueva actividad
+        'esNuevaActividad': true, // Indicar explícitamente que es para agregar nueva actividad
+        // Los datos existentes se cargarán automáticamente en vista_programar_dia
+      },
+    );
+    
+    if (resultado == true) {
+      // Recargar el plan
+      await _cargarPlanDesdeServidor(mostrarDialogo: false);
+    }
   }
   
   Future<void> _confirmarEliminarDia(String dia) async {

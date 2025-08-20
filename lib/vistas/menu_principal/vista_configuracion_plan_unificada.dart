@@ -744,6 +744,20 @@ class _VistaProgramacionSemanaUnificadaState extends State<VistaProgramacionSema
                             final cantidadClientes = esGestionCliente 
                                 ? (diaConfig?.clienteIds.length ?? 0)
                                 : 0;
+                                
+                            // Contar actividades administrativas
+                            int cantidadActividades = 0;
+                            if (diaConfig?.tipoActividadAdministrativa != null && 
+                                diaConfig!.tipoActividadAdministrativa!.isNotEmpty) {
+                              try {
+                                if (diaConfig.tipoActividadAdministrativa!.startsWith('[')) {
+                                  final actividades = jsonDecode(diaConfig.tipoActividadAdministrativa!);
+                                  cantidadActividades = (actividades as List).length;
+                                }
+                              } catch (e) {
+                                cantidadActividades = 1;
+                              }
+                            }
                             
                             return Card(
                               margin: const EdgeInsets.only(bottom: 12),
@@ -815,6 +829,34 @@ class _VistaProgramacionSemanaUnificadaState extends State<VistaProgramacionSema
                                                   style: GoogleFonts.poppins(
                                                     fontSize: 12,
                                                     color: Colors.blue.shade700,
+                                                  ),
+                                                ),
+                                              if (cantidadActividades > 0)
+                                                Text(
+                                                  cantidadActividades == 1 
+                                                      ? '1 actividad administrativa'
+                                                      : '$cantidadActividades actividades administrativas',
+                                                  style: GoogleFonts.poppins(
+                                                    fontSize: 12,
+                                                    color: Colors.orange.shade700,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                              if (diaConfig?.tipo == 'mixto')
+                                                Container(
+                                                  margin: const EdgeInsets.only(top: 4),
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.purple.shade100,
+                                                    borderRadius: BorderRadius.circular(12),
+                                                  ),
+                                                  child: Text(
+                                                    'MIXTO',
+                                                    style: GoogleFonts.poppins(
+                                                      fontSize: 10,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: Colors.purple.shade700,
+                                                    ),
                                                   ),
                                                 ),
                                             ] else
