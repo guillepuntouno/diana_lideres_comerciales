@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:diana_lc_front/shared/servicios/sesion_servicio.dart';
+import 'package:diana_lc_front/shared/servicios/asesores_service.dart';
+import 'package:diana_lc_front/shared/modelos/lider_comercial_modelo.dart';
+import 'package:diana_lc_front/shared/modelos/asesor_dto.dart';
 
 class EvaluacionDesempenioPrincipal extends StatefulWidget {
   const EvaluacionDesempenioPrincipal({Key? key}) : super(key: key);
@@ -13,13 +17,11 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
   String? _selectedAdvisor;
   String? _selectedChannel;
   
-  final List<Map<String, String>> _advisors = [
-    {'id': '1', 'name': 'Juan Carlos Méndez'},
-    {'id': '2', 'name': 'María López González'},
-    {'id': '3', 'name': 'Pedro Rodríguez'},
-    {'id': '4', 'name': 'Ana Martínez'},
-    {'id': '5', 'name': 'Carlos Gutiérrez'},
-  ];
+  // Datos reales
+  LiderComercial? _liderComercial;
+  List<AsesorDTO> _advisors = [];
+  bool _isLoading = true;
+  String? _errorMessage;
   
   final List<String> _channels = ['Detalle', 'Mayoreo'];
   
@@ -42,6 +44,62 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
   ];
   
   @override
+  void initState() {
+    super.initState();
+    _cargarDatosReales();
+  }
+  
+  Future<void> _cargarDatosReales() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    
+    try {
+      // Obtener líder comercial de la sesión (Cognito)
+      _liderComercial = await SesionServicio.obtenerLiderComercial();
+      
+      if (_liderComercial == null) {
+        throw Exception('No se pudo obtener la información del líder de la sesión');
+      }
+      
+      print('👤 Líder obtenido de Cognito: ${_liderComercial!.nombre} - ${_liderComercial!.clave}');
+      
+      // Cargar asesores del líder
+      _advisors = await AsesoresService.obtenerAsesoresPorLider(
+        codigoLider: _liderComercial!.clave,
+        pais: _liderComercial!.pais,
+      );
+      
+      print('👥 Asesores cargados: ${_advisors.length}');
+      
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('❌ Error al cargar datos reales: $e');
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Error al cargar datos: $e';
+      });
+      
+      // Mostrar mensaje de error
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Error al cargar datos: $e',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+  
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
@@ -56,15 +114,19 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
         ),
         elevation: 0,
       ),
-      body: Column(
-        children: [
-          _buildFiltersSection(),
-          const SizedBox(height: 16),
-          _buildStartButton(),
-          const SizedBox(height: 24),
-          _buildTableSection(),
-        ],
-      ),
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(),
+            )
+          : Column(
+              children: [
+                _buildFiltersSection(),
+                const SizedBox(height: 16),
+                _buildStartButton(),
+                const SizedBox(height: 24),
+                _buildTableSection(),
+              ],
+            ),
     );
   }
   
@@ -94,13 +156,13 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
             ),
           ),
           const SizedBox(height: 16),
-          _buildLockedField('Nombre del Líder', 'Hugo Sandoval'),
+          _buildLockedField('Nombre del Líder', _liderComercial?.nombre ?? 'Sin nombre'),
           const SizedBox(height: 12),
-          _buildLockedField('País', 'El Salvador'),
-          const SizedBox(height: 12),
-          _buildAdvisorDropdown(),
+          _buildLockedField('País', _liderComercial?.pais ?? 'Sin país'),
           const SizedBox(height: 12),
           _buildChannelDropdown(),
+          const SizedBox(height: 12),
+          _buildAdvisorDropdown(),
         ],
       ),
     );
@@ -166,27 +228,51 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
           child: DropdownButtonFormField<String>(
             value: _selectedAdvisor,
             decoration: InputDecoration(
-              hintText: 'Seleccione un asesor',
+              hintText: _advisors.isEmpty ? 'No hay asesores disponibles' : 'Seleccione un asesor',
               hintStyle: GoogleFonts.poppins(color: const Color(0xFF8F8E8E)),
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
             items: _advisors.map((advisor) {
               return DropdownMenuItem(
-                value: advisor['id'],
+                value: advisor.codigo,
                 child: Text(
-                  advisor['name']!,
+                  '${advisor.nombre} (${advisor.codigo})',
                   style: GoogleFonts.poppins(),
                 ),
               );
             }).toList(),
-            onChanged: (value) {
+            onChanged: _advisors.isEmpty ? null : (value) {
               setState(() {
                 _selectedAdvisor = value;
               });
             },
           ),
         ),
+        if (_advisors.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.info_outline,
+                  size: 16,
+                  color: Colors.orange.shade600,
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    'No se encontraron asesores para este líder',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: Colors.orange.shade600,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
       ],
     );
   }
@@ -407,17 +493,17 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
     if (_selectedAdvisor == null || _selectedChannel == null) return;
     
     final selectedAdvisorData = _advisors.firstWhere(
-      (advisor) => advisor['id'] == _selectedAdvisor,
+      (advisor) => advisor.codigo == _selectedAdvisor,
     );
     
     Navigator.pushNamed(
       context,
       '/evaluacion_desempenio_llenado',
       arguments: {
-        'leaderName': 'Hugo Sandoval',
-        'country': 'El Salvador',
+        'leaderName': _liderComercial?.nombre ?? '',
+        'country': _liderComercial?.pais ?? '',
         'advisorId': _selectedAdvisor,
-        'advisorName': selectedAdvisorData['name'],
+        'advisorName': selectedAdvisorData.nombre,
         'channel': _selectedChannel,
       },
     );

@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:convert';
+import 'package:diana_lc_front/shared/servicios/formularios_service.dart';
+import 'package:diana_lc_front/shared/modelos/formulario_evaluacion_dto.dart';
+import 'package:diana_lc_front/shared/modelos/pregunta_dto.dart';
+import 'package:diana_lc_front/shared/modelos/opcion_dto.dart';
 
 class EvaluacionDesempenioLlenado extends StatefulWidget {
   const EvaluacionDesempenioLlenado({Key? key}) : super(key: key);
@@ -13,6 +17,13 @@ class _EvaluacionDesempenioLlenadoState extends State<EvaluacionDesempenioLlenad
   late Map<String, dynamic> _evaluationData;
   final Map<String, dynamic> _responses = {};
   final Map<String, TextEditingController> _textControllers = {};
+  
+  // Datos dinámicos del formulario
+  FormularioEvaluacionDTO? _formulario;
+  bool _isLoading = true;
+  String? _errorMessage;
+  
+  // Datos estáticos de respaldo (se mantienen por compatibilidad)
   late List<Map<String, dynamic>> _formSections;
   
   @override
@@ -28,9 +39,46 @@ class _EvaluacionDesempenioLlenadoState extends State<EvaluacionDesempenioLlenad
     _loadFormForChannel();
   }
   
-  void _loadFormForChannel() {
+  void _loadFormForChannel() async {
     final channel = _evaluationData['channel']?.toString().toLowerCase() ?? 'detalle';
     
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    
+    try {
+      print('📋 Cargando formulario para canal: $channel');
+      
+      // Intentar cargar formulario dinámico
+      _formulario = await FormulariosService.obtenerFormularioParaCanal(channel);
+      
+      if (_formulario != null) {
+        print('✅ Formulario dinámico cargado: ${_formulario!.nombre}');
+        _initializeControllersFromDynamicForm();
+      } else {
+        print('⚠️ No se encontró formulario dinámico, usando formulario estático');
+        _loadStaticForm(channel);
+      }
+      
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('❌ Error al cargar formulario dinámico: $e');
+      print('🔄 Fallback: usando formulario estático');
+      
+      // Fallback a formulario estático
+      _loadStaticForm(channel);
+      
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Error al cargar formulario: usando versión offline';
+      });
+    }
+  }
+  
+  void _loadStaticForm(String channel) {
     if (channel == 'mayoreo') {
       _formSections = _getMayoreoForm();
     } else {
@@ -43,6 +91,16 @@ class _EvaluacionDesempenioLlenadoState extends State<EvaluacionDesempenioLlenad
         if (question['type'] == 'multiline') {
           _textControllers[question['name']] = TextEditingController();
         }
+      }
+    }
+  }
+  
+  void _initializeControllersFromDynamicForm() {
+    if (_formulario == null) return;
+    
+    for (var pregunta in _formulario!.preguntas) {
+      if (pregunta.tipoEntrada == 'textarea' || pregunta.tipoEntrada == 'text') {
+        _textControllers[pregunta.name] = TextEditingController();
       }
     }
   }
@@ -288,17 +346,32 @@ class _EvaluacionDesempenioLlenadoState extends State<EvaluacionDesempenioLlenad
         children: [
           _buildHeaderInfo(),
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  ..._formSections.map((section) => _buildSection(section)),
-                  const SizedBox(height: 24),
-                  _buildSubmitButton(),
-                  const SizedBox(height: 32),
-                ],
-              ),
-            ),
+            child: _isLoading
+                ? const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text('Cargando formulario...'),
+                      ],
+                    ),
+                  )
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        if (_errorMessage != null) _buildErrorBanner(),
+                        if (_formulario != null)
+                          ..._buildDynamicSections()
+                        else
+                          ..._formSections.map((section) => _buildSection(section)),
+                        const SizedBox(height: 24),
+                        _buildSubmitButton(),
+                        const SizedBox(height: 32),
+                      ],
+                    ),
+                  ),
           ),
         ],
       ),
@@ -372,6 +445,190 @@ class _EvaluacionDesempenioLlenadoState extends State<EvaluacionDesempenioLlenad
               fontWeight: FontWeight.w600,
               color: const Color(0xFF1C2120),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildErrorBanner() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.orange.shade200),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.warning, color: Colors.orange.shade700, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _errorMessage!,
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: Colors.orange.shade700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  List<Widget> _buildDynamicSections() {
+    if (_formulario == null) return [];
+    
+    // Agrupar preguntas por sección
+    Map<String, List<PreguntaDTO>> secciones = {};
+    
+    for (var pregunta in _formulario!.preguntas) {
+      final seccion = pregunta.seccion ?? 'General';
+      if (!secciones.containsKey(seccion)) {
+        secciones[seccion] = [];
+      }
+      secciones[seccion]!.add(pregunta);
+    }
+    
+    // Construir widgets por sección
+    return secciones.entries.map((entry) {
+      return _buildDynamicSection(entry.key, entry.value);
+    }).toList();
+  }
+  
+  Widget _buildDynamicSection(String sectionName, List<PreguntaDTO> preguntas) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F000000),
+            spreadRadius: 1,
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            sectionName,
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFFDE1327),
+            ),
+          ),
+          const SizedBox(height: 16),
+          ...preguntas.map((pregunta) => _buildDynamicQuestion(pregunta)),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildDynamicQuestion(PreguntaDTO pregunta) {
+    switch (pregunta.tipoEntrada.toLowerCase()) {
+      case 'radio':
+        return _buildDynamicRadioQuestion(pregunta);
+      case 'text':
+      case 'textarea':
+        return _buildDynamicTextQuestion(pregunta);
+      default:
+        return _buildDynamicTextQuestion(pregunta);
+    }
+  }
+  
+  Widget _buildDynamicRadioQuestion(PreguntaDTO pregunta) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            pregunta.etiqueta,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: const Color(0xFF1C2120),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: pregunta.opciones.map((opcion) {
+              return Expanded(
+                child: RadioListTile<String>(
+                  title: Text(
+                    opcion.etiqueta ?? opcion.valor,
+                    style: GoogleFonts.poppins(fontSize: 14),
+                  ),
+                  value: opcion.valor,
+                  groupValue: _responses[pregunta.name]?['value'],
+                  onChanged: (value) {
+                    setState(() {
+                      _responses[pregunta.name] = {
+                        'value': value,
+                        'score': opcion.puntuacion ?? 0,
+                      };
+                    });
+                  },
+                  activeColor: const Color(0xFFDE1327),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildDynamicTextQuestion(PreguntaDTO pregunta) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            pregunta.etiqueta,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: const Color(0xFF1C2120),
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _textControllers[pregunta.name],
+            maxLines: pregunta.tipoEntrada == 'textarea' ? 3 : 1,
+            maxLength: 300, // Límite de 300 caracteres según el issue
+            decoration: InputDecoration(
+              hintText: pregunta.placeholder ?? 'Escriba su respuesta aquí...',
+              hintStyle: GoogleFonts.poppins(
+                color: const Color(0xFF8F8E8E),
+                fontSize: 14,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Color(0xFFDE1327)),
+              ),
+              contentPadding: const EdgeInsets.all(12),
+            ),
+            onChanged: (value) {
+              _responses[pregunta.name] = {
+                'value': value,
+                'score': 0,
+              };
+            },
           ),
         ],
       ),
@@ -538,22 +795,40 @@ class _EvaluacionDesempenioLlenadoState extends State<EvaluacionDesempenioLlenad
   }
   
   void _submitEvaluation() {
-    // Validate that all radio questions have been answered
-    bool allRadioAnswered = true;
-    for (var section in _formSections) {
-      for (var question in section['questions']) {
-        if (question['type'] == 'radio' && !_responses.containsKey(question['name'])) {
-          allRadioAnswered = false;
-          break;
+    // Validar preguntas obligatorias
+    bool allRequiredAnswered = true;
+    List<String> missingQuestions = [];
+    
+    if (_formulario != null) {
+      // Validación para formulario dinámico
+      for (var pregunta in _formulario!.preguntas) {
+        if (pregunta.obligatorio && 
+            (!_responses.containsKey(pregunta.name) || 
+             _responses[pregunta.name]?['value'] == null || 
+             _responses[pregunta.name]!['value'].toString().isEmpty)) {
+          allRequiredAnswered = false;
+          missingQuestions.add(pregunta.etiqueta);
+        }
+      }
+    } else {
+      // Validación para formulario estático (compatibilidad)
+      for (var section in _formSections) {
+        for (var question in section['questions']) {
+          if (question['type'] == 'radio' && !_responses.containsKey(question['name'])) {
+            allRequiredAnswered = false;
+            missingQuestions.add(question['label']);
+          }
         }
       }
     }
     
-    if (!allRadioAnswered) {
+    if (!allRequiredAnswered) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Por favor responda todas las preguntas de Sí/No',
+            missingQuestions.isNotEmpty 
+                ? 'Faltan respuestas en: ${missingQuestions.join(", ")}'
+                : 'Por favor complete todas las preguntas obligatorias',
             style: GoogleFonts.poppins(),
           ),
           backgroundColor: Colors.red,
@@ -564,15 +839,34 @@ class _EvaluacionDesempenioLlenadoState extends State<EvaluacionDesempenioLlenad
     
     // Build response array
     List<Map<String, dynamic>> responseArray = [];
-    for (var section in _formSections) {
-      for (var question in section['questions']) {
-        final response = _responses[question['name']];
+    
+    if (_formulario != null) {
+      // Construir respuestas para formulario dinámico
+      for (var pregunta in _formulario!.preguntas) {
+        final response = _responses[pregunta.name];
         if (response != null) {
           responseArray.add({
-            'name': question['name'],
+            'questionId': pregunta.id,
+            'name': pregunta.name,
+            'label': pregunta.etiqueta,
+            'type': pregunta.tipoEntrada,
             'selectedValue': response['value'],
             'score': response['score'],
           });
+        }
+      }
+    } else {
+      // Construir respuestas para formulario estático (compatibilidad)
+      for (var section in _formSections) {
+        for (var question in section['questions']) {
+          final response = _responses[question['name']];
+          if (response != null) {
+            responseArray.add({
+              'name': question['name'],
+              'selectedValue': response['value'],
+              'score': response['score'],
+            });
+          }
         }
       }
     }
@@ -583,6 +877,10 @@ class _EvaluacionDesempenioLlenadoState extends State<EvaluacionDesempenioLlenad
       'country': _evaluationData['country'],
       'leader': _evaluationData['leaderName'],
       'advisor': _evaluationData['advisorName'],
+      'advisorId': _evaluationData['advisorId'],
+      'formId': _formulario?.id,
+      'formName': _formulario?.nombre,
+      'isDynamicForm': _formulario != null,
       'responses': responseArray,
       'timestamp': DateTime.now().toIso8601String(),
     };
@@ -596,7 +894,9 @@ class _EvaluacionDesempenioLlenadoState extends State<EvaluacionDesempenioLlenad
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Evaluación finalizada exitosamente (PoC)',
+          _formulario != null 
+              ? 'Evaluación dinámica finalizada exitosamente'
+              : 'Evaluación finalizada exitosamente (modo offline)',
           style: GoogleFonts.poppins(),
         ),
         backgroundColor: const Color(0xFF38A169),

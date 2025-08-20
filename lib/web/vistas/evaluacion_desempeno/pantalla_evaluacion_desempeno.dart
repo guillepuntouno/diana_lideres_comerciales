@@ -4,6 +4,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:diana_lc_front/shared/servicios/hive_service.dart';
 import 'package:diana_lc_front/shared/modelos/hive/resultado_excelencia_hive.dart';
 import 'package:uuid/uuid.dart';
+import 'package:diana_lc_front/shared/servicios/sesion_servicio.dart';
+import 'package:diana_lc_front/shared/servicios/asesores_service.dart';
+import 'package:diana_lc_front/shared/modelos/lider_comercial_modelo.dart';
+import 'package:diana_lc_front/shared/modelos/asesor_dto.dart';
 
 class PantallaEvaluacionDesempeno extends StatefulWidget {
   final Map<String, dynamic> liderData;
@@ -34,11 +38,72 @@ class _PantallaEvaluacionDesempenoState extends State<PantallaEvaluacionDesempen
   final _uuid = const Uuid();
   DateTime _fechaHoraInicio = DateTime.now();
   
+  // Nuevas variables para datos reales
+  LiderComercial? _liderComercial;
+  List<AsesorDTO> _asesores = [];
+  AsesorDTO? _asesorSeleccionado;
+  String? _canalSeleccionado;
+  bool _cargandoDatos = true;
+  String? _errorMessage;
+  
+  // Opciones fijas para canal de venta
+  final List<String> _canalesVenta = ['Detalle', 'Mayoreo'];
+  
   @override
   void initState() {
     super.initState();
     _formulario = widget.rutaData['formularioData'] ?? {};
     _inicializarRespuestas();
+    _cargarDatosReales();
+  }
+  
+  Future<void> _cargarDatosReales() async {
+    setState(() {
+      _cargandoDatos = true;
+      _errorMessage = null;
+    });
+    
+    try {
+      // Obtener líder comercial de la sesión (Cognito)
+      _liderComercial = await SesionServicio.obtenerLiderComercial();
+      
+      if (_liderComercial == null) {
+        throw Exception('No se pudo obtener la información del líder de la sesión');
+      }
+      
+      print('👤 Líder obtenido de Cognito: ${_liderComercial!.nombre} - ${_liderComercial!.clave}');
+      
+      // Cargar asesores del líder
+      _asesores = await AsesoresService.obtenerAsesoresPorLider(
+        codigoLider: _liderComercial!.clave,
+        pais: _liderComercial!.pais,
+      );
+      
+      print('👥 Asesores cargados: ${_asesores.length}');
+      
+      setState(() {
+        _cargandoDatos = false;
+      });
+    } catch (e) {
+      print('❌ Error al cargar datos reales: $e');
+      setState(() {
+        _cargandoDatos = false;
+        _errorMessage = 'Error al cargar datos: $e';
+      });
+      
+      // Mostrar mensaje de error
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Error al cargar datos: $e',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
   
   void _inicializarRespuestas() {
@@ -162,48 +227,216 @@ class _PantallaEvaluacionDesempenoState extends State<PantallaEvaluacionDesempen
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Encabezado minimalista con información del líder
-              Container(
-                padding: const EdgeInsets.only(bottom: 20),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(color: Colors.grey.shade200, width: 1),
+              // Encabezado con información del líder de Cognito
+              if (_cargandoDatos)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(20),
+                    child: CircularProgressIndicator(),
+                  ),
+                )
+              else if (_errorMessage != null)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.shade200),
+                  ),
+                  child: Text(
+                    _errorMessage!,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: Colors.red.shade700,
+                    ),
+                  ),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(color: Colors.grey.shade200, width: 1),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Información del líder (solo lectura)
+                      Text(
+                        'Información del Líder',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF8F8E8E),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _liderComercial?.nombre ?? 'Sin nombre',
+                              style: GoogleFonts.poppins(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF1C2120),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 24,
+                              runSpacing: 8,
+                              children: [
+                                _buildInfoText('Código', _liderComercial?.clave ?? 'N/A'),
+                                _buildInfoText('País', _liderComercial?.pais ?? 'N/A'),
+                                _buildInfoText('Centro', _liderComercial?.centroDistribucion ?? 'N/A'),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // Filtros de selección
+                      Text(
+                        'Filtros de Evaluación',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF8F8E8E),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      
+                      // Dropdown de Canal de Venta
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Canal de Venta *',
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: const Color(0xFF1C2120),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey.shade300),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: DropdownButtonFormField<String>(
+                                value: _canalSeleccionado,
+                                decoration: const InputDecoration(
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  border: InputBorder.none,
+                                ),
+                                hint: Text(
+                                  'Seleccionar canal',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                                onChanged: (value) {
+                                  setState(() {
+                                    _canalSeleccionado = value;
+                                  });
+                                },
+                                items: _canalesVenta.map((canal) {
+                                  return DropdownMenuItem<String>(
+                                    value: canal,
+                                    child: Text(
+                                      canal,
+                                      style: GoogleFonts.poppins(fontSize: 14),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      // Dropdown de Asesor
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Asesor *',
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: const Color(0xFF1C2120),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey.shade300),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: DropdownButtonFormField<AsesorDTO>(
+                                value: _asesorSeleccionado,
+                                decoration: const InputDecoration(
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  border: InputBorder.none,
+                                ),
+                                hint: Text(
+                                  _asesores.isEmpty ? 'No hay asesores disponibles' : 'Seleccionar asesor',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                                onChanged: _asesores.isEmpty ? null : (value) {
+                                  setState(() {
+                                    _asesorSeleccionado = value;
+                                  });
+                                },
+                                items: _asesores.map((asesor) {
+                                  return DropdownMenuItem<AsesorDTO>(
+                                    value: asesor,
+                                    child: Text(
+                                      '${asesor.nombre} (${asesor.codigo})',
+                                      style: GoogleFonts.poppins(fontSize: 14),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                            if (_asesores.isEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text(
+                                  'No se encontraron asesores para este líder',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 12,
+                                    color: Colors.orange,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.liderData['nombre'],
-                      style: GoogleFonts.poppins(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF1C2120),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      widget.liderData['correo'],
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        color: const Color(0xFF8F8E8E),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    // Información en línea
-                    Wrap(
-                      spacing: 24,
-                      runSpacing: 8,
-                      children: [
-                        _buildInfoText('País', widget.pais),
-                        _buildInfoText('Centro', widget.centroDistribucion),
-                        _buildInfoText('Ruta', widget.rutaData['nombre']),
-                        _buildInfoText('Canal', widget.rutaData['canalVenta']),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
               
               const SizedBox(height: 24),
               
@@ -594,6 +827,20 @@ class _PantallaEvaluacionDesempenoState extends State<PantallaEvaluacionDesempen
   }
   
   void _guardarEvaluacion() async {
+    // Validar filtros
+    if (_canalSeleccionado == null || _asesorSeleccionado == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Por favor seleccione canal de venta y asesor',
+            style: GoogleFonts.poppins(),
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    
     // Validar campos obligatorios
     final preguntasObligatorias = (_formulario['preguntas'] as List)
         .where((p) => p['obligatorio'] == true)
@@ -850,9 +1097,9 @@ class _PantallaEvaluacionDesempenoState extends State<PantallaEvaluacionDesempen
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildInfoRow('Líder:', widget.liderData['nombre']),
+                  _buildInfoRow('Líder:', _liderComercial?.nombre ?? 'N/A'),
                   const SizedBox(height: 4),
-                  _buildInfoRow('Correo:', widget.liderData['correo']),
+                  _buildInfoRow('Asesor:', _asesorSeleccionado?.nombre ?? 'N/A'),
                   if (_formulario.containsKey('resultadoKPI')) ...[
                     const SizedBox(height: 4),
                     _buildInfoRow('Puntuación:', '${_puntuacionTotal.toStringAsFixed(0)}/${(_formulario['resultadoKPI']['puntuacionMaxima'] ?? 0).toStringAsFixed(0)}'),
@@ -1021,15 +1268,15 @@ class _PantallaEvaluacionDesempenoState extends State<PantallaEvaluacionDesempen
         }
       }
       
-      // Crear el objeto ResultadoExcelenciaHive
+      // Crear el objeto ResultadoExcelenciaHive con datos reales
       final resultadoExcelencia = ResultadoExcelenciaHive(
         id: _uuid.v4(),
-        liderClave: widget.liderData['id'] ?? '',
-        liderNombre: widget.liderData['nombre'] ?? '',
-        liderCorreo: widget.liderData['correo'] ?? '',
-        pais: widget.pais,
-        ruta: widget.rutaData['nombre'] ?? '',
-        centroDistribucion: widget.centroDistribucion,
+        liderClave: _liderComercial?.clave ?? '',
+        liderNombre: _liderComercial?.nombre ?? '',
+        liderCorreo: '', // No tenemos el correo en el modelo LiderComercial
+        pais: _liderComercial?.pais ?? '',
+        ruta: _asesorSeleccionado?.nombre ?? '',
+        centroDistribucion: _liderComercial?.centroDistribucion ?? '',
         tipoFormulario: _formulario['nombre'] ?? 'Evaluación de Desempeño',
         formularioMaestro: _formulario,
         respuestas: respuestasHive,
@@ -1040,8 +1287,9 @@ class _PantallaEvaluacionDesempenoState extends State<PantallaEvaluacionDesempen
         estatus: 'completada',
         observaciones: null,
         metadatos: {
-          'canalVenta': widget.rutaData['canalVenta'],
-          'subcanalVenta': widget.rutaData['subcanalVenta'],
+          'canalVenta': _canalSeleccionado,
+          'asesorCodigo': _asesorSeleccionado?.codigo,
+          'asesorNombre': _asesorSeleccionado?.nombre,
           'formularioId': widget.rutaData['formularioId'],
         },
       );
