@@ -194,14 +194,10 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
       ),
     );
     
-    // NUEVA LÓGICA: Si es lunes o después, empezar desde la siguiente semana
+    // Empezar desde la próxima semana
     DateTime fechaBase = ahora;
-    if (ahora.weekday >= 1) {
-      // Lunes = 1, Martes = 2, etc.
-      fechaBase = ahora.add(Duration(days: 7 - ahora.weekday + 1));
-    }
 
-    for (int i = 0; i < 4; i++) { // Reducido a 4 porque ya añadimos la semana actual
+    for (int i = 1; i <= 4; i++) { // Empezar desde 1 para saltar la semana actual
       DateTime fechaSemana = fechaBase.add(Duration(days: i * 7));
       DateTime inicioSemana = fechaSemana.subtract(
         Duration(days: fechaSemana.weekday - 1),
@@ -217,7 +213,7 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
 
       // Determinar etiquetas más precisas
       String etiqueta;
-      if (i == 0) {
+      if (i == 1) {
         // La primera semana disponible para programar
         etiqueta = '$codigoSemana (Próxima)';
       } else {
@@ -280,6 +276,8 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
         _liderActual!.clave,
         _liderActual!,
       );
+      
+      // No podemos modificar fechaInicio y fechaFin porque son final
 
       setState(() {
         _cargando = false;
@@ -443,6 +441,9 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
       if (mounted) {
         setState(() {
           _planActual = planCargado;
+          
+          // No podemos modificar fechaInicio y fechaFin porque son final
+          
           _cargando = false;
           // _modoOffline = true;
         });
@@ -478,6 +479,9 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
       if (planDesdeServidor != null && mounted) {
         setState(() {
           _planActual = planDesdeServidor;
+          
+          // No podemos modificar fechaInicio y fechaFin porque son final
+          
           // _modoOffline = false;
         });
         print('Plan sincronizado desde servidor');
@@ -587,6 +591,8 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
         _liderActual!.clave,
         _liderActual!,
       );
+      
+      // No podemos modificar fechaInicio y fechaFin porque son final
 
       // Sincronizar con el plan unificado para que esté disponible en la rutina diaria
       await _planOfflineService.sincronizarConPlanUnificado(
@@ -2921,11 +2927,11 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
                     Row(
                       children: [
                         Expanded(
-                          child: _buildDato('Desde:', _planActual!.fechaInicio),
+                          child: _buildDato('Desde:', _obtenerFechaInicioSemanaSeleccionada()),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
-                          child: _buildDato('Hasta:', _planActual!.fechaFin),
+                          child: _buildDato('Hasta:', _obtenerFechaFinSemanaSeleccionada()),
                         ),
                       ],
                     ),
@@ -3973,6 +3979,24 @@ class _VistaProgramacionSemanaState extends State<VistaProgramacionSemana>
         }
       }
     }
+  }
+
+  String _obtenerFechaInicioSemanaSeleccionada() {
+    if (_semanaSeleccionada == null) return '';
+    final semana = _semanasDisponibles.firstWhere(
+      (s) => s.codigo == _semanaSeleccionada,
+      orElse: () => _semanasDisponibles.first,
+    );
+    return semana.fechaInicio;
+  }
+
+  String _obtenerFechaFinSemanaSeleccionada() {
+    if (_semanaSeleccionada == null) return '';
+    final semana = _semanasDisponibles.firstWhere(
+      (s) => s.codigo == _semanaSeleccionada,
+      orElse: () => _semanasDisponibles.first,
+    );
+    return semana.fechaFin;
   }
 }
 

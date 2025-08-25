@@ -637,15 +637,21 @@ class PlanTrabajoOfflineService {
     return plan;
   }
 
-  /// Calcula las fechas de inicio y fin de una semana
+  /// Calcula las fechas de inicio y fin de una semana según ISO 8601
   (String, String) _calcularFechasSemana(int numeroSemana, int anio) {
-    final primerDiaAno = DateTime(anio, 1, 1);
-    final primerLunes = primerDiaAno.add(
-      Duration(days: (8 - primerDiaAno.weekday) % 7),
-    );
+    // Encontrar el primer jueves del año (regla ISO 8601)
+    DateTime primerEnero = DateTime(anio, 1, 1);
+    DateTime primerJueves = primerEnero;
+    while (primerJueves.weekday != 4) {
+      primerJueves = primerJueves.add(const Duration(days: 1));
+    }
     
-    final inicioSemana = primerLunes.add(Duration(days: (numeroSemana - 1) * 7));
-    final finSemana = inicioSemana.add(Duration(days: 5));
+    // El lunes de la semana 1 es 3 días antes del primer jueves
+    DateTime lunesSemana1 = primerJueves.subtract(const Duration(days: 3));
+    
+    // Calcular el lunes de la semana solicitada
+    DateTime inicioSemana = lunesSemana1.add(Duration(days: (numeroSemana - 1) * 7));
+    DateTime finSemana = inicioSemana.add(const Duration(days: 5)); // Hasta el sábado
     
     final formato = 'dd/MM/yyyy';
     return (

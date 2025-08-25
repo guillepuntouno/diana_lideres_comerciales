@@ -355,15 +355,8 @@ class PlanTrabajoServicio {
     required String centroDistribucion,
     required DateTime fechaInicioSemana,
   }) async {
-    // Calcular datos de la semana
-    final int numeroSemana =
-        ((fechaInicioSemana
-                        .difference(DateTime(fechaInicioSemana.year, 1, 1))
-                        .inDays +
-                    DateTime(fechaInicioSemana.year, 1, 1).weekday -
-                    1) /
-                7)
-            .ceil();
+    // Calcular número de semana ISO 8601
+    int numeroSemana = _calcularNumeroSemanaISO(fechaInicioSemana);
 
     final String semana = 'SEMANA $numeroSemana - ${fechaInicioSemana.year}';
     final DateTime finSemana = fechaInicioSemana.add(const Duration(days: 5));
@@ -504,11 +497,20 @@ class PlanTrabajoServicio {
 
     if (semana > 0) {
       try {
-        final DateTime inicioAno = DateTime(year, 1, 1);
-        inicioSemana = inicioAno.add(
-          Duration(days: (semana - 1) * 7 - inicioAno.weekday + 1),
-        );
-        finSemana = inicioSemana.add(const Duration(days: 5));
+        // Usar el mismo cálculo ISO 8601 que en plan_trabajo_offline_service
+        // Encontrar el primer jueves del año
+        DateTime primerEnero = DateTime(year, 1, 1);
+        DateTime primerJueves = primerEnero;
+        while (primerJueves.weekday != 4) {
+          primerJueves = primerJueves.add(const Duration(days: 1));
+        }
+        
+        // El lunes de la semana 1 es 3 días antes del primer jueves
+        DateTime lunesSemana1 = primerJueves.subtract(const Duration(days: 3));
+        
+        // Calcular el lunes de la semana solicitada
+        inicioSemana = lunesSemana1.add(Duration(days: (semana - 1) * 7));
+        finSemana = inicioSemana.add(const Duration(days: 5)); // Hasta el sábado
       } catch (e) {
         print('Error calculando fechas de semana: $e'); // Debug
         inicioSemana = DateTime.now();
@@ -672,5 +674,45 @@ class PlanTrabajoServicio {
   Future<void> marcarComoSincronizado(String semana, String liderId) async {
     // Con HTTP no es necesario, pero mantenemos el método
     return;
+  }
+
+  /// Calcular número de semana según ISO 8601
+  int _calcularNumeroSemanaISO(DateTime fecha) {
+    // Encontrar el jueves de la semana actual
+    DateTime jueves = fecha.add(Duration(days: 4 - fecha.weekday));
+    
+    // Encontrar el 1 de enero del año del jueves
+    DateTime primerEnero = DateTime(jueves.year, 1, 1);
+    
+    // Encontrar el primer jueves del año
+    DateTime primerJueves = primerEnero;
+    while (primerJueves.weekday != 4) {
+      primerJueves = primerJueves.add(const Duration(days: 1));
+    }
+    
+    // Encontrar el lunes de la semana 1
+    DateTime lunesSemana1 = primerJueves.subtract(Duration(days: primerJueves.weekday - 1));
+    
+    // Calcular la diferencia en días y dividir por 7
+    int diferenciaDias = jueves.difference(lunesSemana1).inDays;
+    int numeroSemana = (diferenciaDias / 7).floor() + 1;
+    
+    // Casos especiales: última semana del año anterior o primera del siguiente
+    if (numeroSemana < 1) {
+      // Es la última semana del año anterior
+      DateTime ultimoDiaAnioAnterior = DateTime(fecha.year - 1, 12, 31);
+      return _calcularNumeroSemanaISO(ultimoDiaAnioAnterior);
+    } else if (numeroSemana > 52) {
+      // Verificar si es semana 53 válida o semana 1 del siguiente año
+      DateTime ultimoDiaAnio = DateTime(fecha.year, 12, 31);
+      DateTime juevesUltimaSemana = ultimoDiaAnio.add(Duration(days: 4 - ultimoDiaAnio.weekday));
+      if (juevesUltimaSemana.year == fecha.year) {
+        return numeroSemana; // Es semana 53 válida
+      } else {
+        return 1; // Es semana 1 del siguiente año
+      }
+    }
+    
+    return numeroSemana;
   }
 }
