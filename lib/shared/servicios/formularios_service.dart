@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:diana_lc_front/shared/configuracion/ambiente_config.dart';
 import 'package:diana_lc_front/shared/modelos/formulario_evaluacion_dto.dart';
 import 'package:diana_lc_front/shared/servicios/sesion_servicio.dart';
+import 'package:diana_lc_front/shared/servicios/formularios_filter_service.dart';
 
 class FormulariosService {
   static String get baseUrl => AmbienteConfig.baseUrl;
@@ -50,51 +51,44 @@ class FormulariosService {
     }
   }
 
-  /// Filtrar formularios de evaluación de desempeño por canal
+  /// Filtrar formularios de evaluación de desempeño por canal y país
   /// Filtros del lado del cliente:
-  /// - tipo = "evaluacion_desempeño"
-  /// - canal = "detalle" o "mayoreo"
+  /// - tipo = "evaluacion_desempeño" (EXCLUYE programa_excelencia)
+  /// - canal = "detalle" o "mayoreo" 
+  /// - país = país mapeado (SV → salvador)
   /// - activo = true
   /// - Selecciona el más reciente si hay múltiples coincidencias
-  static Future<FormularioEvaluacionDTO?> obtenerFormularioParaCanal(String canal) async {
+  static Future<FormularioEvaluacionDTO?> obtenerFormularioParaCanal(
+    String canal, {
+    String? paisUI,
+  }) async {
     try {
       final formularios = await obtenerFormularios();
       
-      print('🔍 Filtrando formularios para canal: $canal');
-      print('📊 Total formularios obtenidos: ${formularios.length}');
+      // Usar país por defecto si no se proporciona
+      final pais = paisUI ?? 'SV'; // Default a El Salvador
       
-      // Filtrar por tipo, canal y estado activo
-      final formulariosFiltrados = formularios.where((formulario) {
-        final esEvaluacionDesempeno = formulario.tipo.toLowerCase() == 'evaluacion_desempeño' || 
-                                     formulario.tipo.toLowerCase() == 'evaluacion_desempeno' ||
-                                     formulario.tipo.toLowerCase() == 'programa_excelencia';
-        final aplicaParaCanal = formulario.aplicaParaCanal(canal);
-        final estaActivo = formulario.activo;
-        
-        print('📋 Formulario: ${formulario.nombre}');
-        print('  - Tipo: ${formulario.tipo} (¿Es evaluación?: $esEvaluacionDesempeno)');
-        print('  - Canales: ${formulario.canales} (¿Aplica para $canal?: $aplicaParaCanal)');
-        print('  - Activo: $estaActivo');
-        
-        return esEvaluacionDesempeno && aplicaParaCanal && estaActivo;
-      }).toList();
+      print('🔍 === BÚSQUEDA DE FORMULARIO EVALUACIÓN DESEMPEÑO ===');
+      print('📊 Total formularios obtenidos del WS: ${formularios.length}');
+      print('🎯 Buscando para: Canal=$canal, País=$pais');
       
-      print('✅ Formularios filtrados: ${formulariosFiltrados.length}');
+      // Usar el servicio de filtrado robusto
+      final formulariosFiltrados = FormulariosFilterService.filtrarFormulariosEvaluacion(
+        formularios: formularios,
+        canal: canal,
+        paisUI: pais,
+      );
       
       if (formulariosFiltrados.isEmpty) {
-        print('⚠️ No se encontró formulario para el canal: $canal');
+        print('❌ No hay formularios activos de Evaluación de Desempeño para el canal $canal en $pais');
         return null;
       }
       
-      // Ordenar por fecha de actualización/creación descendente y tomar el más reciente
-      formulariosFiltrados.sort((a, b) {
-        final fechaA = a.fechaActualizacion ?? a.fechaCreacion ?? DateTime(1970);
-        final fechaB = b.fechaActualizacion ?? b.fechaCreacion ?? DateTime(1970);
-        return fechaB.compareTo(fechaA);
-      });
-      
       final formularioSeleccionado = formulariosFiltrados.first;
-      print('🎯 Formulario seleccionado: ${formularioSeleccionado.nombre}');
+      print('✅ === FORMULARIO SELECCIONADO ===');
+      print('📋 Nombre: ${formularioSeleccionado.nombre}');
+      print('🆔 ID: ${formularioSeleccionado.id}');
+      print('🏷️ Tipo: ${formularioSeleccionado.tipo}');
       print('📅 Fecha: ${formularioSeleccionado.fechaActualizacion ?? formularioSeleccionado.fechaCreacion}');
       
       return formularioSeleccionado;

@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:convert';
+import 'package:uuid/uuid.dart';
 import 'package:diana_lc_front/shared/servicios/formularios_service.dart';
+import 'package:diana_lc_front/shared/servicios/sesion_servicio.dart';
 import 'package:diana_lc_front/shared/modelos/formulario_evaluacion_dto.dart';
 import 'package:diana_lc_front/shared/modelos/pregunta_dto.dart';
 import 'package:diana_lc_front/shared/modelos/opcion_dto.dart';
+import 'package:diana_lc_front/shared/modelos/lider_comercial_modelo.dart';
+import 'package:diana_lc_front/shared/modelos/hive/resultado_excelencia_hive.dart';
+import 'package:diana_lc_front/shared/repositorios/programa_excelencia_local_repository.dart';
 
 class EvaluacionDesempenioLlenado extends StatefulWidget {
   const EvaluacionDesempenioLlenado({Key? key}) : super(key: key);
@@ -22,6 +27,10 @@ class _EvaluacionDesempenioLlenadoState extends State<EvaluacionDesempenioLlenad
   FormularioEvaluacionDTO? _formulario;
   bool _isLoading = true;
   String? _errorMessage;
+  
+  // Repositorio para guardar en Hive
+  final ProgramaExcelenciaLocalRepository _repository = ProgramaExcelenciaLocalRepository();
+  final Uuid _uuid = const Uuid();
   
   // Datos estáticos de respaldo (se mantienen por compatibilidad)
   late List<Map<String, dynamic>> _formSections;
@@ -41,6 +50,7 @@ class _EvaluacionDesempenioLlenadoState extends State<EvaluacionDesempenioLlenad
   
   void _loadFormForChannel() async {
     final channel = _evaluationData['channel']?.toString().toLowerCase() ?? 'detalle';
+    final country = _evaluationData['country']?.toString().toUpperCase() ?? 'SV';
     
     setState(() {
       _isLoading = true;
@@ -48,33 +58,39 @@ class _EvaluacionDesempenioLlenadoState extends State<EvaluacionDesempenioLlenad
     });
     
     try {
-      print('📋 Cargando formulario para canal: $channel');
+      print('📋 === CARGA DE FORMULARIO EVALUACIÓN DESEMPEÑO ===');
+      print('🎯 Canal: $channel');
+      print('🌍 País: $country');
       
-      // Intentar cargar formulario dinámico
-      _formulario = await FormulariosService.obtenerFormularioParaCanal(channel);
+      // Intentar cargar formulario dinámico con filtrado robusto
+      _formulario = await FormulariosService.obtenerFormularioParaCanal(
+        channel, 
+        paisUI: country,
+      );
       
       if (_formulario != null) {
         print('✅ Formulario dinámico cargado: ${_formulario!.nombre}');
+        print('🏷️ Tipo: ${_formulario!.tipo}');
         _initializeControllersFromDynamicForm();
       } else {
-        print('⚠️ No se encontró formulario dinámico, usando formulario estático');
-        _loadStaticForm(channel);
+        print('❌ No se encontró formulario de Evaluación de Desempeño para:');
+        print('  - Canal: $channel');
+        print('  - País: $country');
+        _showNoFormularioError(channel, country);
+        return;
       }
       
       setState(() {
         _isLoading = false;
       });
     } catch (e) {
-      print('❌ Error al cargar formulario dinámico: $e');
-      print('🔄 Fallback: usando formulario estático');
-      
-      // Fallback a formulario estático
-      _loadStaticForm(channel);
-      
+      print('❌ Error al cargar formulario: $e');
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Error al cargar formulario: usando versión offline';
+        _errorMessage = 'Error al cargar formulario de evaluación';
       });
+      
+      _showConnectionError(e.toString());
     }
   }
   
@@ -794,7 +810,7 @@ class _EvaluacionDesempenioLlenadoState extends State<EvaluacionDesempenioLlenad
     );
   }
   
-  void _submitEvaluation() {
+  Future<void> _submitEvaluation() async {
     // Validar preguntas obligatorias
     bool allRequiredAnswered = true;
     List<String> missingQuestions = [];
@@ -890,20 +906,192 @@ class _EvaluacionDesempenioLlenadoState extends State<EvaluacionDesempenioLlenad
     print(const JsonEncoder.withIndent('  ').convert(payload));
     print('===========================');
     
-    // Show success message
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          _formulario != null 
-              ? 'Evaluación dinámica finalizada exitosamente'
-              : 'Evaluación finalizada exitosamente (modo offline)',
-          style: GoogleFonts.poppins(),
-        ),
-        backgroundColor: const Color(0xFF38A169),
-      ),
-    );
+    try {
+      // Obtener líder comercial de la sesión
+      LiderComercial? liderComercial;
+      try {
+        liderComercial = await SesionServicio.obtenerLiderComercial();
+      } catch (e) {
+        print('⚠️ No se pudo obtener líder comercial: $e');
+      }
+      
+      // Convertir respuestas al formato de Hive
+      List<RespuestaEvaluacionHive> respuestasHive = [];
+      double ponderacionTotal = 0.0;
+      int preguntasConPonderacion = 0;
+      
+      for (var respuesta in responseArray) {
+        final score = respuesta['score'] ?? 0.0;
+        if (score > 0) {
+          ponderacionTotal += score;
+          preguntasConPonderacion++;
+        }
+        
+        respuestasHive.add(RespuestaEvaluacionHive(
+          preguntaId: respuesta['questionId']?.toString() ?? respuesta['name'],
+          preguntaTitulo: respuesta['label'] ?? respuesta['name'],
+          categoria: 'Evaluación de Desempeño',
+          tipoPregunta: respuesta['type'] ?? 'radio',
+          respuesta: respuesta['selectedValue'],
+          ponderacion: score,
+          timestampRespuesta: DateTime.now(),
+          configuracionPregunta: {
+            'formId': _formulario?.id,
+            'formName': _formulario?.nombre,
+          },
+        ));
+      }
+      
+      // Calcular ponderación final
+      final ponderacionFinal = preguntasConPonderacion > 0 
+          ? ponderacionTotal / preguntasConPonderacion 
+          : 0.0;
+      
+      // Crear evaluación de excelencia
+      final evaluacion = ResultadoExcelenciaHive(
+        id: _uuid.v4(),
+        liderClave: liderComercial?.clave ?? _evaluationData['leaderName'] ?? '', // Usar código del líder real
+        liderNombre: liderComercial?.nombre ?? _evaluationData['leaderName'] ?? '',
+        liderCorreo: '', // Correo del líder no disponible en el modelo actual
+        pais: liderComercial?.pais ?? _evaluationData['country'] ?? '',
+        ruta: 'Evaluación de Desempeño',
+        centroDistribucion: 'Principal',
+        tipoFormulario: _formulario?.nombre ?? 'Evaluación Manual',
+        formularioMaestro: _formulario?.toJson() ?? {},
+        respuestas: respuestasHive,
+        ponderacionFinal: ponderacionFinal,
+        fechaCaptura: DateTime.now(),
+        fechaHoraInicio: DateTime.now().subtract(const Duration(minutes: 10)), // Estimado
+        fechaHoraFin: DateTime.now(),
+        estatus: 'completada',
+        syncStatus: 'pending',
+        metadatos: {
+          'canal': _evaluationData['channel'],
+          'asesorCodigo': _evaluationData['advisorId'],
+          'asesorNombre': _evaluationData['advisorName'],
+          'pais': liderComercial?.pais ?? _evaluationData['country'],
+          'liderClave': liderComercial?.clave ?? _evaluationData['leaderName'], // Código real del líder
+          'liderNombre': liderComercial?.nombre ?? _evaluationData['leaderName'],
+          'isDynamicForm': _formulario != null,
+        },
+      );
+      
+      // Guardar en Hive
+      await _repository.guardarEvaluacion(evaluacion);
+      
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Evaluación guardada exitosamente en dispositivo',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: const Color(0xFF38A169),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+      
+    } catch (e) {
+      print('❌ Error guardando evaluación: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Error al guardar evaluación: $e',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+      return; // No cerrar si hay error
+    }
     
     // Return to previous screen
     Navigator.pop(context);
+  }
+  
+  void _showNoFormularioError(String canal, String pais) {
+    if (mounted) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(
+            'Formulario No Disponible',
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFFDE1327),
+            ),
+          ),
+          content: Text(
+            'No hay formularios activos de Evaluación de Desempeño para el canal "$canal" en "$pais".\n\nPor favor contacte al administrador.',
+            style: GoogleFonts.poppins(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Cerrar diálogo
+                Navigator.of(context).pop(); // Volver a pantalla anterior
+              },
+              child: Text(
+                'Entendido',
+                style: GoogleFonts.poppins(
+                  color: const Color(0xFFDE1327),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+  
+  void _showConnectionError(String error) {
+    if (mounted) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(
+            'Error de Conexión',
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFFDE1327),
+            ),
+          ),
+          content: Text(
+            'No se pudo cargar el formulario de evaluación.\n\nError: $error',
+            style: GoogleFonts.poppins(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(), // Solo cerrar diálogo
+              child: Text(
+                'Reintentar',
+                style: GoogleFonts.poppins(
+                  color: const Color(0xFFDE1327),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Cerrar diálogo
+                Navigator.of(context).pop(); // Volver a pantalla anterior
+              },
+              child: Text(
+                'Cancelar',
+                style: GoogleFonts.poppins(
+                  color: Colors.grey[600],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
   }
 }

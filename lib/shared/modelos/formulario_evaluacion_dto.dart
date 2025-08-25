@@ -6,6 +6,7 @@ class FormularioEvaluacionDTO {
   final String? descripcion;
   final String tipo;
   final List<String> canales;
+  final List<String>? paises; // Agregado para filtrado por país
   final bool activo;
   final List<PreguntaDTO> preguntas;
   final Map<String, dynamic>? resultadoKPI;
@@ -19,6 +20,7 @@ class FormularioEvaluacionDTO {
     this.descripcion,
     required this.tipo,
     this.canales = const [],
+    this.paises,
     this.activo = true,
     this.preguntas = const [],
     this.resultadoKPI,
@@ -43,6 +45,14 @@ class FormularioEvaluacionDTO {
       // Si viene un campo 'canal' en lugar de 'canales', usarlo
       canalesList = [json['canal'].toString()];
     }
+    
+    List<String>? paisesList;
+    if (json['paises'] != null && json['paises'] is List) {
+      paisesList = (json['paises'] as List).map((e) => e.toString()).toList();
+    } else if (json['pais'] != null) {
+      // Si viene un campo 'pais' en lugar de 'paises', usarlo
+      paisesList = [json['pais'].toString()];
+    }
 
     return FormularioEvaluacionDTO(
       id: json['id'] ?? json['_id'] ?? '',
@@ -50,6 +60,7 @@ class FormularioEvaluacionDTO {
       descripcion: json['descripcion'],
       tipo: json['tipo'] ?? '',
       canales: canalesList,
+      paises: paisesList,
       activo: json['activo'] ?? true,
       preguntas: preguntasList,
       resultadoKPI: json['resultadoKPI'],
@@ -76,6 +87,7 @@ class FormularioEvaluacionDTO {
       if (descripcion != null) 'descripcion': descripcion,
       'tipo': tipo,
       'canales': canales,
+      if (paises != null) 'paises': paises,
       'activo': activo,
       'preguntas': preguntas.map((e) => e.toJson()).toList(),
       if (resultadoKPI != null) 'resultadoKPI': resultadoKPI,

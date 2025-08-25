@@ -22,6 +22,7 @@ import 'package:diana_lc_front/features/reporte_acuerdos/presentation/reporte_ac
 import 'package:diana_lc_front/web/vistas/evaluacion_desempeno/pantalla_evaluacion_desempeno.dart';
 import 'package:diana_lc_front/mobile/vistas/evaluacion_desempeño/evaluacion_desempeño_principal.dart';
 import 'package:diana_lc_front/mobile/vistas/evaluacion_desempeño/evaluacion_desempeño_llenado.dart';
+import 'package:diana_lc_front/mobile/vistas/evaluacion_desempeño/evaluacion_capturas_screen.dart';
 
 final Map<String, WidgetBuilder> rutas = {
   '/': (BuildContext context) => const PantallaLogin(),
@@ -52,6 +53,7 @@ final Map<String, WidgetBuilder> rutas = {
   },
   '/evaluacion_desempenio_principal': (context) => const EvaluacionDesempenioPrincipal(),
   '/evaluacion_desempenio_llenado': (context) => const EvaluacionDesempenioLlenado(),
+  '/evaluacion_capturas': (context) => const EvaluacionCapturasScreen(),
   
   // Rutas administrativas web
   '/administracion': (context) => const PantallaAdministracion(),

@@ -19,7 +19,8 @@
       "Bash(cmd.exe /c \"flutter pub get\")",
       "Bash(cmd.exe /c \"flutter build apk --release\" 2 >& 1)",
       "Bash(cmd.exe /c:*)",
-      "Bash(dart pub:*)"
+      "Bash(dart pub:*)",
+      "WebFetch(domain:github.com)"
     ],
     "deny": []
   }
