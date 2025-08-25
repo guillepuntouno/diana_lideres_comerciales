@@ -13,30 +13,33 @@ class EvaluacionDesempenioPrincipal extends StatefulWidget {
   const EvaluacionDesempenioPrincipal({Key? key}) : super(key: key);
 
   @override
-  State<EvaluacionDesempenioPrincipal> createState() => _EvaluacionDesempenioPrincipalState();
+  State<EvaluacionDesempenioPrincipal> createState() =>
+      _EvaluacionDesempenioPrincipalState();
 }
 
-class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrincipal> {
+class _EvaluacionDesempenioPrincipalState
+    extends State<EvaluacionDesempenioPrincipal> {
   String? _selectedAdvisor;
   String? _selectedChannel;
-  
+
   // Datos reales
   LiderComercial? _liderComercial;
   List<AsesorDTO> _advisors = [];
   bool _isLoading = true;
   String? _errorMessage;
-  
+
   final List<String> _channels = ['Detalle', 'Mayoreo'];
-  
+
   // Repositorio para acceso a Hive
-  final ProgramaExcelenciaLocalRepository _repository = ProgramaExcelenciaLocalRepository();
+  final ProgramaExcelenciaLocalRepository _repository =
+      ProgramaExcelenciaLocalRepository();
 
   // Función para categorizar el desempeño según issue #29
   String categoriaDesempeno(double puntos) {
     if (puntos >= 11) {
       return 'Excelente Desempeño';
     } else if (puntos >= 9) {
-      return 'Buen Desempeño'; 
+      return 'Buen Desempeño';
     } else {
       return 'Desempeño Bajo';
     }
@@ -48,26 +51,27 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
     int maxFromResponses = evaluacion.respuestas
         .where((r) => r.ponderacion != null && r.ponderacion! > 0)
         .fold<int>(0, (sum, r) => sum + (r.ponderacion!.toInt()));
-    
+
     if (maxFromResponses > 0) {
       return maxFromResponses;
     }
-    
+
     // Fallback por canal según metadatos
-    String canal = evaluacion.metadatos?['canal']?.toString().toLowerCase() ?? 'detalle';
+    String canal =
+        evaluacion.metadatos?['canal']?.toString().toLowerCase() ?? 'detalle';
     return canal == 'mayoreo' ? 13 : 12;
   }
-  
+
   // Lista de evaluaciones filtradas
   List<ResultadoExcelenciaHive> _evaluacionesFiltradas = [];
-  
+
   @override
   void initState() {
     super.initState();
     _cargarDatosReales();
     _cargarEvaluaciones();
   }
-  
+
   void _cargarEvaluaciones() {
     // Solo actualizar las evaluaciones sin setState ya que el ValueListenableBuilder
     // se encargará de la reconstrucción automática
@@ -77,34 +81,38 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
       asesorCodigo: _selectedAdvisor,
     );
   }
-  
+
   Future<void> _cargarDatosReales() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
-    
+
     try {
       // Obtener líder comercial de la sesión (Cognito)
       _liderComercial = await SesionServicio.obtenerLiderComercial();
-      
+
       if (_liderComercial == null) {
-        throw Exception('No se pudo obtener la información del líder de la sesión');
+        throw Exception(
+          'No se pudo obtener la información del líder de la sesión',
+        );
       }
-      
-      print('👤 Líder obtenido de Cognito: ${_liderComercial!.nombre} - ${_liderComercial!.clave}');
-      
+
+      print(
+        '👤 Líder obtenido de Cognito: ${_liderComercial!.nombre} - ${_liderComercial!.clave}',
+      );
+
       // Cargar asesores del líder
       _advisors = await AsesoresService.obtenerAsesoresPorLider(
         codigoLider: _liderComercial!.clave,
         pais: _liderComercial!.pais,
       );
-      
+
       print('👥 Asesores cargados: ${_advisors.length}');
-      
+
       // Cargar evaluaciones después de tener el líder
       _cargarEvaluaciones();
-      
+
       setState(() {
         _isLoading = false;
       });
@@ -114,7 +122,7 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
         _isLoading = false;
         _errorMessage = 'Error al cargar datos: $e';
       });
-      
+
       // Mostrar mensaje de error
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -130,7 +138,7 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
       }
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -153,22 +161,21 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(),
-            )
-          : Column(
-              children: [
-                _buildFiltersSection(),
-                const SizedBox(height: 16),
-                _buildStartButton(),
-                const SizedBox(height: 24),
-                _buildTableSection(),
-              ],
-            ),
+      body:
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : Column(
+                children: [
+                  _buildFiltersSection(),
+                  const SizedBox(height: 16),
+                  _buildStartButton(),
+                  const SizedBox(height: 24),
+                  _buildTableSection(),
+                ],
+              ),
     );
   }
-  
+
   Widget _buildFiltersSection() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -195,7 +202,10 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
             ),
           ),
           const SizedBox(height: 16),
-          _buildLockedField('Nombre del Líder', _liderComercial?.nombre ?? 'Sin nombre'),
+          _buildLockedField(
+            'Nombre del Líder',
+            _liderComercial?.nombre ?? 'Sin nombre',
+          ),
           const SizedBox(height: 12),
           _buildLockedField('País', _liderComercial?.pais ?? 'Sin país'),
           const SizedBox(height: 12),
@@ -206,7 +216,7 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
       ),
     );
   }
-  
+
   Widget _buildLockedField(String label, String value) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -245,7 +255,7 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
       ],
     );
   }
-  
+
   Widget _buildAdvisorDropdown() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -267,25 +277,35 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
           child: DropdownButtonFormField<String>(
             value: _selectedAdvisor,
             decoration: InputDecoration(
-              hintText: _advisors.isEmpty ? 'No hay asesores disponibles' : 'Seleccione un asesor',
+              hintText:
+                  _advisors.isEmpty
+                      ? 'No hay asesores disponibles'
+                      : 'Seleccione un asesor',
               hintStyle: GoogleFonts.poppins(color: const Color(0xFF8F8E8E)),
               border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
             ),
-            items: _advisors.map((advisor) {
-              return DropdownMenuItem(
-                value: advisor.codigo,
-                child: Text(
-                  '${advisor.nombre} (${advisor.codigo})',
-                  style: GoogleFonts.poppins(),
-                ),
-              );
-            }).toList(),
-            onChanged: _advisors.isEmpty ? null : (value) {
-              setState(() {
-                _selectedAdvisor = value;
-              });
-            },
+            items:
+                _advisors.map((advisor) {
+                  return DropdownMenuItem(
+                    value: advisor.codigo,
+                    child: Text(
+                      '${advisor.nombre} (${advisor.codigo})',
+                      style: GoogleFonts.poppins(),
+                    ),
+                  );
+                }).toList(),
+            onChanged:
+                _advisors.isEmpty
+                    ? null
+                    : (value) {
+                      setState(() {
+                        _selectedAdvisor = value;
+                      });
+                    },
           ),
         ),
         if (_advisors.isEmpty)
@@ -315,7 +335,7 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
       ],
     );
   }
-  
+
   Widget _buildChannelDropdown() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -340,17 +360,18 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
               hintText: 'Seleccione un canal',
               hintStyle: GoogleFonts.poppins(color: const Color(0xFF8F8E8E)),
               border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
             ),
-            items: _channels.map((channel) {
-              return DropdownMenuItem(
-                value: channel,
-                child: Text(
-                  channel,
-                  style: GoogleFonts.poppins(),
-                ),
-              );
-            }).toList(),
+            items:
+                _channels.map((channel) {
+                  return DropdownMenuItem(
+                    value: channel,
+                    child: Text(channel, style: GoogleFonts.poppins()),
+                  );
+                }).toList(),
             onChanged: (value) {
               setState(() {
                 _selectedChannel = value;
@@ -361,10 +382,10 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
       ],
     );
   }
-  
+
   Widget _buildStartButton() {
     final isEnabled = _selectedAdvisor != null && _selectedChannel != null;
-    
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: SizedBox(
@@ -372,7 +393,8 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
         child: ElevatedButton(
           onPressed: isEnabled ? _startEvaluation : null,
           style: ElevatedButton.styleFrom(
-            backgroundColor: isEnabled ? const Color(0xFFDE1327) : Colors.grey[300],
+            backgroundColor:
+                isEnabled ? const Color(0xFFDE1327) : Colors.grey[300],
             padding: const EdgeInsets.symmetric(vertical: 16),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
@@ -390,7 +412,7 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
       ),
     );
   }
-  
+
   Widget _buildTableSection() {
     return Expanded(
       child: Container(
@@ -412,12 +434,13 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
           builder: (context, box, _) {
             // Obtener evaluaciones directamente sin setState
             // Si no hay filtros seleccionados, mostrar todas las evaluaciones del líder
-            final evaluacionesFiltradas = _repository.obtenerEvaluacionesFiltradas(
-              liderClave: _liderComercial?.clave,
-              canal: _selectedChannel,
-              asesorCodigo: _selectedAdvisor,
-            );
-            
+            final evaluacionesFiltradas = _repository
+                .obtenerEvaluacionesFiltradas(
+                  liderClave: _liderComercial?.clave,
+                  canal: _selectedChannel,
+                  asesorCodigo: _selectedAdvisor,
+                );
+
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -436,7 +459,10 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
                       ),
                       if (evaluacionesFiltradas.isNotEmpty)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFDE1327).withOpacity(0.1),
                             borderRadius: BorderRadius.circular(16),
@@ -457,15 +483,19 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
                 _buildTableHeader(),
                 const Divider(height: 1),
                 Expanded(
-                  child: evaluacionesFiltradas.isEmpty
-                      ? _buildEmptyState()
-                      : ListView.separated(
-                          itemCount: evaluacionesFiltradas.length,
-                          separatorBuilder: (context, index) => const Divider(height: 1),
-                          itemBuilder: (context, index) {
-                            return _buildTableRow(evaluacionesFiltradas[index]);
-                          },
-                        ),
+                  child:
+                      evaluacionesFiltradas.isEmpty
+                          ? _buildEmptyState()
+                          : ListView.separated(
+                            itemCount: evaluacionesFiltradas.length,
+                            separatorBuilder:
+                                (context, index) => const Divider(height: 1),
+                            itemBuilder: (context, index) {
+                              return _buildTableRow(
+                                evaluacionesFiltradas[index],
+                              );
+                            },
+                          ),
                 ),
               ],
             );
@@ -474,17 +504,13 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
       ),
     );
   }
-  
+
   Widget _buildEmptyState() {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.assignment_outlined,
-            size: 64,
-            color: Colors.grey[400],
-          ),
+          Icon(Icons.assignment_outlined, size: 64, color: Colors.grey[400]),
           const SizedBox(height: 16),
           Text(
             'No hay evaluaciones registradas',
@@ -497,16 +523,13 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
           const SizedBox(height: 8),
           Text(
             'Las evaluaciones realizadas aparecerán aquí',
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              color: Colors.grey[500],
-            ),
+            style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey[500]),
           ),
         ],
       ),
     );
   }
-  
+
   Widget _buildTableHeader() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -546,16 +569,6 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
           Expanded(
             flex: 2,
             child: Text(
-              'Estado',
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF1C2120),
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
               'Puntuación',
               style: GoogleFonts.poppins(
                 fontWeight: FontWeight.w600,
@@ -578,40 +591,14 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
       ),
     );
   }
-  
+
   Widget _buildTableRow(ResultadoExcelenciaHive evaluation) {
     final dateFormat = DateFormat('dd/MM/yyyy');
     final metadatos = evaluation.metadatos ?? {};
     final asesorNombre = metadatos['asesorNombre'] ?? 'Sin asesor';
     final canal = metadatos['canal'] ?? 'Sin canal';
-    
-    // Determinar color del estado
-    Color estadoColor;
-    Color estadoBgColor;
-    String estadoTexto;
-    
-    switch (evaluation.syncStatus) {
-      case 'synced':
-        estadoColor = const Color(0xFF38A169);
-        estadoBgColor = const Color(0xFF38A169).withOpacity(0.1);
-        estadoTexto = 'Sincronizado';
-        break;
-      case 'pending':
-        estadoColor = const Color(0xFFF6C343);
-        estadoBgColor = const Color(0xFFF6C343).withOpacity(0.1);
-        estadoTexto = 'Pendiente';
-        break;
-      case 'failed':
-        estadoColor = const Color(0xFFE53E3E);
-        estadoBgColor = const Color(0xFFE53E3E).withOpacity(0.1);
-        estadoTexto = 'Error';
-        break;
-      default:
-        estadoColor = Colors.grey;
-        estadoBgColor = Colors.grey.withOpacity(0.1);
-        estadoTexto = 'Desconocido';
-    }
-    
+
+
     return InkWell(
       onTap: () => _mostrarDetalleEvaluacion(evaluation),
       child: Container(
@@ -636,38 +623,25 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
             Expanded(
               flex: 2,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
-                  color: canal == 'Detalle' 
-                      ? const Color(0xFF38A169).withOpacity(0.1)
-                      : const Color(0xFFF6C343).withOpacity(0.1),
+                  color:
+                      canal == 'Detalle'
+                          ? const Color(0xFF38A169).withOpacity(0.1)
+                          : const Color(0xFFF6C343).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
                   canal,
                   style: GoogleFonts.poppins(
                     fontSize: 12,
-                    color: canal == 'Detalle' 
-                        ? const Color(0xFF38A169)
-                        : const Color(0xFFBB8A00),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
-            Expanded(
-              flex: 2,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: estadoBgColor,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Text(
-                  estadoTexto,
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: estadoColor,
+                    color:
+                        canal == 'Detalle'
+                            ? const Color(0xFF38A169)
+                            : const Color(0xFFBB8A00),
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -690,17 +664,17 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.visibility_outlined, size: 20),
+                    icon: const Icon(Icons.search, size: 20),
                     color: const Color(0xFF1C2120),
                     tooltip: 'Ver detalles',
                     onPressed: () => _mostrarDetalleEvaluacion(evaluation),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.photo_library_outlined, size: 20),
-                    color: const Color(0xFF1C2120),
-                    tooltip: 'Ver capturas',
-                    onPressed: () => _verCapturas(evaluation),
-                  ),
+                  // IconButton(
+                  //   icon: const Icon(Icons.photo_library_outlined, size: 20),
+                  //   color: const Color(0xFF1C2120),
+                  //   tooltip: 'Ver capturas',
+                  //   onPressed: () => _verCapturas(evaluation),
+                  // ),
                 ],
               ),
             ),
@@ -709,115 +683,148 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
       ),
     );
   }
-  
+
   void _mostrarDetalleEvaluacion(ResultadoExcelenciaHive evaluacion) {
     showDialog(
       context: context,
-      builder: (context) => Dialog(
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.8,
-          constraints: const BoxConstraints(maxHeight: 600),
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      builder:
+          (context) => Dialog(
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.8,
+              constraints: const BoxConstraints(maxHeight: 600),
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Detalle de Evaluación',
-                    style: GoogleFonts.poppins(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-              const Divider(),
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _buildDetailRow('ID', evaluacion.id),
-                      _buildDetailRow('Fecha', DateFormat('dd/MM/yyyy HH:mm').format(evaluacion.fechaCaptura)),
-                      _buildDetailRow('Líder', evaluacion.liderNombre),
-                      _buildDetailRow('País', evaluacion.pais),
-                      _buildDetailRow('Ruta', evaluacion.ruta),
-                      _buildDetailRow('Centro de Distribución', evaluacion.centroDistribucion),
-                      _buildDetailRow('Tipo de Formulario', evaluacion.tipoFormulario),
-                      _buildDetailRow('Estatus', evaluacion.estatus),
-                      // Calcular ponderación final mejorada según issue #29
-                      Builder(builder: (context) {
-                        final puntos = evaluacion.ponderacionFinal;
-                        final maxPuntos = calcularPuntosMaximos(evaluacion);
-                        final porcentaje = maxPuntos > 0 ? (puntos / maxPuntos * 100) : 0.0;
-                        return _buildDetailRow('Ponderación Final', 
-                          '${puntos.toStringAsFixed(0)} / $maxPuntos (${porcentaje.toStringAsFixed(1)}%)');
-                      }),
-                      // Mostrar categoría de desempeño según issue #29
-                      Builder(builder: (context) {
-                        final categoria = categoriaDesempeno(evaluacion.ponderacionFinal);
-                        return _buildDetailRow('Categoría de Desempeño', categoria);
-                      }),
-                      if (evaluacion.observaciones != null)
-                        _buildDetailRow('Observaciones', evaluacion.observaciones!),
-                      const SizedBox(height: 16),
                       Text(
-                        'Respuestas (${evaluacion.respuestas.length})',
+                        'Detalle de Evaluación',
                         style: GoogleFonts.poppins(
-                          fontSize: 16,
+                          fontSize: 20,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      ...evaluacion.respuestas.map((respuesta) => Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                respuesta.preguntaTitulo,
-                                style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Respuesta: ${respuesta.respuestaComoTexto}',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  color: Colors.grey[700],
-                                ),
-                              ),
-                              if (respuesta.ponderacion != null)
-                                Text(
-                                  'Puntos: ${respuesta.ponderacion!.toStringAsFixed(0)}',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 14,
-                                    color: Colors.grey[700],
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      )).toList(),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
                     ],
                   ),
-                ),
+                  const Divider(),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildDetailRow('ID', evaluacion.id),
+                          _buildDetailRow(
+                            'Fecha',
+                            DateFormat(
+                              'dd/MM/yyyy HH:mm',
+                            ).format(evaluacion.fechaCaptura),
+                          ),
+                          _buildDetailRow('Líder', evaluacion.liderNombre),
+                          _buildDetailRow('País', evaluacion.pais),
+                          //_buildDetailRow('Ruta', evaluacion.ruta),
+                          //_buildDetailRow('Centro de Distribución', evaluacion.centroDistribucion),
+                          _buildDetailRow(
+                            'Tipo de Formulario',
+                            evaluacion.tipoFormulario,
+                          ),
+                          _buildDetailRow('Estatus', evaluacion.estatus),
+                          // Calcular ponderación final mejorada según issue #29
+                          Builder(
+                            builder: (context) {
+                              final puntos = evaluacion.ponderacionFinal;
+                              final maxPuntos = calcularPuntosMaximos(
+                                evaluacion,
+                              );
+                              final porcentaje =
+                                  maxPuntos > 0
+                                      ? (puntos / maxPuntos * 100)
+                                      : 0.0;
+                              return _buildDetailRow(
+                                'Ponderación Final',
+                                '${puntos.toStringAsFixed(0)} / $maxPuntos (${porcentaje.toStringAsFixed(1)}%)',
+                              );
+                            },
+                          ),
+                          // Mostrar categoría de desempeño según issue #29
+                          Builder(
+                            builder: (context) {
+                              final categoria = categoriaDesempeno(
+                                evaluacion.ponderacionFinal,
+                              );
+                              return _buildDetailRow(
+                                'Categoría de Desempeño',
+                                categoria,
+                              );
+                            },
+                          ),
+                          if (evaluacion.observaciones != null)
+                            _buildDetailRow(
+                              'Observaciones',
+                              evaluacion.observaciones!,
+                            ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Respuestas (${evaluacion.respuestas.length})',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          ...evaluacion.respuestas
+                              .map(
+                                (respuesta) => Card(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          respuesta.preguntaTitulo,
+                                          style: GoogleFonts.poppins(
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Respuesta: ${respuesta.respuestaComoTexto}',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 14,
+                                            color: Colors.grey[700],
+                                          ),
+                                        ),
+                                        if (respuesta.ponderacion != null)
+                                          Text(
+                                            'Puntos: ${respuesta.ponderacion!.toStringAsFixed(0)}',
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 14,
+                                              color: Colors.grey[700],
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
     );
   }
-  
+
   Widget _buildDetailRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -837,71 +844,90 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
           Expanded(
             child: Text(
               value,
-              style: GoogleFonts.poppins(
-                color: const Color(0xFF1C2120),
-              ),
+              style: GoogleFonts.poppins(color: const Color(0xFF1C2120)),
             ),
           ),
         ],
       ),
     );
   }
-  
+
   void _verCapturas(ResultadoExcelenciaHive evaluacion) {
     Navigator.pushNamed(
       context,
       '/evaluacion_capturas',
-      arguments: {
-        'evaluacionId': evaluacion.id,
-        'evaluacion': evaluacion,
-      },
+      arguments: {'evaluacionId': evaluacion.id, 'evaluacion': evaluacion},
     );
   }
-  
+
   void _debugHiveData() {
     print('🐛 === DEBUG HIVE DATA ===');
-    print('📊 Líder actual: ${_liderComercial?.clave} - ${_liderComercial?.nombre}');
+    print(
+      '📊 Líder actual: ${_liderComercial?.clave} - ${_liderComercial?.nombre}',
+    );
     print('🎯 Canal seleccionado: $_selectedChannel');
     print('👤 Asesor seleccionado: $_selectedAdvisor');
-    
+
     // Obtener todas las evaluaciones
     final todasEvaluaciones = _repository.obtenerTodasEvaluaciones();
     print('📋 Total evaluaciones en DB: ${todasEvaluaciones.length}');
-    
+
     // Mostrar un diálogo con la información
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Debug Hive Data', style: GoogleFonts.poppins(fontSize: 16)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Líder: ${_liderComercial?.clave}', style: GoogleFonts.poppins(fontSize: 12)),
-            Text('Canal: $_selectedChannel', style: GoogleFonts.poppins(fontSize: 12)),
-            Text('Asesor: $_selectedAdvisor', style: GoogleFonts.poppins(fontSize: 12)),
-            Text('Total en DB: ${todasEvaluaciones.length}', style: GoogleFonts.poppins(fontSize: 12)),
-            const SizedBox(height: 10),
-            Text('Ver logs en consola para más detalles', style: GoogleFonts.poppins(fontSize: 10, fontStyle: FontStyle.italic)),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('OK', style: GoogleFonts.poppins()),
+      builder:
+          (context) => AlertDialog(
+            title: Text(
+              'Debug Hive Data',
+              style: GoogleFonts.poppins(fontSize: 16),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Líder: ${_liderComercial?.clave}',
+                  style: GoogleFonts.poppins(fontSize: 12),
+                ),
+                Text(
+                  'Canal: $_selectedChannel',
+                  style: GoogleFonts.poppins(fontSize: 12),
+                ),
+                Text(
+                  'Asesor: $_selectedAdvisor',
+                  style: GoogleFonts.poppins(fontSize: 12),
+                ),
+                Text(
+                  'Total en DB: ${todasEvaluaciones.length}',
+                  style: GoogleFonts.poppins(fontSize: 12),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Ver logs en consola para más detalles',
+                  style: GoogleFonts.poppins(
+                    fontSize: 10,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('OK', style: GoogleFonts.poppins()),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
-  
+
   void _startEvaluation() {
     if (_selectedAdvisor == null || _selectedChannel == null) return;
-    
+
     final selectedAdvisorData = _advisors.firstWhere(
       (advisor) => advisor.codigo == _selectedAdvisor,
     );
-    
+
     Navigator.pushNamed(
       context,
       '/evaluacion_desempenio_llenado',
