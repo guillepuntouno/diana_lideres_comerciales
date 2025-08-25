@@ -8,7 +8,7 @@ plugins {
 android {
     namespace = "com.example.diana_lc_front"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = "27.0.12077973"
+    // ndkVersion se deja que Flutter elija automáticamente
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
