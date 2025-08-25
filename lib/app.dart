@@ -95,15 +95,22 @@ class _DianaAppState extends State<DianaApp> {
       },
       onGenerateRoute: (settings) {
         // Para las rutas especiales, no usar AuthGuard
-        if (settings.name == '/splash' || settings.name == '/token-redirect') {
+        if (settings.name == '/splash' || 
+            settings.name == '/token-redirect' || 
+            settings.name == '/platform_selection') {
           if (settings.name == '/splash') {
             return MaterialPageRoute(
               builder: (context) => const _InitializationScreen(),
               settings: settings,
             );
-          } else {
+          } else if (settings.name == '/token-redirect') {
             return MaterialPageRoute(
               builder: (context) => const _TokenRedirectScreen(),
+              settings: settings,
+            );
+          } else if (settings.name == '/platform_selection') {
+            return MaterialPageRoute(
+              builder: (context) => rutas['/platform_selection']!(context),
               settings: settings,
             );
           }
@@ -144,7 +151,7 @@ class _InitializationScreenState extends State<_InitializationScreen> {
         // Verificar si hay autenticación válida
         final isAuth = await AuthGuard.isAuthenticated();
         if (isAuth) {
-          Navigator.pushReplacementNamed(context, '/home');
+          Navigator.pushReplacementNamed(context, '/platform_selection');
         } else {
           Navigator.pushReplacementNamed(context, '/login');
         }
@@ -223,8 +230,8 @@ class _TokenRedirectScreenState extends State<_TokenRedirectScreen> {
     
     if (mounted) {
       if (isAuth) {
-        print('✅ Token válido, redirigiendo al menú principal');
-        Navigator.pushReplacementNamed(context, '/home');
+        print('✅ Token válido, redirigiendo a selección de plataforma');
+        Navigator.pushReplacementNamed(context, '/platform_selection');
       } else {
         print('❌ Token no se pudo validar, redirigiendo al login');
         // El error se mostrará en la pantalla de login

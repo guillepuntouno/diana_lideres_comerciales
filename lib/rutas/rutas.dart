@@ -23,6 +23,7 @@ import 'package:diana_lc_front/web/vistas/evaluacion_desempeno/pantalla_evaluaci
 import 'package:diana_lc_front/mobile/vistas/evaluacion_desempeño/evaluacion_desempeño_principal.dart';
 import 'package:diana_lc_front/mobile/vistas/evaluacion_desempeño/evaluacion_desempeño_llenado.dart';
 import 'package:diana_lc_front/mobile/vistas/evaluacion_desempeño/evaluacion_capturas_screen.dart';
+import 'package:diana_lc_front/vistas/platform_selection/pantalla_seleccion_plataforma.dart';
 
 final Map<String, WidgetBuilder> rutas = {
   '/': (BuildContext context) => const PantallaLogin(),
@@ -60,6 +61,9 @@ final Map<String, WidgetBuilder> rutas = {
 
   // Ruta de debug
   '/debug_hive': (context) => const PantallaDebugHive(),
+  
+  // Ruta de selección de plataforma
+  '/platform_selection': (context) => const PantallaSeleccionPlataforma(),
   
   // Ruta catch-all para AuthGuard
   '*': (BuildContext context) => const PantallaLogin(),

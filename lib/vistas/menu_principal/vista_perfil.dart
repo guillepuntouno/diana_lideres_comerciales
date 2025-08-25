@@ -1,6 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:diana_lc_front/shared/servicios/sesion_servicio.dart';
+import 'package:diana_lc_front/core/auth/platform_pref.dart';
+import 'package:diana_lc_front/core/auth/role_utils.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class VistaPerfil extends StatefulWidget {
   const VistaPerfil({super.key});
@@ -103,11 +107,7 @@ class _VistaPerfilState extends State<VistaPerfil> {
             title: 'Configuración',
             subtitle: 'Ajustes de la aplicación',
             onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Configuración no disponible aún'),
-                ),
-              );
+              _showConfigurationOptions();
             },
           ),
           
@@ -220,6 +220,138 @@ class _VistaPerfilState extends State<VistaPerfil> {
     );
   }
   
+  void _showConfigurationOptions() async {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Text(
+                'Configuración',
+                style: GoogleFonts.poppins(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 20),
+              ListTile(
+                leading: const Icon(Icons.devices, color: Color(0xFF0056B3)),
+                title: const Text('Preferencia de plataforma'),
+                subtitle: const Text('Borrar la elección guardada de plataforma'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await _clearPlatformPreference();
+                },
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.info_outline, color: Colors.grey),
+                title: const Text('Acerca de'),
+                subtitle: const Text('Información de la aplicación'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showAboutDialog();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _clearPlatformPreference() async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Borrar preferencia de plataforma'),
+        content: const Text(
+          'Esto eliminará tu elección guardada de plataforma. '
+          'La próxima vez que inicies sesión, se te pedirá que elijas nuevamente.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'Borrar',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar == true) {
+      try {
+        // Obtener el userKey actual
+        final prefs = await SharedPreferences.getInstance();
+        final userDataString = prefs.getString('usuario');
+        if (userDataString != null) {
+          final userData = jsonDecode(userDataString) as Map<String, dynamic>;
+          final userKey = RoleUtils.getUserKey(userData);
+          
+          // Borrar la preferencia
+          await PlatformPreferences.clearPlatformChoice(userKey);
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Preferencia de plataforma eliminada'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error al borrar preferencia: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  void _showAboutDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AboutDialog(
+        applicationName: 'Diana Líderes Comerciales',
+        applicationVersion: '1.0.0',
+        applicationIcon: Image.asset(
+          'assets/logo_diana.png',
+          width: 48,
+          height: 48,
+        ),
+        children: const [
+          Text('Aplicación de gestión de ventas para líderes comerciales.'),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMenuOption({
     required IconData icon,
     required String title,

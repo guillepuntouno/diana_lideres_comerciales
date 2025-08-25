@@ -6,6 +6,7 @@ import 'package:diana_lc_front/rutas/rutas.dart';
 import 'package:diana_lc_front/vistas/menu_principal/pantalla_menu_principal.dart';
 import 'package:http/http.dart' as http;
 import 'package:diana_lc_front/shared/configuracion/ambiente_config.dart';
+import 'package:diana_lc_front/core/auth/platform_navigation.dart';
 
 class AuthGuard {
   static const tokenKey = 'id_token';
@@ -116,22 +117,14 @@ class AuthGuard {
   }
 
   /// Determina la ruta de redirección basada en el perfil del usuario
+  /// DEPRECATED: Ahora usamos PlatformNavigation.handlePostLoginNavigation
   static String getRedirectRouteByProfile(String? familyName) {
     if (familyName == null) return '/home'; // Fallback por defecto
     
-    switch (familyName) {
-      case 'GERENTE_MGV':
-      case 'GERENTE_DE_DISTRITO_PAIS':
-      case 'COORDINADOR_MGV':
-        print('👤 Perfil administrativo detectado: $familyName -> /administracion');
-        return '/administracion';
-      case 'LIDER':
-        print('👤 Perfil líder comercial detectado: $familyName -> /home');
-        return '/home';
-      default:
-        print('⚠️ Perfil no reconocido: $familyName -> /home (fallback)');
-        return '/home';
-    }
+    // Por ahora, todos van a /home ya que el selector de plataforma
+    // se maneja en PlatformNavigation
+    print('⚠️ Usando fallback a /home - la navegación por plataforma se maneja en PlatformNavigation');
+    return '/home';
   }
 
   /// Verifica si el usuario actual tiene permisos administrativos
@@ -212,18 +205,9 @@ class AuthGuard {
 
             if (auth && isLoginRoute) {
               Future.microtask(() async {
-                // Obtener el token para extraer el family_name
-                final prefs = await SharedPreferences.getInstance();
-                final token = prefs.getString(tokenKey);
-                
-                // Determinar ruta de redirección basada en perfil
-                String redirectRoute = '/home'; // Fallback por defecto
-                if (token != null) {
-                  final familyName = getFamilyNameFromToken(token);
-                  redirectRoute = getRedirectRouteByProfile(familyName);
-                }
-                
-                Navigator.of(context).pushReplacementNamed(redirectRoute);
+                // Si el usuario autenticado intenta acceder al login,
+                // redirigir a la selección de plataforma
+                Navigator.of(context).pushReplacementNamed('/platform_selection');
               });
               return const Scaffold(
                 body: Center(child: CircularProgressIndicator()),
