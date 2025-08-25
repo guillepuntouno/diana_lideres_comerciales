@@ -942,10 +942,14 @@ class _EvaluacionDesempenioLlenadoState extends State<EvaluacionDesempenioLlenad
         ));
       }
       
-      // Calcular ponderación final
-      final ponderacionFinal = preguntasConPonderacion > 0 
-          ? ponderacionTotal / preguntasConPonderacion 
-          : 0.0;
+      // Calcular ponderación final - suma total de puntos, no promedio
+      final ponderacionFinal = ponderacionTotal;
+      
+      // Debug logging según issue #28
+      print('🔍 Debug Evaluación Desempeño:');
+      print('   Total preguntas con ponderación: $preguntasConPonderacion');
+      print('   Ponderación final (suma de puntos): $ponderacionFinal');
+      print('   Respuestas con score > 0: ${responseArray.where((r) => (r['score'] ?? 0) > 0).length}');
       
       // Crear evaluación de excelencia
       final evaluacion = ResultadoExcelenciaHive(
@@ -956,7 +960,7 @@ class _EvaluacionDesempenioLlenadoState extends State<EvaluacionDesempenioLlenad
         pais: liderComercial?.pais ?? _evaluationData['country'] ?? '',
         ruta: 'Evaluación de Desempeño',
         centroDistribucion: 'Principal',
-        tipoFormulario: _formulario?.nombre ?? 'Evaluación Manual',
+        tipoFormulario: 'evaluacion_desempeño',
         formularioMaestro: _formulario?.toJson() ?? {},
         respuestas: respuestasHive,
         ponderacionFinal: ponderacionFinal,

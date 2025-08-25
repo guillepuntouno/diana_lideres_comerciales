@@ -30,6 +30,33 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
   
   // Repositorio para acceso a Hive
   final ProgramaExcelenciaLocalRepository _repository = ProgramaExcelenciaLocalRepository();
+
+  // Función para categorizar el desempeño según issue #29
+  String categoriaDesempeno(double puntos) {
+    if (puntos >= 11) {
+      return 'Excelente Desempeño';
+    } else if (puntos >= 9) {
+      return 'Buen Desempeño'; 
+    } else {
+      return 'Desempeño Bajo';
+    }
+  }
+
+  // Calcular puntos máximos por canal
+  int calcularPuntosMaximos(ResultadoExcelenciaHive evaluacion) {
+    // Intentar calcular dinámicamente desde las respuestas
+    int maxFromResponses = evaluacion.respuestas
+        .where((r) => r.ponderacion != null && r.ponderacion! > 0)
+        .fold<int>(0, (sum, r) => sum + (r.ponderacion!.toInt()));
+    
+    if (maxFromResponses > 0) {
+      return maxFromResponses;
+    }
+    
+    // Fallback por canal según metadatos
+    String canal = evaluacion.metadatos?['canal']?.toString().toLowerCase() ?? 'detalle';
+    return canal == 'mayoreo' ? 13 : 12;
+  }
   
   // Lista de evaluaciones filtradas
   List<ResultadoExcelenciaHive> _evaluacionesFiltradas = [];
@@ -724,7 +751,19 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
                       _buildDetailRow('Centro de Distribución', evaluacion.centroDistribucion),
                       _buildDetailRow('Tipo de Formulario', evaluacion.tipoFormulario),
                       _buildDetailRow('Estatus', evaluacion.estatus),
-                      _buildDetailRow('Ponderación Final', '${evaluacion.ponderacionFinal.toStringAsFixed(2)}%'),
+                      // Calcular ponderación final mejorada según issue #29
+                      Builder(builder: (context) {
+                        final puntos = evaluacion.ponderacionFinal;
+                        final maxPuntos = calcularPuntosMaximos(evaluacion);
+                        final porcentaje = maxPuntos > 0 ? (puntos / maxPuntos * 100) : 0.0;
+                        return _buildDetailRow('Ponderación Final', 
+                          '${puntos.toStringAsFixed(0)} / $maxPuntos (${porcentaje.toStringAsFixed(1)}%)');
+                      }),
+                      // Mostrar categoría de desempeño según issue #29
+                      Builder(builder: (context) {
+                        final categoria = categoriaDesempeno(evaluacion.ponderacionFinal);
+                        return _buildDetailRow('Categoría de Desempeño', categoria);
+                      }),
                       if (evaluacion.observaciones != null)
                         _buildDetailRow('Observaciones', evaluacion.observaciones!),
                       const SizedBox(height: 16),
@@ -758,7 +797,7 @@ class _EvaluacionDesempenioPrincipalState extends State<EvaluacionDesempenioPrin
                               ),
                               if (respuesta.ponderacion != null)
                                 Text(
-                                  'Ponderación: ${respuesta.ponderacion!.toStringAsFixed(2)}%',
+                                  'Puntos: ${respuesta.ponderacion!.toStringAsFixed(0)}',
                                   style: GoogleFonts.poppins(
                                     fontSize: 14,
                                     color: Colors.grey[700],
